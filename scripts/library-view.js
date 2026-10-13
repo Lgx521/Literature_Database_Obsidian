@@ -291,7 +291,7 @@ class AgentHandoffModal extends Modal {
     this.titleEl.setText(tr('手动交给 Agent 整理'));
     this.contentEl.createEl('p',{text:tr('复制指令，粘贴到 Codex 执行。')});
     const base=this.app.vault.adapter.getBasePath?.()||this.app.vault.getName();
-    const prompt=tr`请整理论文库 ${base}。先读根目录 AGENTS.md。处理 temp 收件箱，以及 library.md 中待整理或元信息不完整且未标为人工完成的文献。PDF 原文件名永远不改；同名文件放不同子目录，保留 PDF、Skim 批注和扩展属性。核实真实篇名后写入篇名列，保留已选集合。补齐空缺的篇名、标签、TL;DR；保留人工及未知来源的已有内容、Notes、阅读状态、优先级和项目备注。人工完成的条目跳过；通过带 actor 的 updateLibraryEntry 记录每个字段和标签来源（kind: ai，name: 实际 Agent 名，如 Codex），读取 PDF 后标为 AI 已整理，无法确认的字段留空并报告。核实重复与版本，不擅自合并。严禁生成或修改 BibTeX、引用来源、引用键、作者、DOI 等引用字段；新条目这些字段留空。只处理公开文献，不搜索或上传审稿、投稿材料。先备份，检查并发修改，最后验证源表、集合和附件。仅执行本次手动整理，不创建定时任务。`;
+    const prompt=tr`请整理论文库 ${base}。先读根目录 AGENTS.md。处理 temp 收件箱，以及 library.md 中待整理、自动整理或元信息不完整且未标为人工完成的文献。PDF 原文件名永远不改；同名文件放不同子目录，保留 PDF、Skim 批注和扩展属性。核实真实篇名后写入篇名列，保留已选集合。补齐空缺的篇名、标签、TL;DR；保留人工及未知来源的已有内容、Notes、阅读状态、优先级和项目备注。人工完成的条目跳过；通过带 actor 的 updateLibraryEntry 记录每个字段和标签来源（kind: ai，name: 实际 Agent 名，如 Codex），读取 PDF 后标为 AI 已整理，无法确认的字段留空并报告。核实重复与版本，不擅自合并。严禁生成或修改 BibTeX、引用来源、引用键、作者、DOI 等引用字段；新条目这些字段留空。只处理公开文献，不搜索或上传审稿、投稿材料。先备份，检查并发修改，最后验证源表、集合和附件。仅执行本次手动整理，不创建定时任务。`;
     const area=this.contentEl.createEl('textarea',{attr:{rows:'10','aria-label':tr('Agent 整理指令')}});area.value=prompt;area.addClass('ldb-full-width');
     ldbButton(this.contentEl,tr('复制整理指令'),async()=>{try{await navigator.clipboard.writeText(area.value);new Notice(tr('已复制，请粘贴到 Codex 执行'));this.close();}catch(e){area.focus();area.select();new Notice(tr('请按 ⌘C 复制'));}},'mod-cta');
   }

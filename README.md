@@ -12,9 +12,11 @@ A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Bro
 
 *Real screenshots from a separate demo vault, using the English interface. Public papers are paired with example notes, projects and review tasks; no private library or confidential manuscripts are shown. Click any image to view it at full size.*
 
-**Status:** **4.4.0**. [View the Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard); new releases may take time to reach the in-app directory. Requires **Obsidian 1.8.7+ on desktop**. Tested locally on macOS with Obsidian 1.14.4. Windows and Linux application behavior has not been validated; Finder drag/paste requires macOS. This release does not run on iPhone or iPad. The interface supports English and Chinese, following the Obsidian language by default. Screenshots below show the 4.3.0 demo UI; the screenshots predate the title/provenance improvements in 4.4.0.
+**Status:** **4.4.1**. [View the Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard); new releases may take time to reach the in-app directory. Requires **Obsidian 1.8.7+ on desktop**. Tested locally on macOS with Obsidian 1.14.4. Windows and Linux application behavior has not been validated; Finder drag/paste requires macOS. This release does not run on iPhone or iPad. The interface supports English and Chinese, following the Obsidian language by default. Screenshots below show the 4.3.0 demo UI; the screenshots predate the title/provenance improvements in 4.4.0.
 
 ## Features
+
+**4.4.1:** Reliable publication dates now fill automatically as `YYYY.M`. Successful metadata extraction selects **Auto organized** in the existing organization selector; these papers remain eligible for agent summaries/tags. Human and AI completion states are preserved. arXiv first-submission dates are used instead of revision or PDF creation dates.
 
 **New in 4.4.0:** Drop PDFs directly into a category or writing project on macOS. A record appears immediately with its original filename as a provisional title, empty tags/TL;DR and a pending organization status. Edit the title yourself or hand off pending/incomplete entries to an agent. Human tags use the accent color; AI tags are neutral, with source tooltips. Choose **Manually complete** to exclude an entry from future agent enrichment. Existing content has unrecorded provenance unless its source was explicitly tracked. See [the maintenance contract](templates/empty-vault/AGENTS.md).
 

@@ -23,6 +23,7 @@ assert.equal(E.migrateLibraryOrganization(migrated),migrated);assert.throws(()=>
 assert.throws(()=>O.parse('{"v":1,"fields":"invalid","tags":{}}'));
 assert.throws(()=>O.parse('{"v":1,"fields":{},"tags":{"#x":{"kind":"ai","name":"Codex","hash":"invalid"}}}'));
 assert.throws(()=>E.updateLibraryEntry(migrated,newRow,{organizing:'invalid'}));
+write({organizing:'自动整理'},human);assert(O.pending(row()));assert.throws(()=>write({organizing:'自动整理'},ai));write({organizing:'AI 已整理'},ai);
 const incomplete={...row(),tldr:'',organizing:'AI 已整理'};assert(O.pending(incomplete));assert(!O.pending({...incomplete,organizing:'人工完成'}));
 assert.equal(E.filterLibrary([incomplete,{...incomplete,path:'other',organizing:'人工完成'}],{organizing:'pending'}).length,1);
 console.log('PASS: immutable basenames, provisional titles, human/AI attribution, field fingerprints, human locks, legacy migration, incomplete filtering and trash restoration.');

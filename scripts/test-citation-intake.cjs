@@ -37,6 +37,24 @@ vm.runInNewContext(bundle,ctx);
  // New public rows trigger once. Reloads and unrelated metadata changes do not retry.
  const newSource=store.get('library.md').replace('<!-- library:end -->',rowLine('B').replace(/\|$/, '|  |  |')+'\n<!-- library:end -->');files.set('papers/B.pdf',new TFile('papers/B.pdf'));store.set('library.md',newSource);await plugin.refresh();await plugin.citationQueue;
  assert(plugin.snapshot.library.find(r=>r.path==='papers/B.pdf').bibtex);const intakeReads=pdfReads;await plugin.refresh();await plugin.citationQueue;assert.equal(pdfReads,intakeReads);
+ // Publication date is independent metadata: fill unknown dates and label automatic work.
+ await reset();store.set('library.md',E.updateLibraryEntry(source,E.parseLibrary(source)[0],{published:'待核实',tldr:'',tags:''}));await plugin.refresh();
+ result=await plugin.ensureCitationRows(plugin.snapshot.library);assert.equal(result[0].published,'2024.1');assert.equal(result[0].organizing,'自动整理');assert.equal(result[0].tldr,'');assert.equal(result[0].tags,'');assert(E.Organization.pending(result[0]));assert.equal(E.Organization.source(result[0],'published').kind,'system');assert(E.Organization.source(result[0],'published').evidence.includes('PDF'));
+ const dates=store.get('library.md');store.set('library.md',E.updateLibraryEntry(dates,E.parseLibrary(dates)[0],{tldr:'AI summary',tags:'#ai',organizing:'AI 已整理'},{kind:'ai',name:'Codex'}));await plugin.refresh();await plugin.ensureCitationRows(plugin.snapshot.library);assert.equal(plugin.snapshot.library[0].organizing,'AI 已整理');assert.equal(plugin.snapshot.library[0].published,'2024.1');
+ // First-party year-only dates can gain a month; human or unknown dates are preserved.
+ for(const kind of ['human','system',null]){
+   await reset();store.set('library.md',E.updateLibraryEntry(source,E.parseLibrary(source)[0],{published:'2024'},kind?{kind,name:kind}:null));await plugin.refresh();result=await plugin.ensureCitationRows(plugin.snapshot.library);assert.equal(result[0].published,kind==='system'?'2024.1':'2024');
+ }
+ await reset();store.set('library.md',E.updateLibraryEntry(source,E.parseLibrary(source)[0],{published:'待核实',organizing:'人工完成'}));await plugin.refresh();result=await plugin.ensureCitationRows(plugin.snapshot.library);assert.equal(result[0].published,'待核实');assert.equal(result[0].organizing,'人工完成');assert.equal(result[0].title,'');
+ // Do not overwrite a date or completion choice made while the PDF is being read.
+ for(const changes of [{published:'2023.4'},{organizing:'人工完成'}]){
+   await reset();store.set('library.md',E.updateLibraryEntry(source,E.parseLibrary(source)[0],{published:'待核实'}));await plugin.refresh();onRead=()=>store.set('library.md',E.updateLibraryEntry(store.get('library.md'),E.parseLibrary(store.get('library.md'))[0],changes));result=await plugin.ensureCitationRows(plugin.snapshot.library);assert(result[0].citationError.includes('其他窗口'));const latest=E.parseLibrary(store.get('library.md'))[0];for(const [k,v]of Object.entries(changes))assert.equal(latest[k],v);assert.equal(latest.bibtex,'');
+ }
+ await reset();const originalGet=pdfjs.getDocument;pdfjs.getDocument=()=>{throw Error('Unreadable PDF');};result=await plugin.ensureCitationRows(plugin.snapshot.library);pdfjs.getDocument=originalGet;assert.equal(result[0].organizing,'待整理');assert.equal(result[0].published,'2024.1');assert.equal(result[0].citationError,'Unreadable PDF');
+ // Finder copies are readable before Obsidian indexes them; missing files still fail safely.
+ await reset();const savedFile=files.get('papers/A.pdf');files.delete('papers/A.pdf');let adapterReads=0;vault.adapter.stat=async p=>p==='papers/A.pdf'?{type:'file',size:100}:null;vault.adapter.readBinary=async p=>{assert.equal(p,'papers/A.pdf');adapterReads++;return new ArrayBuffer(1);};
+ result=await plugin.ensureCitationRows(plugin.snapshot.library);assert.equal(adapterReads,1);assert.equal(result[0].title,title);assert.equal(result[0].organizing,'自动整理');assert(result[0].bibtex);
+ await reset();vault.adapter.stat=async()=>null;result=await plugin.ensureCitationRows(plugin.snapshot.library);assert.equal(result[0].organizing,'待整理');assert(result[0].citationError.includes('尚未同步'));assert.equal(adapterReads,1);files.set('papers/A.pdf',savedFile);
  // Removing a PDF while a fetch is pending must not restore a deleted row.
  await reset();onRead=()=>store.set('library.md',E.removeRecord(store.get('library.md'),'library',E.parseLibrary(store.get('library.md'))[0]));result=await plugin.ensureCitationRows(plugin.snapshot.library);assert(result[0].citationError);assert.equal(E.parseLibrary(store.get('library.md')).length,0);
  plugin.onunload();console.log('PASS: automatic intake, lazy startup/cache, original fields and keys, title-only export, concurrent Notes/bibliography edits, dirty drafts, cancellation and deleted records.');

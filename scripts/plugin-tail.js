@@ -425,30 +425,39 @@ module.exports=class LiteratureManager extends Plugin {
       for(const [index,selected] of unique.entries()){
         if(this.stopped||options.cancelled?.())break;
         let row=this.snapshot?.library.find(r=>r.path===selected.path);if(!row)continue;
-        let changes={},error='';
+        let changes={},error='',recognized=false,evidenceSources={};
         try{
           // Existing bibliography and keys are never overwritten by automatic retrieval.
-          if(row.bibtex){const entry=getCitations().parseEntry(row.bibtex);if(row.organizing!=='人工完成'&&Organization.temporaryTitle(row)&&CitationMetadata.validTitle(entry.data.title))changes.title=entry.data.title;if(entry.issues.length)error=tr('既有引用缺少')+entry.issues.join('、');}
-          else if(!(options.titleOnly&&!Organization.temporaryTitle(row))){
-            if(!row.path.startsWith('papers/'))throw new Error(tr('只识别公开文献'));
-            const file=this.app.vault.getAbstractFileByPath(row.path);if(!(file instanceof TFile))throw new Error(tr('PDF 尚未同步到本机'));
-            if(file.stat.size>150*1024*1024)throw new Error(tr('PDF 超过 150 MB，未自动解析'));
-            const bytes=await this.app.vault.readBinary(file),evidence=await CitationMetadata.readPdf(await loadPdfJs(),bytes);
+          if(row.bibtex){const entry=getCitations().parseEntry(row.bibtex);if(row.organizing!=='人工完成'&&Organization.temporaryTitle(row)&&CitationMetadata.validTitle(entry.data.title))changes.title=entry.data.title;if(entry.issues.length)error=tr('既有引用缺少')+entry.issues.join('、');else recognized=true;}
+          if((!row.bibtex||Organization.needsPublication(row))&&!(options.titleOnly&&(!Organization.temporaryTitle(row)||changes.title))){
+            if(!row.path.startsWith('papers/')||row.path.includes('\\')||/[\r\n\0]/.test(row.path)||row.path.split('/').some(p=>!p||p==='.'||p==='..'))throw new Error(tr('只识别公开文献'));
+            const file=this.app.vault.getAbstractFileByPath(row.path),indexed=file instanceof TFile;
+            // A completed Finder copy can precede Obsidian's file index. Stay within the vault adapter.
+            const stat=indexed?file.stat:await this.app.vault.adapter.stat?.(row.path);
+            if(!stat||(!indexed&&stat.type!=='file'))throw new Error(tr('PDF 尚未同步到本机'));
+            if(stat.size>150*1024*1024)throw new Error(tr('PDF 超过 150 MB，未自动解析'));
+            const bytes=indexed?await this.app.vault.readBinary(file):await this.app.vault.adapter.readBinary(row.path);
+            const evidence=await CitationMetadata.readPdf(await loadPdfJs(),bytes);
             if(this.stopped||options.cancelled?.())break;
             const evidenceRow=Organization.temporaryTitle(row)?{...row,title:''}:row;
-            const result=options.titleOnly?{title:CitationMetadata.pdfTitle(evidence,evidenceRow)}:await CitationMetadata.resolve(evidenceRow,evidence,{request:this.citationTransport,fromCsl:getCitations().fromCsl});
+            const localTitle=CitationMetadata.pdfTitle(evidence,evidenceRow),localDate=CitationMetadata.pdfPublication(evidence,evidenceRow);
+            const result=options.titleOnly?{title:localTitle,published:CitationMetadata.publicationLabel(localDate?.date),publicationSource:localDate?.source,recognized:CitationMetadata.verifiedTitle(localTitle,evidence)}:await CitationMetadata.resolve(evidenceRow,evidence,{request:this.citationTransport,fromCsl:getCitations().fromCsl});
             if(row.organizing!=='人工完成'&&Organization.temporaryTitle(row)&&result.title)changes.title=result.title;
-            if(result.bibtex){changes.bibtex=result.bibtex;changes.citationSource=result.citationSource;}
-            error=result.citationError||(!result.title&&!row.title?tr('尚未取得论文篇名'):'');
+            if(Organization.acceptsPublication(row,result.published)){changes.published=result.published;evidenceSources.published=result.publicationSource;}
+            if(!row.bibtex&&result.bibtex){changes.bibtex=result.bibtex;changes.citationSource=result.citationSource;}
+            recognized=recognized||result.recognized===true;
+            error=error||result.citationError||(!result.title&&!row.title?tr('尚未取得论文篇名'):'');
           }
+          // This records successful automatic metadata extraction, not AI enrichment or bibliographic completeness.
+          if(recognized&&row.organizing==='待整理')changes.organizing='自动整理';
           if(Object.keys(changes).length){
             if(this.stopped||options.cancelled?.())break;
             if(this.hasPendingEdit()||this.importing)throw new Error(tr('存在未保存编辑，引用暂未写入；保存后再次导出即可'));
             await this.mutate(LIBRARY_SOURCE,text=>{
               const current=Engine.parseLibrary(text).find(r=>r.path===row.path);
-              if(!current||['title','bibtex','citationSource','organizing','provenance'].some(k=>JSON.stringify(current[k])!==JSON.stringify(row[k])))throw new Error(tr('引用或篇名已被其他窗口修改，请重试'));
+              if(!current||['title','published','bibtex','citationSource','organizing','provenance'].some(k=>JSON.stringify(current[k])!==JSON.stringify(row[k])))throw new Error(tr('引用或篇名已被其他窗口修改，请重试'));
               if(changes.bibtex){const key=getCitations().parseEntry(changes.bibtex).key;for(const other of Engine.parseLibrary(text))if(other.path!==row.path&&other.bibtex){let existing;try{existing=getCitations().parseEntry(other.bibtex).key;}catch(_){}if(existing===key)throw new Error(tr('引用键冲突，未覆盖已有引用'));}}
-              return Engine.updateLibraryEntry(text,current,changes,{kind:'system',name:'PDF / official metadata'});
+              return Engine.updateLibraryEntry(text,current,changes,{kind:'system',name:'PDF / official metadata',evidence:evidenceSources});
             });
             row=this.snapshot.library.find(r=>r.path===row.path)||row;
           }

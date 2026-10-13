@@ -86,7 +86,7 @@ def check(root):
                 if row[4] not in ['未标记', '待整理', '待读', '在读', '已读', '暂存']:
                     errors.append(row[0] + ': 无效阅读状态')
                 if len(row) == 13:
-                    if row[11] not in ['', '待整理', 'AI 已整理', '人工完成']:
+                    if row[11] not in ['', '待整理', 'AI 已整理', '人工完成', '自动整理']:
                         errors.append(row[0] + ': 无效整理状态')
                     if row[12]:
                         try:

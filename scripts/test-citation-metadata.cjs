@@ -3,6 +3,8 @@ const title='Learning Reliable Robot Policies',row={path:'papers/1234.pdf'},e={i
 const valid={type:'document',title,author:[{given:'Ada',family:'Lovelace'}],issued:{'date-parts':[[2024,1,10]]}};
 const atom=(name=title,id='2401.12345v1')=>`<feed><entry><id>http://arxiv.org/abs/${id}</id><title>${name}</title><published>2024-01-10T00:00:00Z</published><author><name>Ada Lovelace</name></author></entry></feed>`;
 (async()=>{
+ assert.deepEqual(M.pdfMetadata({getAll:()=>({'prism:publicationdate':'2026-05-14'})}),{'prism:publicationdate':'2026-05-14'});
+ assert.deepEqual(M.pdfMetadata({get:k=>k==='prism:publicationdate'?'2026-05-14':null}),{'prism:publicationdate':'2026-05-14'});assert.deepEqual(M.pdfMetadata(null),{});
  assert.equal(M.pdfTitle(e),title);assert.equal(M.pdfTitle({...e,info:{Title:'template.pdf'},layoutTitle:'NOT A TITLE'}),'');
  assert.equal(M.norm('$\\pi_{0.7}$: A Model'),M.norm('π0.7: A Model'));
  assert.equal(M.norm('$\\pi^*_{0.6}$'),M.norm('π∗0.6'));
@@ -18,15 +20,27 @@ const atom=(name=title,id='2401.12345v1')=>`<feed><entry><id>http://arxiv.org/ab
  assert(!M.matches(valid,{...e,pages:['A different first page']},title),'A stored title alone does not verify an identifier found in a reference.');
  assert(!M.matches({...valid,author:[{family:'SomeoneElse'}]},e,title,true));
  assert(M.matches(valid,e,title,true));
+ assert.equal(M.publicationLabel([2026,5,2]),'2026.5');assert.equal(M.publicationLabel([2026,10]),'2026.10');assert.equal(M.publicationLabel([2026]),'2026');
+ for(const bad of [[2026,0],[2026,13],[2025,2,29],[2026,5,0],['2026',5],[1800],[2026,5,1,2]])assert.equal(M.publicationLabel(bad),'');
+ assert.equal(M.pdfPublication({...e,pages:[e.pages[0].replace('v1','v3')],info:{...e.info,PublicationDate:'2025-10-12'}}),null,'arXiv revision metadata must not become first publication.');
+ assert.equal(M.publicationLabel(M.pdfPublication({info:{Title:title,Custom:{PublicationDate:'2026-05-12'}},pages:[title]})?.date),'2026.5');
+ assert.equal(M.pdfPublication({...e,pages:[e.pages[0].replace('v1','')]}),null,'An unversioned PDF stamp is not sufficient.');
+ assert.deepEqual(M.atomEntries(atom().replace('</published>','</published><updated>2030-12-01T00:00:00Z</updated>'))[0].issued['date-parts'],[[2024,1,10]]);
  let calls=[];const svc={fromCsl:C.fromCsl,request:async url=>{calls.push(url);return atom();}};
- const local=await M.resolve(row,e,svc);assert(local.bibtex);assert.equal(calls.length,0);assert(local.citationSource.includes('PDF XMP/Info'));
- const remote=await M.resolve(row,{...e,info:{Title:title,Author:'Anonymous'}},svc);assert(remote.bibtex);assert(remote.citationSource.includes('arXiv API'));assert.equal(calls.length,1);
+ const local=await M.resolve(row,e,svc);assert(local.bibtex);assert.equal(local.published,'2024.1');assert.equal(local.recognized,true);assert.equal(calls.length,0);assert(local.citationSource.includes('PDF XMP/Info'));
+ const remote=await M.resolve(row,{...e,info:{Title:title,Author:'Anonymous'}},svc);assert(remote.bibtex);assert.equal(remote.published,'2024.1');assert(remote.citationSource.includes('arXiv API'));assert.equal(calls.length,1);
  const wrong=await M.resolve(row,{...e,info:{},pages:[title+' Ada Lovelace\nDOI 10.1234/unrelated']},{fromCsl:C.fromCsl,request:async url=>url.includes('crossref')?JSON.stringify({message:url.includes('query.title')?{items:[]}:{title:['Unrelated Reference'],DOI:'10.1234/unrelated',author:[{family:'Lovelace'}],published:{'date-parts':[[2024]]}}}):'<feed/>'});
  assert(!wrong.bibtex);assert.equal(wrong.title,title);
  const searchEvidence={...e,info:{},pages:[title+' Ada Lovelace']};
  const found=await M.resolve(row,searchEvidence,{fromCsl:C.fromCsl,request:async url=>url.includes('crossref')?JSON.stringify({message:{items:[]}}):atom()});assert(found.bibtex);
  const ambiguous=await M.resolve(row,searchEvidence,{fromCsl:C.fromCsl,request:async url=>url.includes('crossref')?JSON.stringify({message:{items:[]}}):atom().replace('</feed>',atom(title,'2401.12346').replace(/<\/?feed>/g,'')+'</feed>')});assert(!ambiguous.bibtex);
  const offline=await M.resolve(row,searchEvidence,{fromCsl:C.fromCsl,request:async()=>{throw Error('offline');}});assert(!offline.bibtex);assert.equal(offline.title,title);assert(offline.citationError.includes('offline'));
+ const revisedRemote=await M.resolve(row,revised,{fromCsl:C.fromCsl,request:async()=>atom(title,'2401.12345v3').replace('</published>','</published><updated>2029-05-01T00:00:00Z</updated>')});assert.equal(revisedRemote.published,'2024.1');
+ const partial=await M.resolve(row,{...e,info:{Title:title},pages:[title+' arXiv:2401.12345v1 [cs.RO] 10 Jan 2024']},{fromCsl:C.fromCsl,request:async()=>{throw Error('offline');}});assert(!partial.bibtex);assert.equal(partial.published,'2024.1');assert(partial.publicationSource.includes('v1 PDF'));assert(partial.recognized);
+ const formatFailure=await M.resolve(row,e,{request:async()=>{throw Error('not expected');},fromCsl:()=>{throw Error('Incomplete citation');}});assert(!formatFailure.bibtex);assert.equal(formatFailure.published,'2024.1');assert.equal(formatFailure.title,title);
+ const noEvidence=await M.resolve(row,{info:{Title:'Untitled',CreationDate:'D:20260501'},pages:['Unrelated text']},{fromCsl:C.fromCsl,request:async()=>{throw Error('unexpected');}});assert.equal(noEvidence.recognized,false);assert.equal(noEvidence.published,'');
+ const fallback=await M.resolve(row,revised,{fromCsl:C.fromCsl,request:async url=>{if(url.includes('export.arxiv'))throw Error('API down');assert(url.endsWith('/2401.12345'));return '<meta name="citation_arxiv_id" content="2401.12345"><meta name="citation_title" content="'+title+'"><meta name="citation_author" content="Ada Lovelace"><meta name="citation_date" content="2024/01/10">';}});assert.equal(fallback.published,'2024.1');
+ const laterJournal=await M.resolve(row,{...revised,pages:[...revised.pages,e.pages[1]]},{fromCsl:C.fromCsl,request:async url=>{if(url.includes('arxiv'))throw Error('arXiv unavailable');return JSON.stringify({message:{title:[title],author:[{family:'Lovelace',given:'Ada'}],DOI:'10.1234/unrelated',published:{'date-parts':[[2030,5]]}}});}});assert(laterJournal.bibtex);assert.equal(laterJournal.published,'','Never replace an unavailable arXiv first date with the later journal date.');
  let network=0;const transport=M.transport(async()=>{network++;return {status:200,text:'ok'};});
  await assert.rejects(transport('file:///private/file'),/不允许/);await assert.rejects(transport('https://evil.example/path'),/不允许/);assert.equal(network,0);
  assert.equal(await transport('https://api.crossref.org/works/example'),'ok');

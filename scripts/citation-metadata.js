@@ -46,13 +46,28 @@ function pdfTitle(e,row={}){
   for(const v of [row.title,firstValue(m['dc:title']),info.Title,e.layoutTitle])if(verifiedTitle(v,e))return clean(v);
   return validTitle(row.title)?clean(row.title):'';
 }
+function publicationLabel(parts){
+  if(!Array.isArray(parts)||!parts.length||parts.length>3||parts.some(n=>!Number.isInteger(n)))return '';
+  if(!dateParts(parts.join('-'))||parts[0]<1900||parts[0]>2099)return '';
+  return parts.slice(0,2).join('.');
+}
+function pdfPublication(e,row={}){
+  if(!verifiedTitle(pdfTitle(e,row),e))return null;
+  const m=e.metadata||{},i=e.info||{},ids=evidenceIds(e);
+  // A revision's visible date and PDF lifecycle dates are not first publication.
+  if(ids.arxiv.length){
+    const stamp=(e.pages?.[0]||'').match(/arxiv\s*:\s*(\d{4}\.\d{4,5}|[a-z.-]+\/\d{7})v1\b\s*\[[^\]]+\]\s*(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{4})/i);
+    if(!stamp)return null;
+    const date=dateParts(stamp[4]+'-'+(1+['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(stamp[3].toLowerCase()))+'-'+stamp[2]);
+    return publicationLabel(date)?{date,source:'arXiv v1 PDF stamp；https://arxiv.org/abs/'+stamp[1]}:null;
+  }
+  const date=dateParts(firstValue(m['prism:publicationdate'])||i.PublicationDate||i.Custom?.PublicationDate);
+  return publicationLabel(date)?{date,source:'PDF prism:publicationDate / PublicationDate'}:null;
+}
 function embedded(e,row={}){
   const m=e.metadata||{},i=e.info||{},title=pdfTitle(e,row),list=authors(m['dc:creator']||i.Author);
-  let date=dateParts(firstValue(m['prism:publicationdate'])||i.PublicationDate);
+  const publication=pdfPublication(e,row),date=publication?.date;
   const ids=evidenceIds(e),arxiv=ids.arxiv[0];
-  // Only a v1 arXiv stamp is an initial publication date. Revisions require the source record.
-  // PDF CreationDate/ModDate are never publication evidence.
-  if(!date&&arxiv&&!/v([2-9]|[1-9]\d+)$/i.test(arxiv)){const stamp=(e.pages||[]).join('\n').match(/arxiv\s*:\s*[^\n]*?\]\s*(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{4})/i);if(stamp)date=dateParts(stamp[3]+'-'+(1+['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(stamp[2].toLowerCase()))+'-'+stamp[1]);}
   if(!title||!list.length||!date||!verifiedTitle(title,e))return null;
   const container=clean(m['prism:publicationname']),type=container&&/journal/i.test(m['prism:aggregationtype']||'')?'article-journal':'document';
   const data={type,title,author:list,issued:{'date-parts':[date]}};
@@ -93,6 +108,12 @@ function matches(data,e,title,strict=false){
   return true;
 }
 function citationKey(path){let h=2166136261;for(const c of path){h^=c.codePointAt(0);h=Math.imul(h,16777619);}return 'ref_'+(h>>>0).toString(36);}
+function pdfMetadata(metadata){
+  if(typeof metadata?.getAll==='function')return metadata.getAll()||{};
+  // Obsidian's PDF.js metadata wrapper can expose get() without getAll().
+  const fields=['dc:title','dc:creator','dc:identifier','dc:source','dc:relation','xmp:identifier','prism:doi','prism:url','prism:publicationdate','prism:publicationname','prism:aggregationtype','prism:volume','prism:number','prism:pagerange','arxiv:id','arxiv:identifier'];
+  return Object.fromEntries(fields.map(k=>[k,metadata?.get?.(k)]).filter(([,v])=>v!==null&&v!==undefined));
+}
 async function readPdf(pdfjs,data){
   const task=pdfjs.getDocument({data:new Uint8Array(data),isEvalSupported:false,disableFontFace:true,useSystemFonts:false,verbosity:0});let doc;
   try{
@@ -121,19 +142,26 @@ async function readPdf(pdfjs,data){
       }
       page.cleanup();
     }
-    return {info:info||{},metadata:metadata?.getAll?.()||{},pages,layoutTitle};
+    return {info:info||{},metadata:pdfMetadata(metadata),pages,layoutTitle};
   }finally{if(doc)await doc.destroy();else await task.destroy();}
 }
 async function resolve(row,e,services){
-  const title=pdfTitle(e,row),local=embedded(e,row),errors=[];
+  const title=pdfTitle(e,row),local=embedded(e,row),publication=pdfPublication(e,row),ids=evidenceIds(e),errors=[];
+  let partial=null;
   const finish=record=>{
     // Prefer the equivalent printed glyphs over raw TeX in a source title (e.g. pi subscripts).
     if(title&&/[$\\]/.test(record.data.title)&&norm(title)===norm(record.data.title))record.data={...record.data,title};
-    const converted=services.fromCsl(record.data,citationKey(row.path));
-    return {title:converted.title||record.data.title,bibtex:converted.bibtex,citationSource:record.source+'；读取于 '+new Date().toISOString().slice(0,10)};
+    // For an identified arXiv paper, do not substitute a later journal date when arXiv is unavailable.
+    const useIssued=!ids.arxiv.length||record.data.publisher==='arXiv';
+    const published=publicationLabel(useIssued?record.data.issued?.['date-parts']?.[0]:publication?.date);
+    const publicationSource=published?(useIssued?record.source:publication.source):'';
+    const result={title:record.data.title,published,publicationSource,recognized:true};
+    try{
+      const converted=services.fromCsl(record.data,citationKey(row.path));
+      return {...result,title:converted.title||record.data.title,bibtex:converted.bibtex,citationSource:record.source+'；读取于 '+new Date().toISOString().slice(0,10)};
+    }catch(err){partial??=result;throw err;}
   };
   if(local)try{return finish(local);}catch(err){errors.push(err.message);}
-  const ids=evidenceIds(e);
   for(const id of ids.arxiv){
     const url='https://export.arxiv.org/api/query?id_list='+encodeURIComponent(id);
     try{
@@ -142,7 +170,7 @@ async function resolve(row,e,services){
       if(data)return finish({data,source:'arXiv API；'+url});
     }catch(err){errors.push(err.message);}
     try{
-      const url='https://arxiv.org/abs/'+id,data=arxivHtml(await services.request(url),id);
+      const url='https://arxiv.org/abs/'+id.replace(/v\d+$/,''),data=arxivHtml(await services.request(url),id);
       if(matches(data,e,title))return finish({data,source:'arXiv citation metadata；'+url});
     }catch(err){errors.push(err.message);}
   }
@@ -165,7 +193,7 @@ async function resolve(row,e,services){
       if(candidates.length===1)return finish({data:candidates[0],source:'arXiv exact title + PDF author；'+candidates[0].URL});
     }catch(err){errors.push(err.message);}
   }
-  return {title,citationError:errors.length?tr('元数据检索未完成：')+errors.at(-1):tr('没有找到篇名、作者与 PDF 一致的完整引用资料')};
+  return {title,published:publicationLabel(publication?.date),publicationSource:publication?.source||'',recognized:verifiedTitle(title,e),...partial,citationError:errors.length?tr('元数据检索未完成：')+errors.at(-1):tr('没有找到篇名、作者与 PDF 一致的完整引用资料')};
 }
 function transport(request){
   let lastArxiv=0;
@@ -180,4 +208,4 @@ function transport(request){
     }finally{clearTimeout(timer);}
   };
 }
-module.exports={clean,norm,validTitle,verifiedTitle,authors,dateParts,arxivIds,doiIds,evidenceIds,pdfTitle,embedded,atomEntries,arxivHtml,crossrefData,matches,citationKey,readPdf,resolve,transport};
+module.exports={clean,norm,validTitle,verifiedTitle,authors,dateParts,publicationLabel,pdfPublication,pdfMetadata,arxivIds,doiIds,evidenceIds,pdfTitle,embedded,atomEntries,arxivHtml,crossrefData,matches,citationKey,readPdf,resolve,transport};
