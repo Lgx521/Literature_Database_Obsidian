@@ -1,0 +1,17 @@
+{
+  "name": "literature-database-obsidian",
+  "version": "4.2.3",
+  "private": true,
+  "description": "Compact literature management for Obsidian.",
+  "author": "shengzhegan",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Lgx521/Literature_Database_Obsidian.git"
+  },
+  "scripts": {
+    "build": "python3 scripts/build-dashboard.py",
+    "test": "npm run build && node scripts/run-tests.cjs"
+  },
+  "engines": { "node": ">=20" }
+}

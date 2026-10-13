@@ -1,0 +1,28 @@
+# Generated plugin assets (build locally; attach to a tagged release).
+/main.js
+/styles.css
+/dist/
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+.env
+.env.*
+
+# Never put a personal vault or imported documents in this source repository.
+.obsidian/
+.maintenance-backups/
+.maintenance-imports/
+/papers/
+/temp/
+/reviews/
+/submissions/
+/exports/
+/文献库.md
+/集合.md
+/审稿.md
+/投稿.md
+*.pdf
+*.skim
+*.fdf
+*.xfdf

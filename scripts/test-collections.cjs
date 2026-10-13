@@ -1,0 +1,51 @@
+const assert=require('node:assert/strict'),E=require('./dashboard.js'),C=require('./collections.js'),{migrate}=require('./migrate-collections.cjs');
+const header='| '+E.VENUE_HEADERS.join(' | ')+' |\n| '+E.VENUE_HEADERS.map(()=> '---').join(' | ')+' |';
+const legacy='保留开头\n## A\n\n分类说明\n'+header+'\n| [One.pdf](papers/One.pdf) | 2026.10 | #research/rl | Summary | 在读 | 高 | 手写<br>笔记 | Venue |\n\n## B\n'+header+'\n\n<!-- library:end -->\n保留结尾';
+const migrated=migrate(legacy),rows=E.parseLibrary(migrated.library),row=rows[0];let text=migrated.collections;
+assert.deepEqual(row.cells.slice(0,8),E.parseLibrary(legacy)[0].cells);assert.equal(row.category,'文献');assert(migrated.library.endsWith('保留结尾'));assert(text.includes('分类说明'));
+text=C.change(text,[row.path],{scope:'library',name:'B'});assert.deepEqual(C.decorate(rows,C.parse(text).groups)[0].categories,['A','B']);
+assert.equal(C.change(text,[row.path,row.path],{scope:'library',name:'B'}),text);
+assert.equal(E.filterLibrary(C.decorate(rows,C.parse(text).groups),{category:'B'}).length,1);
+text=C.add(C.add(text,'projects','工作一'),'projects','工作二');text=C.change(text,[row.path],{scope:'projects',name:'工作一'});
+text=C.setNote(text,'工作一',row.path,'项目 | [备注]\n<>&','');
+assert.throws(()=>C.setNote(text,'工作一',row.path,'stale',''),/已被修改/);
+text=C.change(text,[row.path],{scope:'projects',name:'工作二'});
+text=C.change(text,[row.path],{scope:'projects',name:'工作二'},{from:{scope:'projects',name:'工作一'},move:true});
+assert.equal(C.parse(text).groups.find(g=>g.name==='工作二').members[0].notes,'项目 | [备注]\n<>&');
+assert.deepEqual(C.decorate(rows,C.parse(text).groups)[0].categories,['A','B']);assert.equal(row.notes,'手写<br>笔记');
+text=C.rename(text,'projects','工作二','论文项目');assert.throws(()=>C.rename(text,'library','A','b'),/已存在/);
+text=C.setVenue(text,'论文项目','CoRL 2027','');assert.equal(C.parse(text).groups.find(g=>g.name==='论文项目').venue,'CoRL 2027');
+const before=text;text=C.reorder(text,'library','B','A',false,['A','B']);assert.deepEqual(C.parse(text).groups.filter(g=>g.scope==='library').map(g=>g.name),['B','A']);assert(text.includes('分类说明'));assert(text.includes('项目 &#124;'));
+assert.throws(()=>C.reorder(text,'library','B','A',false,['A','B']),/其他窗口/);
+text=C.change(text,[row.path],null,{from:{scope:'library',name:'A'}});assert.deepEqual(C.decorate(rows,C.parse(text).groups)[0].categories,['B']);
+text=C.remove(text,'library','B');assert.equal(E.filterLibrary(C.decorate(rows,C.parse(text).groups),{category:'未分类'}).length,1);
+text=C.remove(text,'projects','论文项目');assert.equal(rows.length,1);
+assert.throws(()=>C.change(text,[row.path],{scope:'library',name:'missing'}),/已被修改/);
+assert.throws(()=>C.change(text,['reviews/Secret.pdf'],{scope:'library',name:'A'}),/文献库 PDF/);
+assert.throws(()=>C.parse(text.replace(C.END,'')),/同步/);
+const cr=migrate(legacy.replaceAll('\n','\r\n'));assert(!cr.library.replaceAll('\r\n','').includes('\n'));assert(!cr.collections.replaceAll('\r\n','').includes('\n'));
+const crnext=C.rename(C.change(cr.collections,[row.path],{scope:'library',name:'B'}),'library','B','其他');assert(!crnext.replaceAll('\r\n','').includes('\n'));
+// References remain inactive during trash, then reappear when the same canonical paper is restored.
+const deleted=E.removeRecord(migrated.library,'library',row);assert.equal(C.decorate(E.parseLibrary(deleted),C.parse(before).groups).length,0);
+const restored=E.restoreRecord(deleted,'library',row);assert.deepEqual(C.decorate(E.parseLibrary(restored),C.parse(before).groups)[0].projects,['论文项目']);
+assert.deepEqual(E.parseLibrary(restored)[0].cells,row.cells);
+// Legacy receipts restore into the flat master, without creating old category sections.
+const legacyRow=E.parseLibrary(legacy)[0],oldRestored=E.restoreRecord(deleted,'library',legacyRow);assert.deepEqual(E.getCategories(oldRestored),['文献']);assert.deepEqual(E.parseLibrary(oldRestored)[0].cells.slice(0,8),legacyRow.cells);
+console.log('PASS: lossless flat migration, many-to-many categories/projects, deduped adds, move/remove/rename/reorder, independent notes, stale note/order refusal, CRLF, trash and legacy restore.');
+
+// Optional project deadline metadata: old projects, round trip, conflict detection and intact prose/notes.
+let project=C.add(C.empty(),'projects','Draft').replace('截止时间：—\n','');
+assert.equal(C.parse(project).groups[0].deadline,'—');
+project=project.replace('## 项目：Draft','## 项目：Draft\n手写文字');
+const ddl='2026-10-21 23:59 -12:00';
+const dated=C.setDeadline(project,'Draft',ddl,'—');
+assert.equal(C.parse(dated).groups[0].deadline,ddl);assert(dated.includes('手写文字'));
+assert.throws(()=>C.setDeadline(dated,'Draft','—','—'),/已被修改/);
+assert.equal(C.parse(C.setDeadline(dated,'Draft','—',ddl)).groups[0].deadline,'—');
+assert.equal(C.parse(C.setDeadline(C.setVenue(dated,'Draft','Venue',''),'Draft','—',ddl)).groups[0].deadline,'—');
+assert.throws(()=>C.setDeadline(project,'Draft','2026-10-21 23:59','—'),/时区/);
+assert.throws(()=>C.parse(dated.replace('截止时间：'+ddl,'截止时间：'+ddl+'\n截止时间：—')),/重复/);
+const crDeadline=C.setDeadline(project.replaceAll('\n','\r\n'),'Draft',ddl,'—');
+assert(!crDeadline.replaceAll('\r\n','').includes('\n'));
+assert.equal(C.parse(C.rename(crDeadline,'projects','Draft','Renamed')).groups[0].deadline,ddl);
+console.log('PASS: optional project DDL, old document compatibility, independence from legacy Venue, stale edits, clearing, duplicate metadata refusal, CRLF and prose preservation.');
