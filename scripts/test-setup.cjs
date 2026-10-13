@@ -13,13 +13,13 @@ function fixture(){
     create:async(p,text)=>{vault.beforeCreate?.(p);if(files.has(p))throw Error('COLLISION');files.set(p,new TFile(p));texts.set(p,text);created.push(p);}};
   return {vault,files,texts,created};
 }
-async function start(f,saved={}){
+async function start(f,saved={},beforeLayout=()=>{}){
   const plugin=new Manager(),events={};let layout,opened=0,refreshed=0,persisted;
   plugin.app={vault:f.vault,workspace:{on:(name,handler)=>{events[name]=handler;},onLayoutReady:handler=>{layout=handler;}}};
   plugin.loadData=async()=>saved;plugin.saveData=async data=>{persisted=data;};
   for(const method of ['registerView','addRibbonIcon','registerCommands','registerEvent','registerObsidianProtocolHandler'])plugin[method]=()=>{};
   plugin.openLibrary=async()=>{opened++;};plugin.refresh=async()=>{refreshed++;};
-  await plugin.onload();await layout();
+  await plugin.onload();await beforeLayout(plugin);await layout();
   return {plugin,events,opened,refreshed,persisted};
 }
 (async()=>{
@@ -39,8 +39,29 @@ async function start(f,saved={}){
   await assert.rejects(Manager.initialize(race.vault),/COLLISION/);assert.equal(race.texts.get('library.md'),'SYNCED DATA');assert(!race.files.has('reviews.md'));
   const clean=fixture();await Manager.initialize(clean.vault);assert(clean.texts.get('AGENTS.md').includes('Do not generate'));
   const existing=await start(clean);assert.equal(existing.opened,1);assert.equal(existing.plugin.settings.redirectSourceFiles,true);
+  // A cold start exposes an empty file index until the workspace is ready.
+  // It must not persist fresh-install defaults or strand an existing library in setup mode.
+  for(const saved of [{language:'zh'},{language:'en',openOnStartup:false,redirectSourceFiles:false}]){
+    let indexed=false,earlyReads=0;
+    const cold=fixture();await Manager.initialize(cold.vault);
+    const lookup=cold.vault.getAbstractFileByPath,read=cold.vault.read;
+    cold.vault.getAbstractFileByPath=p=>indexed?lookup(p):undefined;
+    cold.vault.read=async f=>{if(!indexed)earlyReads++;return read(f);};
+    const original=new Map(cold.texts),created=cold.created.length;
+    const recovered=await start(cold,saved,async plugin=>{
+      const load=plugin.loadSnapshot;plugin.loadSnapshot=()=>{throw Error('Do not read the partial index before layout readiness.');};
+      await Manager.prototype.refresh.call(plugin);plugin.loadSnapshot=load;indexed=true;
+    });
+    assert.equal(recovered.plugin.setupNeeded,false,'An existing library must be detected after the index becomes ready.');
+    assert.equal(recovered.refreshed,1);assert.equal(recovered.opened,saved.openOnStartup===false?0:1);
+    assert.equal(recovered.plugin.settings.redirectSourceFiles,saved.redirectSourceFiles!==false);
+    assert.equal(recovered.persisted,undefined,'Startup must not overwrite an existing library\'s settings.');
+    assert.equal(earlyReads,0);assert.equal(cold.created.length,created);assert.deepEqual(cold.texts,original);
+  }
+  const cancelled=await start(fixture(),{},plugin=>{plugin.stopped=true;});
+  assert.equal(cancelled.persisted,undefined);assert.equal(cancelled.refreshed,0);assert.equal(cancelled.opened,0);
   const optedOut=await start(clean,{openOnStartup:false,redirectSourceFiles:false});assert.equal(optedOut.opened,0);
   let redirected=0;optedOut.plugin.redirectLegacy=()=>{redirected++;};optedOut.events['file-open'](new TFile('library.md'));assert.equal(redirected,0);
   optedOut.plugin.settings.redirectSourceFiles=true;optedOut.events['file-open'](new TFile('library.md'));assert.equal(redirected,1);
-  console.log('PASS: explicit setup, untouched fresh vault, schema templates, preserved agent instructions, collision/race safety, retained upgrade behavior and opt-out startup/redirects.');
+  console.log('PASS: explicit setup, untouched fresh vault, schema templates, preserved agent instructions, collision/race safety, cold-start indexing, retained upgrade behavior and opt-out startup/redirects.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

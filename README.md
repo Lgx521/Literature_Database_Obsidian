@@ -12,7 +12,7 @@ A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Bro
 
 *Real screenshots from a separate demo vault, using the English interface. Public papers are paired with example notes, projects and review tasks; no private library or confidential manuscripts are shown. Click any image to view it at full size.*
 
-**Status:** **4.3.2**. [View the Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard); new releases may take time to reach the in-app directory. Requires **Obsidian 1.8.7+ on desktop**. Tested locally on macOS with Obsidian 1.14.4. Windows and Linux application behavior has not been validated; Finder drag/paste requires macOS. This release does not run on iPhone or iPad. The interface supports English and Chinese, following the Obsidian language by default. Screenshots below show the 4.3.0 demo UI; the same workflows remain available in 4.3.2.
+**Status:** **4.3.3**. [View the Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard); new releases may take time to reach the in-app directory. Requires **Obsidian 1.8.7+ on desktop**. Tested locally on macOS with Obsidian 1.14.4. Windows and Linux application behavior has not been validated; Finder drag/paste requires macOS. This release does not run on iPhone or iPad. The interface supports English and Chinese, following the Obsidian language by default. Screenshots below show the 4.3.0 demo UI; the same workflows remain available in 4.3.3.
 
 ## Features
 

@@ -2,12 +2,9 @@ const {Plugin,Notice,TFile,loadPdfJs,requestUrl}=require('obsidian');
 module.exports=class LiteratureManager extends Plugin {
   async onload(){
     const saved=await this.loadData?.()||{};
-    this.setupNeeded=!ldbHasSourceFiles(this.app.vault);
-    // Existing installations retain their startup behavior; fresh installs opt in.
-    const libraryFile=this.app.vault.getAbstractFileByPath('library.md')||this.app.vault.getAbstractFileByPath('文献库.md');
-    let established=false;
-    if(libraryFile instanceof TFile)try{established=(await this.app.vault.read(libraryFile)).includes('<!-- library:end -->');}catch(_){}
-    this.settings={language:'auto',openOnStartup:established,redirectSourceFiles:established,...saved};
+    // The file index can still be empty in onload, even for an existing vault.
+    this.layoutReady=false;this.ready=false;this.setupNeeded=false;
+    this.settings={language:'auto',...saved};
     LdbI18n.setLanguage(this.settings.language,require('obsidian').getLanguage?.()||'en');
     this.stopped=false;this.snapshot=null;this.navigation={scope:'library',category:'',status:''};this.lastError='';this.timer=null;this.loading=null;
     this.citationQueue=Promise.resolve();this.citationErrors=new Map();this.citationKnown=null;
@@ -24,10 +21,18 @@ module.exports=class LiteratureManager extends Plugin {
     this.registerEvent(this.app.workspace.on('file-open',file=>{if(file&&this.ready&&this.settings.redirectSourceFiles)this.redirectLegacy(file.path);}));
     this.app.workspace.onLayoutReady(async()=>{
       if(this.stopped)return;
+      this.setupNeeded=!ldbHasSourceFiles(this.app.vault);
+      // Resolve installation defaults only once the vault index is available.
+      const libraryFile=this.app.vault.getAbstractFileByPath('library.md')||this.app.vault.getAbstractFileByPath('文献库.md');
+      let established=false;
+      if(libraryFile instanceof TFile)try{established=(await this.app.vault.read(libraryFile)).includes('<!-- library:end -->');}catch(_){}
+      if(this.stopped)return;
+      this.settings={openOnStartup:established,redirectSourceFiles:established,...this.settings};
+      this.layoutReady=true;
       if(this.setupNeeded){
         // Persist fresh-install defaults before the source files can be created.
         try{await this.saveData(this.settings);}catch(error){new Notice(error.message,8000);}
-        this.ready=true;return;
+        if(!this.stopped)this.ready=true;return;
       }
       this.migrating=true;
       try{await StorageMigration.migrateVault(this.app.vault);}
@@ -95,6 +100,7 @@ module.exports=class LiteratureManager extends Plugin {
     this.app.workspace.leftSplit?.expand();await this.app.workspace.revealLeaf(leaf);this.renderNavigation();
   }
   async openLibrary(nav){
+    if(this.layoutReady===false){new Notice(tr('正在读取本地文献…'));return;}
     if(this.setupNeeded){new LibrarySetupModal(this).open();return;}
     let leaf=this.app.workspace.getLeavesOfType(LIBRARY_VIEW)[0];
     if(!leaf){leaf=this.app.workspace.getLeaf('tab');await leaf.setViewState({type:LIBRARY_VIEW,state:{scope:'library',category:this.snapshot?.categories[0]||''},active:true});}
@@ -299,7 +305,7 @@ module.exports=class LiteratureManager extends Plugin {
   }
   schedule(){if(this.stopped)return;clearTimeout(this.timer);this.timer=setTimeout(()=>this.refresh(),300);}
   async refresh(notify=false){
-    if(this.stopped||this.setupNeeded||this.ddlWriting||this.migrating||this.migrationFailed)return;
+    if(this.stopped||this.layoutReady===false||this.setupNeeded||this.ddlWriting||this.migrating||this.migrationFailed)return;
     if(this.loading){this.again=true;return this.loading;}
     this.loading=this.loadSnapshot();
     try{await this.loading;if(notify&&!this.lastError)new Notice(tr('本地列表已更新'));}finally{this.loading=null;if(this.again){this.again=false;this.schedule();}}

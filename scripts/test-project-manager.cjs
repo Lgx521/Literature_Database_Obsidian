@@ -5,13 +5,13 @@ const data=migrate(old),tracker='## 暂存区\n| '+E.TRACKING_HEADERS.join(' | '
 class TFile{constructor(n){this.path=n;this.name=n.split('/').pop();this.extension=n.split('.').pop();this.stat={ctime:0,size:1};}}
 const store=new Map([['library.md',data.library],['collections.md',data.collections],['reviews.md',tracker],['submissions.md',tracker]]),files=new Map([...store.keys()].map(p=>[p,new TFile(p)]));
 const vault={getAbstractFileByPath:p=>files.get(p),getFiles:()=>[...files.values()],read:async f=>store.get(f.path),on(){},process:async(f,fn)=>store.set(f.path,fn(store.get(f.path))),create:async(n,t)=>{assert(!store.has(n));store.set(n,t);files.set(n,new TFile(n));},adapter:{exists:async()=>true,mkdir:async()=>{},write:async(n,t)=>store.set(n,t)}};
-const workspace={getLeavesOfType:()=>[],on(){},onLayoutReady(){}};
+const workspace={getLeavesOfType:()=>[],on(){},onLayoutReady(callback){this.startup=callback;}};
 class Plugin{constructor(){this.app={vault,workspace};}registerView(){}addRibbonIcon(){}addCommand(){}registerObsidianProtocolHandler(){}registerEvent(){}}
 const ctx={module:{exports:{}},require:n=>n==='obsidian'?{Plugin,ItemView:class{},Modal:class{},Notice:class{},Platform:{isDesktopApp:true,isMacOS:true},TFile}:require(n),setTimeout,clearTimeout,console,TextEncoder,TextDecoder};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../main.js'),'utf8')+'\nmodule.exports.drop=ldbDropTarget;module.exports.Browser=LiteratureBrowser;',ctx);
 const notices=[];
 (async()=>{
- const plugin=new ctx.module.exports();plugin.loadData=async()=>({language:'zh'});await plugin.onload();await plugin.refresh();
+ const plugin=new ctx.module.exports();plugin.loadData=async()=>({language:'zh',openOnStartup:false});await plugin.onload();await workspace.startup();
  assert.equal(plugin.snapshot.library.length,2);assert.equal(ctx.module.exports.Browser.prototype.getDisplayText.call({}), '文献库');
  const paperBefore=store.get('library.md'),dt={setData(){}};
  assert(plugin.beginPaperDrag({dataTransfer:dt},plugin.snapshot.library[0],'library',[plugin.snapshot.library[0]],'A'));assert.equal(dt.effectAllowed,'copyMove');

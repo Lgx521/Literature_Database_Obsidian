@@ -6,7 +6,7 @@ class TFile{constructor(n){this.path=n;this.name=n.split('/').pop();this.extensi
 const store=new Map([['library.md',source],['reviews.md',tracker],['submissions.md',tracker]]),files=new Map([...store.keys(),'papers/A.pdf'].map(n=>[n,new TFile(n)]));
 let pdfReads=0,requests=0,onRead=null,dirty=false;
 const vault={getAbstractFileByPath:n=>files.get(n),getFiles:()=>[...files.values()],read:async f=>store.get(f.path),readBinary:async()=>{pdfReads++;if(onRead)await onRead();return new ArrayBuffer(1);},on(){},process:async(f,fn)=>store.set(f.path,fn(store.get(f.path))),adapter:{exists:async()=>true,mkdir:async()=>{},write:async(n,t)=>store.set(n,t)}};
-const workspace={getLeavesOfType:()=>dirty?[{view:{dirty:()=>true}}]:[],on(){},onLayoutReady(){}};
+const workspace={getLeavesOfType:()=>dirty?[{view:{dirty:()=>true}}]:[],on(){},onLayoutReady(callback){this.startup=callback;}};
 class Plugin{constructor(){this.app={vault,workspace};}registerView(){}addRibbonIcon(){}addCommand(){}registerObsidianProtocolHandler(){}registerEvent(){}}
 const title='An Actual Scientific Title';
 const pdfjs={getDocument:()=>({promise:Promise.resolve({numPages:1,getMetadata:async()=>({info:{Title:title,Author:'Ada Lovelace',PublicationDate:'2024-01-10'}}),getPage:async()=>({getTextContent:async()=>({items:[{str:title+' Ada Lovelace',transform:[12,0,0,12,100,700],width:300}]}),getViewport:()=>({height:800}),cleanup(){}}),destroy:async()=>{}})})};
@@ -16,7 +16,7 @@ const bundle=fs.readFileSync(path.join(__dirname,'../main.js'),'utf8');
 assert(!bundle.includes('CitationImportModal'));assert(!bundle.includes('导入引用资料…'));
 vm.runInNewContext(bundle,ctx);
 (async()=>{
- const plugin=new ctx.module.exports();plugin.loadData=async()=>({language:'zh'});await plugin.onload();await plugin.refresh();assert.equal(pdfReads,0,'No full-library scan at startup.');
+ const plugin=new ctx.module.exports();plugin.loadData=async()=>({language:'zh',openOnStartup:false});await plugin.onload();await workspace.startup();assert.equal(pdfReads,0,'No full-library scan at startup.');
  const before=plugin.snapshot.library[0];let result=await plugin.ensureCitationRows([before,before]);
  assert.equal(result.length,1);assert.equal(pdfReads,1);assert.equal(requests,0);assert.equal(result[0].title,title);assert(result[0].bibtex);assert.equal(result[0].citationError,'');
  assert.deepEqual([...result[0].cells.slice(0,8)],[...before.cells.slice(0,8)]);

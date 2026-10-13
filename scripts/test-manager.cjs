@@ -36,13 +36,13 @@ const store=new Map([['library.md',source],['reviews.md',empty],['submissions.md
 const opened=[],events=[],notices=[];let race=false;
 const files=new Map([...store.keys(),'papers/One.pdf','temp/1234.56789v1.pdf'].map(n=>[n,new TFile(n)]));
 const vault={getAbstractFileByPath:n=>files.get(n),getFiles:()=>[...files.values()],read:async f=>store.get(f.path),on:(...a)=>events.push(a),process:async(f,fn)=>store.set(f.path,fn(store.get(f.path))),adapter:{getBasePath:()=>'/tmp/vault $ literal',exists:async()=>true,mkdir:async()=>{},write:async(n,t)=>{store.set(n,t);if(race)store.set('library.md',E.updateLibraryEntry(store.get('library.md'),E.parseLibrary(store.get('library.md'))[0],{tldr:'external'}));}}};
-const workspace={getLeavesOfType:()=>[],on:()=>{},onLayoutReady:()=>{},getLeaf:()=>{throw new Error('Must not embed PDF');}};
+const workspace={getLeavesOfType:()=>[],on:()=>{},onLayoutReady(callback){this.startup=callback;},getLeaf:()=>{throw new Error('Must not embed PDF');}};
 class Plugin{constructor(){this.app={vault,workspace};}registerView(){}addRibbonIcon(){}addCommand(){}registerObsidianProtocolHandler(){}registerEvent(){}}
 const mock={Plugin,ItemView:class{},Modal:class{},Platform:{isDesktopApp:true,isMacOS:true},Notice:class{constructor(s){notices.push(s);}},TFile,setIcon(){}};
 const bundle=fs.readFileSync(path.join(__dirname,'../main.js'),'utf8');
 const context={module:{exports:{}},require:n=>n==='obsidian'?mock:n==='child_process'?{execFile:(bin,args,cb)=>{opened.push({bin,args});cb(null);}}:require(n),setTimeout,clearTimeout,console};vm.runInNewContext(bundle,context);
 (async()=>{
- const plugin=new context.module.exports();plugin.loadData=async()=>({language:'zh'});await plugin.onload();await plugin.refresh();assert.equal(plugin.snapshot.library.length,1);assert.equal(plugin.snapshot.inbox.length,1);
+ const plugin=new context.module.exports();plugin.loadData=async()=>({language:'zh',openOnStartup:false});await plugin.onload();await workspace.startup();assert.equal(plugin.snapshot.library.length,1);assert.equal(plugin.snapshot.inbox.length,1);
  const before=store.get('library.md');await plugin.mutate('library.md',t=>E.updateLibraryEntry(t,E.parseLibrary(t)[0],{notes:'user notes'}));
  assert([...store.entries()].some(([n,v])=>n.startsWith('.maintenance-backups/library-edit-')&&v===before));
  assert.equal(store.get('首页.md'),'unchanged home');assert.equal(store.get('阅读队列.md'),'unchanged queue');
