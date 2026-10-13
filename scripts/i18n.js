@@ -1,6 +1,17 @@
 'use strict';
 // Source table values and user content are never translated in storage.
 const english = {
+  "已有源文件，未覆盖。请等待同步完成，或在空库中初始化。": "Source files already exist. Nothing was overwritten. Wait for sync to finish or initialize an empty vault.",
+  "文件夹名称已被文件占用：{0}": "A file already uses this folder name: {0}",
+  "创建文献库": "Create library",
+  "在当前仓库创建四个 Markdown 源表和 papers、temp、reviews、submissions 文件夹。已有文件不会被覆盖。建议使用独立仓库。": "Create four Markdown source tables and the papers, temp, reviews and submissions folders in this vault. Existing files will not be overwritten. A dedicated vault is recommended.",
+  "同时添加 AGENTS.md（如果尚不存在），供手动整理使用。": "Also add AGENTS.md, if absent, for manual organization.",
+  "启动时打开文献库": "Open library on startup",
+  "启用后，在 Obsidian 启动时显示文献库和左侧分类。": "Show the library and its navigation when Obsidian starts.",
+  "用文献库打开源表": "Open source tables in library",
+  "启用后，打开四个源表时切换到插件界面。关闭后可直接编辑 Markdown。": "Redirect the four source tables to the library view. Turn off to edit their Markdown directly.",
+  "旧文件不符合文献库格式，未迁移：{0}": "The legacy file is not a Literature Database source and was not migrated: {0}",
+
   "文献库": "Library",
   "收件箱": "Inbox",
   "写作项目": "Writing projects",
@@ -177,7 +188,7 @@ const english = {
   "独立 DDL": "Independent deadline",
   "使用已有投稿 Venue 的 DDL": "Use an existing submission venue deadline",
   "使用已有写作项目的 DDL": "Use an existing writing project deadline",
-  "打开文献管理器": "Open Literature Database",
+  "打开文献管理器": "Open library",
   "打开收件箱": "Open inbox",
   "重新识别缺失引用": "Retry missing references",
   "引用识别完成：": "Reference lookup complete: ",

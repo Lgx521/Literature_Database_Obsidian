@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const E=require('./dashboard.js');
-const legacy='手写开头\n'+E.CATEGORIES.map((c,i)=>`## ${c}\n\n| ${E.HEADERS.join(' | ')} |\n| ${E.HEADERS.map(()=> '---').join(' | ')} |\n`+(i===0?'| [One.pdf](papers/One.pdf) | 2026.10 | #research/vla | Summary | 在读 | 高 |\n':'')).join('\n')+'\n<!-- library:end -->\n手写结尾';
+const legacy='手写开头\n'+['Robotics Policies', 'Agentic/RSI', 'ML', '3DV', 'Generative'].map((c,i)=>`## ${c}\n\n| ${E.HEADERS.join(' | ')} |\n| ${E.HEADERS.map(()=> '---').join(' | ')} |\n`+(i===0?'| [One.pdf](papers/One.pdf) | 2026.10 | #research/vla | Summary | 在读 | 高 |\n':'')).join('\n')+'\n<!-- library:end -->\n手写结尾';
 const source=E.migrateLibraryNotes(legacy),row=E.parseLibrary(source)[0];
 assert.equal(E.parseLibrary(source).length,1);assert.equal(row.notes,'');assert.equal(E.migrateLibraryNotes(source),source);
 assert.deepEqual(row.cells.slice(0,6),E.parseLibrary(legacy)[0].cells);

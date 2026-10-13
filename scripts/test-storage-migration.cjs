@@ -2,7 +2,7 @@ const assert=require('node:assert/strict');
 const {RENAMES,migrateVault,canonicalPath}=require('./storage-migration');
 const I=require('./i18n');
 function fixture(){
-  const content=new Map(Object.keys(RENAMES).map((name,i)=>[name,'USER CONTENT '+i+'\r\nNotes | 个人笔记\r\n']));
+  const content=new Map(Object.entries(RENAMES).map(([name,to],i)=>[name,'USER CONTENT '+i+'\r\nNotes | 个人笔记\r\n<!-- '+(to==='library.md'?'library:end':to==='collections.md'?'collections:end':'tracking:end')+' -->']));
   const files=new Map([...content.keys()].map(path=>[path,{path}])),backups=new Map(),renamed=[];
   const vault={
     getAbstractFileByPath:path=>files.get(path),read:async file=>content.get(file.path),
@@ -13,6 +13,8 @@ function fixture(){
 }
 (async()=>{
   const f=fixture(),before=new Map(f.content);
+  const unrelated=fixture();unrelated.content.set('文献库.md','My unrelated note');
+  await assert.rejects(migrateVault(unrelated.vault),/未迁移/);assert.equal(unrelated.renamed.length,0);assert.equal(unrelated.backups.size,0);
   assert.equal((await migrateVault(f.vault)).length,4);
   for(const [old,name]of Object.entries(RENAMES)){assert.equal(f.content.get(name),before.get(old));assert(!f.content.has(old));assert([...f.backups.entries()].some(([p,text])=>p.endsWith('/'+name)&&text===before.get(old)));assert.equal(canonicalPath(old),name);}
   assert.deepEqual(await migrateVault(f.vault),[]);assert.equal(f.renamed.length,4);

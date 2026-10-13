@@ -3,7 +3,7 @@ const E=require('./dashboard'),{RecordTrash}=require('./record-trash');
 const vm=require('node:vm'),context={module:{exports:{}},require:n=>n==='obsidian'?{Plugin:class{},ItemView:class{},Modal:class{}}:require(n)};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../main.js'),'utf8'),context);
 const table='| '+E.NOTES_HEADERS.join(' | ')+' |\n| '+E.NOTES_HEADERS.map(()=> '---').join(' | ')+' |\n';
-const library='USER HEADER\n'+E.CATEGORIES.map((c,i)=>`## ${c}\n\n`+table+(i===0?'| [Paper.pdf](papers/Paper.pdf) | 2026.10 | #research/vla | Human summary | 在读 | 高 | Personal<br>notes &#124; &#91;x&#93; |\n':'')).join('\n')+'\n<!-- library:end -->\nUSER FOOTER';
+const library='USER HEADER\n'+['Robotics Policies', 'Agentic/RSI', 'ML', '3DV', 'Generative'].map((c,i)=>`## ${c}\n\n`+table+(i===0?'| [Paper.pdf](papers/Paper.pdf) | 2026.10 | #research/vla | Human summary | 在读 | 高 | Personal<br>notes &#124; &#91;x&#93; |\n':'')).join('\n')+'\n<!-- library:end -->\nUSER FOOTER';
 const empty='## 待确定 venue\n\n| '+E.TRACKING_HEADERS.join(' | ')+' |\n| '+E.TRACKING_HEADERS.map(()=> '---').join(' | ')+' |\n\n<!-- tracking:end -->\nUSER FOOTER';
 const original=E.parseLibrary(library)[0],removed=E.removeRecord(library,'library',original);
 assert.equal(E.parseLibrary(removed).length,0);assert(removed.includes('USER FOOTER'));

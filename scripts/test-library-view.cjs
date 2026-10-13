@@ -6,7 +6,7 @@ const records = [
   '| [Beta.pdf](papers/Beta.pdf) | 2026.10 | #research/vla | 第二篇 | 待读 | — |',
   '| [Gamma.pdf](papers/Gamma.pdf) | 待核实 | #research/rl | 第三篇 | 未标记 | 中 |'
 ];
-const source = '手写开头\n' + E.CATEGORIES.map((c,i) => '## ' + c + '\n\n' + table + '\n' + (i === 0 ? records.join('\n') : '')).join('\n\n') + '\n<!-- library:end -->\n手写结尾\n';
+const source = '手写开头\n' + ['Robotics Policies', 'Agentic/RSI', 'ML', '3DV', 'Generative'].map((c,i) => '## ' + c + '\n\n' + table + '\n' + (i === 0 ? records.join('\n') : '')).join('\n\n') + '\n<!-- library:end -->\n手写结尾\n';
 const rows = E.parseLibrary(source);
 assert.deepEqual(E.filterLibrary(rows, { sort: 'published', descending: true }).map(r => r.filename), ['Beta.pdf','Alpha.pdf','Gamma.pdf']);
 assert.deepEqual(E.filterLibrary(rows, { sort: 'published' }).map(r => r.filename), ['Alpha.pdf','Beta.pdf','Gamma.pdf']);

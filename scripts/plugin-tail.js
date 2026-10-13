@@ -1,34 +1,41 @@
 const {Plugin,Notice,TFile,loadPdfJs,requestUrl}=require('obsidian');
 module.exports=class LiteratureManager extends Plugin {
   async onload(){
-    this.settings={language:'auto',...(await this.loadData?.()||{})};
+    const saved=await this.loadData?.()||{};
+    this.setupNeeded=!ldbHasSourceFiles(this.app.vault);
+    // Existing installations retain their startup behavior; fresh installs opt in.
+    const libraryFile=this.app.vault.getAbstractFileByPath('library.md')||this.app.vault.getAbstractFileByPath('文献库.md');
+    let established=false;
+    if(libraryFile instanceof TFile)try{established=(await this.app.vault.read(libraryFile)).includes('<!-- library:end -->');}catch(_){}
+    this.settings={language:'auto',openOnStartup:established,redirectSourceFiles:established,...saved};
     LdbI18n.setLanguage(this.settings.language,require('obsidian').getLanguage?.()||'en');
-    this.stopped=false;this.snapshot=null;this.navigation={scope:'library',category:'Robotics Policies',status:''};this.lastError='';this.timer=null;this.loading=null;
+    this.stopped=false;this.snapshot=null;this.navigation={scope:'library',category:'',status:''};this.lastError='';this.timer=null;this.loading=null;
     this.citationQueue=Promise.resolve();this.citationErrors=new Map();this.citationKnown=null;
     this.trashStore=new TrashStore.RecordTrash(this,Engine);
     this.registerView(LIBRARY_VIEW,leaf=>new LiteratureBrowser(leaf,this));
     this.registerView(NAV_VIEW,leaf=>new LibraryNavigation(leaf,this));
     this.registerCommands();
+    this.addSettingTab?.(ldbSettingsTab(this));
     this.ribbon=this.addRibbonIcon('library',tr('打开文献管理器'),()=>this.openLibrary());
     this.registerObsidianProtocolHandler('literature-database',params=>this.openLibrary(params.category?{scope:'library',category:params.category}:undefined));
     const relevant=p=>['library.md','reviews.md','submissions.md','collections.md'].includes(p)||p.startsWith('temp/');
     const changed=(file,old)=>{if(this.migrating)return;if(relevant(file.path)||(old&&relevant(old)))this.schedule();};
     for(const event of ['modify','create','delete','rename'])this.registerEvent(this.app.vault.on(event,changed));
-    this.registerEvent(this.app.workspace.on('file-open',file=>{if(file&&this.ready)this.redirectLegacy(file.path);}));
+    this.registerEvent(this.app.workspace.on('file-open',file=>{if(file&&this.ready&&this.settings.redirectSourceFiles)this.redirectLegacy(file.path);}));
     this.app.workspace.onLayoutReady(async()=>{
       if(this.stopped)return;
+      if(this.setupNeeded){
+        // Persist fresh-install defaults before the source files can be created.
+        try{await this.saveData(this.settings);}catch(error){new Notice(error.message,8000);}
+        this.ready=true;return;
+      }
       this.migrating=true;
       try{await StorageMigration.migrateVault(this.app.vault);}
       catch(error){this.migrationFailed=true;this.lastError=error.message;new Notice(error.message,12000);return;}
       finally{this.migrating=false;}
       await this.refresh();
       if(this.stopped)return;
-      // Source documents are retained as agent data, but never act as daily landing pages.
-      const old=this.app.workspace.getLeavesOfType('markdown').filter(l=>this.legacyRoute(l.getViewState().state?.file));
-      let leaf=this.app.workspace.getLeavesOfType(LIBRARY_VIEW)[0];
-      if(!leaf){leaf=old.shift()||this.app.workspace.getLeaf('tab');await leaf.setViewState({type:LIBRARY_VIEW,state:{scope:'library',category:this.snapshot?.categories[0]||''},active:true});}
-      for(const other of old)other.detach();
-      this.ready=true;await this.openLibrary();
+      this.ready=true;if(this.settings.openOnStartup)await this.openLibrary();
     });
   }
   registerCommands(){
@@ -88,6 +95,7 @@ module.exports=class LiteratureManager extends Plugin {
     this.app.workspace.leftSplit?.expand();await this.app.workspace.revealLeaf(leaf);this.renderNavigation();
   }
   async openLibrary(nav){
+    if(this.setupNeeded){new LibrarySetupModal(this).open();return;}
     let leaf=this.app.workspace.getLeavesOfType(LIBRARY_VIEW)[0];
     if(!leaf){leaf=this.app.workspace.getLeaf('tab');await leaf.setViewState({type:LIBRARY_VIEW,state:{scope:'library',category:this.snapshot?.categories[0]||''},active:true});}
     if(leaf.isDeferred)await leaf.loadIfDeferred();
@@ -279,7 +287,7 @@ module.exports=class LiteratureManager extends Plugin {
   }
   schedule(){if(this.stopped)return;clearTimeout(this.timer);this.timer=setTimeout(()=>this.refresh(),300);}
   async refresh(notify=false){
-    if(this.stopped||this.ddlWriting||this.migrating||this.migrationFailed)return;
+    if(this.stopped||this.setupNeeded||this.ddlWriting||this.migrating||this.migrationFailed)return;
     if(this.loading){this.again=true;return this.loading;}
     this.loading=this.loadSnapshot();
     try{await this.loading;if(notify&&!this.lastError)new Notice(tr('本地列表已更新'));}finally{this.loading=null;if(this.again){this.again=false;this.schedule();}}

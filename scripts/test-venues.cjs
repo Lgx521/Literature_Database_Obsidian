@@ -34,7 +34,7 @@ const restored=E.restoreRecord(removed,'reviews',E.parseTracker(migrated,'审稿
 assert.throws(()=>E.restoreRecord(restored,'reviews',E.parseTracker(migrated,'审稿')[1]),/已存在/);
 // Exercise inline edit event lifecycle: cancel, IME, Enter/blur race, error recovery and no modal.
 class Element{
- constructor(){this.events={};this.attrs={};this.children=[];this.isConnected=true;}
+ constructor(){this.events={};this.attrs={};this.children=[];this.isConnected=true;this.ownerDocument={createElement:()=>new Element()};}
  createSpan(){return new Element();}
  createEl(tag){const child=new Element();child.tag=tag;this.children.push(child);return child;}
  addEventListener(name,fn){this.events[name]=fn;}

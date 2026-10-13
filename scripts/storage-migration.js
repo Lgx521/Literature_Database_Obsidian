@@ -8,7 +8,11 @@ async function migrateVault(vault){
   for(const [from,to] of Object.entries(RENAMES)){
     const file=vault.getAbstractFileByPath(from),target=vault.getAbstractFileByPath(to);
     if(file&&target)throw new Error(tr`同时存在旧文件和英文文件，未覆盖：${from} / ${to}`);
-    if(file)plans.push({from,to,file,before:await vault.read(file)});
+    if(file){
+      const before=await vault.read(file),marker=to==='library.md'?'library:end':to==='collections.md'?'collections:end':'tracking:end';
+      if(!before.includes('<!-- '+marker+' -->'))throw new Error(tr`旧文件不符合文献库格式，未迁移：${from}`);
+      plans.push({from,to,file,before});
+    }
   }
   if(!plans.length)return [];
   const root='.maintenance-backups';

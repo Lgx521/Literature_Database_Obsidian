@@ -1,5 +1,9 @@
 # Literature Database
 
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/Lgx521/Literature_Database_Obsidian?label=version&color=blue)](https://github.com/Lgx521/Literature_Database_Obsidian/releases/latest)
+[![Obsidian plugin: not yet listed](https://img.shields.io/badge/Obsidian_plugin-not_yet_listed-8b6cef?logo=obsidian&logoColor=white)](docs/community-release.md)
+
 A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Browse collections on the left, papers in a dense list, and metadata and notes on the right. Your library stays in Markdown, with PDFs stored as ordinary files.
 
 [中文使用指南](docs/usage.zh-CN.md) · [Installation](#try-the-current-version) · [Development](docs/development.md) · [Community release preparation](docs/community-release.md)
@@ -8,7 +12,7 @@ A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Bro
 
 *Real screenshots from a separate demo vault, using the English interface. Public papers are paired with example notes, projects and review tasks; no private library or confidential manuscripts are shown. Click any image to view it at full size.*
 
-**Status:** development baseline **4.3.0**, tested locally on macOS with Obsidian 1.14.4. This repository is not yet listed in the Obsidian Community directory. Windows, Linux, iPhone and iPad support has not been validated. The interface supports English and Chinese, following the Obsidian language by default. Obsidian 1.8.7 or newer is required.
+**Status:** **4.3.1**, prepared for Community review and tested locally on macOS with Obsidian 1.14.4. This repository is not yet listed in the Obsidian Community directory. Requires **Obsidian 1.8.7+ on desktop**. Windows and Linux application behavior has not been validated; Finder drag/paste requires macOS. This release does not run on iPhone or iPad. The interface supports English and Chinese, following the Obsidian language by default. Screenshots below show the 4.3.0 demo UI; the same workflows remain available in 4.3.1.
 
 ## Features
 
@@ -60,16 +64,21 @@ Keep review tasks and your own submissions in separate trackers. Drop PDFs into 
 
 ## Try the current version
 
-Use a separate test vault first. This version expects a fixed Markdown schema and opens its literature view on startup; it also redirects the named source documents into that view. General-purpose onboarding is still planned.
+Use a separate vault for the literature library. Until Community approval, install the release manually:
 
-1. Install Node.js 20+ and Python 3. Clone this repository.
-2. Run `npm run build`. Normal builds use the checked-in citation formatter and need no dependency installation.
-3. Create a new, empty Obsidian vault. Copy the contents of [`templates/empty-vault`](templates/empty-vault) into its root. These are empty templates, not the author's library.
-4. Create `papers/`, `temp/`, `reviews/` and `submissions/` in that vault.
-5. Create `<vault>/.obsidian/plugins/paper-reservoir-dashboard/` and copy the generated `main.js`, `styles.css` and the repository's `manifest.json` there.
-6. Reload Obsidian and enable **Literature Database** in Community plugins. Drag PDFs into the inbox and organize them manually or with your own agent following the template `AGENTS.md`.
+1. Download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/Lgx521/Literature_Database_Obsidian/releases/latest).
+2. Create `<vault>/.obsidian/plugins/paper-reservoir-dashboard/` and place the three files there. Use your vault's configured configuration folder if it differs from `.obsidian`.
+3. Reload Obsidian and enable **Literature Database** in Community plugins.
+4. Click the library ribbon icon, or run **Literature Database: Open library** from the command palette. In a fresh vault, choose **Create library**. This creates four empty source tables, the attachment folders and an `AGENTS.md` if one does not already exist. It never replaces existing source files.
+5. Drag PDFs into Inbox, or copy PDFs in Finder and paste into the empty inbox area on macOS. Use **Organize with agent…** to copy instructions for a manually triggered agent with local file access; then review its changes. Dropping a PDF into Inbox alone does not add it to the public library.
 
-Do not overwrite existing source tables with the templates. The internal plugin ID remains `paper-reservoir-dashboard` for compatibility with existing installations.
+New libraries start with **no categories or writing projects**. Create your own with the sidebar **+** buttons; the categories in the screenshots are demo examples, not defaults.
+
+New installations keep **Open library on startup** and **Open source tables in library** off. You can enable either under **Settings → Literature Database**. Existing libraries retain their previous startup behavior unless you turn it off. The source tables use a fixed schema; [empty templates](templates/empty-vault) remain available for inspection or manual setup. If setup is interrupted, preserve any files already created and check them before completing the missing templates; never overwrite a partially synced library.
+
+To build from source instead, install Node.js 20+ and Python 3, clone this repository and run `npm run build`. Normal builds need no dependency installation. Use the resulting three runtime files in step 2.
+
+The internal plugin ID remains `paper-reservoir-dashboard` for compatibility with existing installations.
 
 ## Interface language and existing vaults
 

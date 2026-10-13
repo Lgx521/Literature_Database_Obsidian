@@ -21,7 +21,7 @@ The plugin's compact three-pane view is the daily interface. Maintain Markdown a
 7. Preserve user Notes, reading status, priority, tags, project notes and personal edits. New entries default to `待读`, priority `—`, empty personal Notes. Do not translate paper titles without instruction.
 8. Back up source files before writing, re-read to detect concurrent edits, and validate links, schema markers, memberships and paired attachments afterward. Keep `<!-- library:end -->`, `<!-- library:collections -->`, `<!-- collections:end -->` and `<!-- tracking:end -->` markers intact.
 
-The initial categories are examples and can be renamed: Robotics Policies, Agentic/RSI, ML, 3DV and Generative. Prefer the paper's application and main contribution; use tags for finer methods.
+New libraries start without categories or writing projects. The user creates their own categories; do not invent or pre-populate a taxonomy. Reuse categories the user has created, asking when a new category is needed. Use tags for finer methods.
 
 ## Tasks and recovery
 

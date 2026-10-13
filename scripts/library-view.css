@@ -206,3 +206,5 @@
 .ldb-language-button svg { width:16px; height:16px; }
 
 .ldb-browser[lang="en"] .ldb-metadata { grid-template-columns: 118px minmax(0, 1fr); }
+
+.ldb-full-width { width: 100%; }

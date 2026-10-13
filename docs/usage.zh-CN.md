@@ -1,5 +1,7 @@
 # 使用指南
 
+当前发布版仅支持桌面端，需 Obsidian 1.8.7+。安装 Release 的三个运行文件后启用插件，点击左侧文献库图标，在空库中选择「创建文献库」。初始没有分类或写作项目，需要用户点击 ＋ 自行创建；README 截图中的分类仅为演示。新安装默认不自动打开文献库，也不接管 Markdown 源表，可在「设置 → Literature Database」分别开启。已有文献库保留此前的行为。
+
 打开 Literature Database。顶部标签显示「文献库」或「Library」，当前分类、状态或项目只在列表上方显示一次。
 
 左侧栏标题旁的语言图标可切换「跟随 Obsidian」「中文」「English」，也可以从命令面板运行「切换界面语言…」。默认跟随 Obsidian；切换前需保存或取消编辑，个人内容保持原文。后台文件统一为 `library.md`、`collections.md`、`reviews.md` 和 `submissions.md`；升级自动备份并改名，表格内容和旧回收记录保留。

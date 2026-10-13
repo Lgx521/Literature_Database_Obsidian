@@ -1,5 +1,15 @@
 # Changelog
 
+## 4.3.1 — 2026-10-13
+
+- Prepare the first installable release for Community review; mark Node/Electron functionality as desktop-only.
+- Add explicit first-run creation of empty source tables and attachment folders, preserving existing files and agent instructions. New libraries have no predefined categories or writing projects.
+- Make startup opening and source-table redirects configurable; retain existing library preferences and default new installs to off.
+- Refuse to rename unrelated notes that happen to use a legacy source filename.
+- Use the current window document for inline renaming and move input widths into scoped CSS.
+- Embed license notices in the runtime; add reproducible release packaging, dependency sources and checksums.
+- Add README badges and manual release installation instructions.
+
 ## 4.3.0
 
 - Keep the selected manuscript after saving Notes/status or refreshing changed row indices.

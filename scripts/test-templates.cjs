@@ -4,11 +4,11 @@ const root=path.join(__dirname,'../templates/empty-vault'),read=name=>fs.readFil
 const library=read('library.md'),collections=C.parse(read('collections.md'));
 assert.equal(E.parseLibrary(library).length,0);assert(library.includes('<!-- library:collections -->'));
 assert(library.includes('| '+E.TITLE_HEADERS.join(' | ')+' |'));
-assert.deepEqual(collections.groups.map(g=>g.name),E.CATEGORIES);assert(collections.groups.every(g=>g.members.length===0));
+assert.deepEqual(collections.groups,[],'A new library has no predefined research categories or projects.');
 for(const name of ['reviews','submissions']){assert.equal(E.parseTracker(read(name+'.md'),name).length,0);assert.deepEqual(E.trackerGroups(read(name+'.md')),['暂存区']);}
 assert(!read('AGENTS.md').includes('/Users/'));
 const manifest=JSON.parse(fs.readFileSync(path.join(__dirname,'../manifest.json'),'utf8'));
 const pkg=JSON.parse(fs.readFileSync(path.join(__dirname,'../package.json'),'utf8'));
 const versions=JSON.parse(fs.readFileSync(path.join(__dirname,'../versions.json'),'utf8'));
 assert.equal(pkg.version,manifest.version);assert.equal(versions[manifest.version],manifest.minAppVersion);assert.equal(pkg.license,'AGPL-3.0-only');
-console.log('PASS: synthetic empty vault schema, initial collections, staging areas, no personal paths and consistent version metadata.');
+console.log('PASS: synthetic empty vault schema, no predefined categories, staging areas, no personal paths and consistent version metadata.');

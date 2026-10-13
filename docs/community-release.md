@@ -1,31 +1,60 @@
-# Community release preparation
+# Community submission readiness
 
-Checked against the official documentation on 2026-10-13. This is a readiness list, not a claim that the plugin has been submitted or approved.
+Checked against the official requirements on **2026-10-13** for **4.3.1**. This is a repository self-check, not Community approval. Automated review can still request changes.
 
-## Prepared
+## Repository and distribution
 
-- Public source repository, currently 4.3.0, with Chinese/English UI and English source filenames.
-- Root manifest, version map, AGPL-3.0 license and third-party attribution.
-- Reproducible local build, independent synthetic tests, CI and empty vault templates.
-- README disclosures for network requests, clipboard use, outside-vault import and platform limitations.
-- English UI screenshots from a separate demo vault, with public papers and fictional notes, projects and review tasks; see [screenshot provenance](screenshots/README.md).
+| Requirement | Result |
+| --- | --- |
+| Public source repository | `Lgx521/Literature_Database_Obsidian`, with no personal vault contents |
+| Root `README.md`, `LICENSE`, `manifest.json` | Present; usage, installation, screenshots, data access and platform limits documented |
+| Plugin identity | `paper-reservoir-dashboard`, displayed as Literature Database, author shengzhegan; retain the installed ID for upgrade compatibility |
+| ID uniqueness | No matching ID or name in the published plugin list at the time of this check; the directory performs the authoritative check |
+| Version metadata | Manifest, package and version map agree on `4.3.1`; release tag must be exactly `4.3.1`, without `v` |
+| Description | Short action statement, under 250 characters, ending with a period |
+| Minimum app | `1.8.7` for the public `getLanguage()` API; native menus and deferred views also use public APIs available by this version |
+| Desktop declaration | `isDesktopOnly: true` because the implementation uses Node/Electron; mobile installation is not supported |
+| Runtime assets | `main.js`, `manifest.json`, `styles.css` staged by `npm run release:check` and attached by the tag release workflow |
+| Reproducible dependencies | Locked versions; rebuilding the citation bundle produces the committed bytes |
+| License materials | AGPL-3.0-only project license, dependency notices embedded in `main.js`, separate release attachments, CSL source/styles in Git and dependency source archive in the release |
+| Badges | License, latest release, and an explicitly **not yet listed** Obsidian plugin badge; no install-from-directory claim |
 
-## Before the first public release
+The first release is [4.3.1](https://github.com/Lgx521/Literature_Database_Obsidian/releases/tag/4.3.1). Check that the three required runtime attachments are present before submitting. A tag or source archive alone is insufficient.
 
-1. Decide whether to retain `paper-reservoir-dashboard` as the permanent public identifier or migrate it to a new name before submission. The displayed name is already Literature Database. Do not silently rename an installed plugin's ID.
-2. Add a clear first-run setup flow. Currently the plugin requires fixed English source filenames and the empty templates; it opens the library on startup and redirects those documents. Test it in a clean vault and make potentially surprising startup behavior configurable.
-3. Audit platform support and the manifest. The manifest still declares `isDesktopOnly: false`, inherited from the private implementation; this is not a validated support claim. Version 4.3.0 requires Obsidian 1.8.7 for its public language API. Current official requirements call for desktop-only marking when using Node/Electron APIs, which this implementation uses. Verify the minimum version for every Obsidian API and set an accurate manifest before release.
-4. Verify installation, upgrades, unload, concurrent edits, iCloud interruptions and recovery in a separate vault. Run mobile/Windows/Linux testing only if those platforms will be claimed. A Linux CI parser pass does not validate the whole app.
-5. Review visible strings, accessibility, dark mode and narrow windows. The interface is bilingual; keep the demo screenshots current when visible behavior changes.
-6. Check all bundled dependency source/license obligations. Include the full project license and third-party notices with distribution, and retain the exact source/lockfiles corresponding to the release.
-7. Build a GitHub release whose tag exactly matches the updated manifest version. Attach `main.js`, `manifest.json` and `styles.css`; ensure the build can be reproduced from the same tag. No GitHub Release has been created by the initial source import.
-8. Sign in to the Obsidian Community directory, link the owning GitHub account, submit the repository, inspect automated review feedback and address it. This requires the owner's account and acceptance of the directory's policies; source upload alone is not submission.
+## Runtime and policy checks
+
+- New installs do not create source files or take over the workspace just by enabling the plugin. **Create library** is explicit. New libraries have no predefined categories or writing projects; users create their own.
+- Initialization refuses source-name collisions, preserves an existing `AGENTS.md` and leaves originals intact. Legacy migration requires source markers and backs up before renaming; it does not rename unrelated notes based only on their names.
+- Startup opening and source-table redirects are configurable. Existing libraries retain their prior behavior. The plugin does not close unrelated Markdown tabs on startup or detach leaves during unload.
+- Commands do not include the plugin ID in their IDs and define no default keyboard shortcuts. No sample-plugin placeholder code, client telemetry, ads, self-updater, runtime package installer or dynamic downloaded code is used.
+- Source mutations use guarded `vault.process` operations with backups. The adapter is used for hidden maintenance data that the indexed Vault API cannot access. macOS import uses explicit argv to `ditto`; PDF opening uses explicit argv to the default opener, with no shell expansion.
+- UI content is built with DOM helpers rather than injecting note text as HTML. Citation exports use escaped/sanitized HTML. CSS is scoped to plugin classes/views, and inputs use the current window document.
+- Vault/workspace handlers use `registerEvent`; refresh/countdown timers are cancelled on unload/close. Citation work checks unload/cancellation before writing.
+- README discloses Crossref/arXiv requests, explicit clipboard access and outside-vault PDF/sidecar imports. There is no account/payment requirement and no upload of PDFs or private review/submission material. See [README data and privacy](../README.md#data-and-privacy).
+- Bibliography formatting is deterministic. Agents are explicitly prohibited from inventing or filling citation fields.
+
+## Validation and limits
+
+- **25 synthetic regression suites pass on macOS**, including first-run defaults, initialization races, existing-file preservation, legacy migration, concurrent source edits, citation evidence, trash, deadlines and inline controls.
+- macOS application smoke checks use a separate temporary vault: plugin enable/disable, settings, explicit creation and library opening. No personal vault is used for testing.
+- The locked dependency audit reports **0 known vulnerabilities** as of the check date. This is not a guarantee that the software is vulnerability-free.
+- Release CI tests macOS and Linux, compares the rebuilt dependency bundle and validates version/asset consistency before publishing. Linux skips the two macOS Finder/clipboard suites; this does not establish Linux GUI compatibility.
+- Interactive testing used **macOS / Obsidian 1.14.4**, not every older app version. Windows/Linux GUI behavior, third-party themes and mobile compatibility are not claimed. Sync is provided by the vault's storage provider; simultaneous-device/iCloud failure testing is not an exhaustive certification.
+
+## Submit as the repository owner
+
+1. Verify [release 4.3.1](https://github.com/Lgx521/Literature_Database_Obsidian/releases/tag/4.3.1) has `main.js`, `manifest.json` and `styles.css`, and that the latest [workflow run](https://github.com/Lgx521/Literature_Database_Obsidian/actions) succeeded.
+2. Sign in at [Obsidian Community](https://community.obsidian.md) with your Obsidian account and connect the GitHub account that owns the repository.
+3. Open **Plugins → New plugin**. Enter `https://github.com/Lgx521/Literature_Database_Obsidian` and choose the owner.
+4. Read and agree to the developer policies and maintenance commitment, then submit. Submission and agreement are actions for the owner; this preparation does not perform them.
+5. Address any automated review findings by committing fixes and publishing a new numbered release. Only change the badge to a directory/install link after the entry is published.
+
+The current process uses the Community directory, not the older pull-request workflow for `community-plugins.json`.
 
 ## Official references
 
-- [Submit your plugin](https://docs.obsidian.md/Plugins/Releasing/Submit%20your%20plugin): repository files, release assets and the Community directory submission flow.
-- [Submission requirements](https://docs.obsidian.md/community-directory/submission-requirements-for-plugins): manifest, desktop APIs and descriptions.
+- [Submit your plugin](https://docs.obsidian.md/Plugins/Releasing/Submit%20your%20plugin): source repository, exact release tag and binary attachments.
+- [Submission requirements](https://docs.obsidian.md/community-directory/submission-requirements-for-plugins): manifest, desktop APIs and description rules.
 - [Developer policies](https://docs.obsidian.md/community-directory/developer-policies): privacy disclosures and licensing.
-- [Set up and claim](https://docs.obsidian.md/community-directory/set-up-and-claim): account linking and ownership.
-
-The current process uses the Community directory; do not follow older instructions that only add a line to `community-plugins.json` through a pull request.
+- [Plugin review guidelines](https://github.com/obsidianmd/obsidian-developer-docs/blob/main/en/Plugins/Releasing/Plugin%20guidelines.md): lifecycle, DOM, file APIs and styles.
+- [Set up and claim](https://docs.obsidian.md/community-directory/set-up-and-claim): owner account linking and submission.

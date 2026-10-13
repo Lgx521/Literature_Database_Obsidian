@@ -3,7 +3,7 @@ const E = require('./dashboard.js');
 // Fixtures stay independent of the user's changing statuses and collection size.
 const header = '| ' + E.HEADERS.join(' | ') + ' |\n| ' + E.HEADERS.map(()=> '---').join(' | ') + ' |';
 const fixtureRows = ['| [Test One.pdf](papers/Test%20One.pdf) | 2026 | #research/vla | One | 未标记 | — |', '| [Test Two.pdf](papers/Test%20Two.pdf) | 2025 | #research/rl | Two | 未标记 | — |'];
-const library = E.CATEGORIES.map((c,i)=>'## '+c+'\n\n'+header+'\n'+(i===0?fixtureRows.join('\n'):'')).join('\n\n')+'\n<!-- library:end -->';
+const library = ['Robotics Policies', 'Agentic/RSI', 'ML', '3DV', 'Generative'].map((c,i)=>'## '+c+'\n\n'+header+'\n'+(i===0?fixtureRows.join('\n'):'')).join('\n\n')+'\n<!-- library:end -->';
 const review = '## VENUE 2026\n\n| '+E.TRACKING_HEADERS.join(' | ')+' |\n| '+E.TRACKING_HEADERS.map(()=> '---').join(' | ')+' |\n\n<!-- tracking:end -->';
 const submit = review;
 const initial = {rows:E.parseLibrary(library)};

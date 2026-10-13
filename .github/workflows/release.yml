@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags: ['*.*.*']
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm test
+      - run: npm run release:check
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Rebuild locked dependencies and include their source
+        shell: bash
+        run: |
+          dependency_dir="$RUNNER_TEMP/ldb-dependencies"
+          mkdir -p "$dependency_dir"
+          cp scripts/vendor/package.json scripts/vendor/package-lock.json "$dependency_dir/"
+          npm ci --ignore-scripts --prefix "$dependency_dir"
+          node scripts/build-citations.cjs "$dependency_dir"
+          git diff --exit-code -- scripts/vendor/citation-engine.cjs
+          tar -czf "$RUNNER_TEMP/dependency-source.tar.gz" -C "$dependency_dir" package.json package-lock.json node_modules
+      - run: npm test
+      - run: npm run release:check
+      - name: Publish versioned assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          cp "$RUNNER_TEMP/dependency-source.tar.gz" "dist/$RELEASE_TAG/"
+          (cd "dist/$RELEASE_TAG" && sha256sum main.js manifest.json styles.css LICENSE THIRD-PARTY.md literature-database.zip dependency-source.tar.gz > SHA256SUMS)
+          gh release create "$RELEASE_TAG" "dist/$RELEASE_TAG/"* --verify-tag --title "Literature Database $RELEASE_TAG" --notes-file docs/release-notes.md

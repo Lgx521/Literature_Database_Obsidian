@@ -190,7 +190,7 @@ class LibraryNavigation extends ItemView {
     if(this.plugin.hasPendingEdit()||this.plugin.importing){new Notice(tr('请先保存或取消编辑，并等待当前操作结束'));return;}
     if(!button.isConnected){this.render();new Notice(tr('列表已更新，请重新右键重命名'));return;}
     this.renaming={scope,name};
-    const editor=document.createElement('div');editor.className='ldb-nav-item is-child ldb-nav-renaming';
+    const editor=button.ownerDocument.createElement('div');editor.className='ldb-nav-item is-child ldb-nav-renaming';
     setIcon(editor.createSpan('ldb-nav-icon'),'folder');
     const input=editor.createEl('input',{type:'text',cls:'ldb-nav-rename-input',attr:{'aria-label':scope==='library'?tr('重命名分类'):scope==='projects'?tr('重命名项目'):tr('重命名 Venue')}});input.value=name;
     button.replaceWith(editor);let saving=false,finished=false;
@@ -218,7 +218,7 @@ class CategoryModal extends Modal {
   onOpen(){
     this.titleEl.setText(this.scope==='projects'?tr('新建写作项目'):tr('新建分类'));
     const input=this.contentEl.createEl('input',{type:'text',attr:{placeholder:tr('例如：具身评测'),'aria-label':tr('分类名称')}});
-    input.style.width='100%';
+    input.addClass('ldb-full-width');
     const choice=this.scope==='projects'?ldbSharedDeadlineChoice(this.plugin,this.scope,this.contentEl,input):()=>null;
     const error=this.contentEl.createDiv('ldb-form-error');
     const save=ldbButton(this.contentEl,tr('创建'),async()=>{
@@ -236,7 +236,7 @@ class VenueModal extends Modal {
   constructor(plugin,scope){super(plugin.app);this.plugin=plugin;this.scope=scope;}
   onOpen(){
     this.titleEl.setText(tr(this.scope==='reviews'?'新增审稿 Venue':'新增投稿 Venue'));
-    const input=this.contentEl.createEl('input',{type:'text',attr:{placeholder:tr('例如 CoRL 2027'),'aria-label':tr('Venue 名称')}});input.style.width='100%';
+    const input=this.contentEl.createEl('input',{type:'text',attr:{placeholder:tr('例如 CoRL 2027'),'aria-label':tr('Venue 名称')}});input.addClass('ldb-full-width');
     const choice=this.scope==='submissions'?ldbSharedDeadlineChoice(this.plugin,this.scope,this.contentEl,input):()=>null;
     const error=this.contentEl.createDiv('ldb-form-error');const save=ldbButton(this.contentEl,tr('创建'),async()=>{
       save.disabled=true;try{const name=input.value.trim();if(['暂存区','待确定 venue'].includes(name))throw new Error(tr('暂存区已存在'));await this.plugin.newVenue(this.scope,name,choice());this.close();await this.plugin.openLibrary({scope:this.scope,category:name});}catch(e){error.setText(e.message);save.disabled=false;}
@@ -292,7 +292,7 @@ class AgentHandoffModal extends Modal {
     this.contentEl.createEl('p',{text:tr('复制指令，粘贴到 Codex 执行。')});
     const base=this.app.vault.adapter.getBasePath?.()||this.app.vault.getName();
     const prompt=tr`请整理论文库 ${base} 的 temp 收件箱。先读取根目录 AGENTS.md，按 AGENTS.md 运行收件箱检查，再核实 PDF/官方元数据、去重和区分版本，保留 PDF 与 Skim 批注配对。按现有分类归档，不覆盖我的 Notes、阅读状态、优先级或手写 TL;DR。不把审稿材料并入公开库；不要搜索或上传匿名稿件。日期精确到月时写 YYYY.M；新增文献默认待读。最后运行内容检查与解析测试，报告新增、重复、版本和待确认项。只处理这次现有收件箱，不创建定时任务。严禁补充、生成、推测或改写 BibTeX、引用来源、引用键、作者、DOI 等引用资料；不得根据标题、PDF、联网搜索或模型记忆补齐这些字段。新条目的 BibTeX 与引用来源必须留空；既有字段逐字保留。在篇名列记录 PDF 首页或官方页面中已核实的完整标题，不能用文件名代替。只整理篇名、分类、标签、TL;DR 等文献管理内容；引用由插件的确定性程序单独识别。分类关联维护在collections.md，同篇文献可属于多个分类，源表只保留一行。`;
-    const area=this.contentEl.createEl('textarea',{attr:{rows:'10','aria-label':tr('Agent 整理指令')}});area.value=prompt;area.style.width='100%';
+    const area=this.contentEl.createEl('textarea',{attr:{rows:'10','aria-label':tr('Agent 整理指令')}});area.value=prompt;area.addClass('ldb-full-width');
     ldbButton(this.contentEl,tr('复制整理指令'),async()=>{try{await navigator.clipboard.writeText(area.value);new Notice(tr('已复制，请粘贴到 Codex 执行'));this.close();}catch(e){area.focus();area.select();new Notice(tr('请按 ⌘C 复制'));}},'mod-cta');
   }
   onClose(){this.contentEl.empty();}

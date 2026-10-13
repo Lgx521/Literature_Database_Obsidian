@@ -1,6 +1,6 @@
 # Development
 
-The repository tracks the 4.2.3 implementation extracted from the running plugin. It contains no personal library data. The runtime code is unchanged by the initial repository import; build output paths and tests have been adapted for an independent checkout.
+This repository contains the plugin source and synthetic tests, with no personal library data. The first version-controlled baseline was 4.2.3; the current submission candidate is 4.3.1.
 
 ## Build and test
 
@@ -21,6 +21,7 @@ The build assembles source modules into `main.js` and copies the plugin CSS to `
 | --- | --- |
 | `dashboard.js`, `collections.js` | Markdown parsing, metadata and collection membership |
 | `library-view.js`, `collection-view.js`, `library-view.css` | Navigation, compact lists, details and controls |
+| `setup.js` | Explicit empty-vault setup and startup preferences |
 | `plugin-tail.js` | Obsidian lifecycle, mutation guards, coordination and system PDF opening |
 | `inbox-import.js` | Explicit PDF/sidecar import and clipboard decoding |
 | `record-trash.js` | Recoverable archive receipts, restore and permanent purge |
@@ -44,7 +45,9 @@ The optional `scripts/setup-skim.sh` is a manually run macOS utility, not part o
 
 ## Versions
 
-Use normal commits for development. Update the manifest/package/version map together for a release. A future Obsidian release tag must match the manifest version exactly, without a `v` prefix. Upload the three built runtime assets and include the corresponding source and license notices. Creating an initial source commit does not publish a Community directory entry.
+Use normal commits for development. Update the manifest/package/version map together for a release. A future Obsidian release tag must match the manifest version exactly, without a `v` prefix. Upload the three built runtime assets and include the corresponding source and license notices. Creating a source commit or release does not publish a Community directory entry.
+
+Run `npm run release:check` after building. It validates the manifest and distribution, stages runtime files, license notices, an installation ZIP and SHA-256 hashes under ignored `dist/<version>/`. The release workflow tests on macOS/Linux, recreates the citation bundle from its locked dependencies, compares it with the committed bundle, and only then publishes assets for an exact matching tag (for example `4.3.1`). Dependency source is attached separately. Do not reuse a published version or tag. See [release notes](release-notes.md).
 
 ## Localization and filename migration
 
