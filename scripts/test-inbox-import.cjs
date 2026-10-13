@@ -13,12 +13,12 @@ const run=promisify(execFile),{importInboxFiles}=require('./inbox-import.js');
   assert.equal(await fs.readFile(path.join(vault,'temp',name),'utf8'),'%PDF test original');
   assert.equal((await run('/usr/bin/xattr',['-p','org.literature.drag-test',path.join(vault,'temp',name)])).stdout.trim(),'attribute notes');
   assert.equal(await fs.readFile(path.join(vault,'temp',name.slice(0,-4)+'.skim'),'utf8'),'personal notes');
-  const second=await importInboxFiles(vault,[input]);assert.equal(second[0].path,'temp/'+name.slice(0,-4)+' (2).pdf');assert(second[0].renamed);
+  const second=await importInboxFiles(vault,[input]);assert.equal(second[0].path,'temp/import-2/'+name);assert(second[0].collision);assert.equal(second[0].renamed,false);
   assert.equal(await fs.readFile(path.join(vault,second[0].path.slice(0,-4)+'.skim'),'utf8'),'personal notes');
   assert.equal(await fs.readFile(stem+'.skim','utf8'),'personal notes');assert.equal(await fs.readFile(source,'utf8'),'%PDF test original');
   // An orphan sidecar also reserves the stem, so unrelated notes cannot become paired.
-  await fs.writeFile(path.join(vault,'temp',name.slice(0,-4)+' (3).fdf'),'existing unrelated');
-  assert((await importInboxFiles(vault,[input]))[0].path.endsWith(' (4).pdf'));
+  await fs.mkdir(path.join(vault,'temp/import-3'));await fs.writeFile(path.join(vault,'temp/import-3',name.slice(0,-4)+'.fdf'),'existing unrelated');
+  assert((await importInboxFiles(vault,[input]))[0].path==='temp/import-4/'+name);
   const skipped=await importInboxFiles(vault,[{name,path:path.join(vault,'temp',name)}]);assert(skipped[0].skipped);
   const missing=await importInboxFiles(vault,[{name:'absent.pdf',path:path.join(external,'absent.pdf')}]);assert(missing[0].error);
   // Simulate a competing writer appearing after destination planning: no file is overwritten.
@@ -27,10 +27,10 @@ const run=promisify(execFile),{importInboxFiles}=require('./inbox-import.js');
    if(!raced&&d.endsWith('/Race.pdf')){raced=true;await fs.writeFile(d,'other device');}
    return fs.link(s,d);
   }:target[key]});
-  const racedResult=await importInboxFiles(vault,[{name:'Race.pdf',path:raceSource}],{fs:raceFS});assert.equal(racedResult[0].path,'temp/Race (2).pdf');
+  const racedResult=await importInboxFiles(vault,[{name:'Race.pdf',path:raceSource}],{fs:raceFS});assert.equal(racedResult[0].path,'temp/import-2/Race.pdf');
   assert.equal(await fs.readFile(path.join(vault,'temp/Race.pdf'),'utf8'),'other device');
   await assert.rejects(fs.stat(path.join(vault,'temp/Race.skim')),e=>e.code==='ENOENT');
-  assert.equal(await fs.readFile(path.join(vault,'temp/Race (2).skim'),'utf8'),'race notes');
+  assert.equal(await fs.readFile(path.join(vault,'temp/import-2/Race.skim'),'utf8'),'race notes');
   // If attachment copying fails, do not expose a PDF without its annotations.
   const failed=await importInboxFiles(vault,[input],{execFile:(bin,args,cb)=>args[2].endsWith('.skim')?cb(new Error('copy failed')):execFile(bin,args,cb)});
   assert(failed[0].error);assert.deepEqual(await fs.readdir(path.join(vault,'.maintenance-imports')),[]);

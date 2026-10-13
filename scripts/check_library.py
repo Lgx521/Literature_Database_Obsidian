@@ -78,13 +78,23 @@ def check(root):
                 if not re.match(r'^\|\s*\[', line):
                     continue
                 row = [c.strip() for c in re.split(r'(?<!\\)\|', line)[1:-1]]
-                if len(row) not in (6, 7, 8, 10, 11):
+                if len(row) not in (6, 7, 8, 10, 11, 13):
                     errors.append('文献库: 表格列数异常'); continue
                 entries += 1
                 if not PUBLICATION_DATE_RE.fullmatch(row[1]):
                     errors.append(row[0] + ': 发表时间须为 YYYY.M（月份 1–12，不补零）、YYYY 或待核实')
                 if row[4] not in ['未标记', '待整理', '待读', '在读', '已读', '暂存']:
                     errors.append(row[0] + ': 无效阅读状态')
+                if len(row) == 13:
+                    if row[11] not in ['', '待整理', 'AI 已整理', '人工完成']:
+                        errors.append(row[0] + ': 无效整理状态')
+                    if row[12]:
+                        try:
+                            provenance = json.loads(html.unescape(row[12]))
+                            if provenance.get('v') != 1 or not isinstance(provenance.get('fields'), dict) or not isinstance(provenance.get('tags'), dict):
+                                raise ValueError('invalid provenance')
+                        except (ValueError, AttributeError):
+                            errors.append(row[0] + ': 无效整理来源')
                 if row[5] not in ['高', '中', '低', '—']:
                     errors.append(row[0] + ': 无效优先级')
                 matches = re.findall(r'\]\(([^)]+)\)', row[0])
@@ -100,17 +110,17 @@ def check(root):
     if '<!-- library:collections -->' in library_text and not (root / 'collections.md').is_file():
         errors.append('collections.md 尚未同步')
     hashes = {}
-    pdfs = sorted((root / 'papers').glob('*.pdf'))
+    pdfs = sorted((p for p in (root / 'papers').rglob('*') if p.is_file() and p.suffix.lower() == '.pdf'))
     for p in pdfs:
         if p.resolve() not in linked:
             errors.append('未收录的 PDF: ' + p.name)
-        hashes.setdefault(digest(p), []).append(p.name)
+        hashes.setdefault(digest(p), []).append(str(p.relative_to(root)))
     for names in hashes.values():
         if len(names) > 1:
             errors.append('PDF 内容重复（先检查批注，不自动删除）: ' + ', '.join(names))
     for folder in ['papers', 'reviews', 'submissions', 'temp']:
         for sidecar in (root / folder).rglob('*.skim'):
-            if not sidecar.with_suffix('.pdf').exists():
+            if not any(p.suffix.lower() == '.pdf' and p.stem == sidecar.stem for p in sidecar.parent.iterdir()):
                 errors.append('孤立 Skim 批注: ' + str(sidecar.relative_to(root)))
     if errors:
         print('\n'.join(errors), file=sys.stderr)
@@ -121,7 +131,7 @@ def check(root):
 
 def inbox(root):
     known = {}
-    for p in (root / 'papers').glob('*.pdf'):
+    for p in (p for p in (root / 'papers').rglob('*') if p.is_file() and p.suffix.lower() == '.pdf'):
         known.setdefault(digest(p), []).append(str(p.relative_to(root)))
     results = []
     for p in sorted((root / 'temp').rglob('*')):

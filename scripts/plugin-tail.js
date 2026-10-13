@@ -265,7 +265,7 @@ module.exports=class LiteratureManager extends Plugin {
   async importDroppedFiles(files,nav={scope:'inbox'}){
     if(this.importing)throw new Error(tr('正在导入上一批 PDF，请稍候'));
     if(this.recordBusy)throw new Error(tr('请等待当前操作完成'));
-    const scope=nav.scope;if(!['inbox','reviews','submissions'].includes(scope))throw new Error(tr('无效导入位置'));
+    const scope=nav.scope,publicImport=['library','projects'].includes(scope);if(!['inbox','reviews','submissions','library','projects'].includes(scope))throw new Error(tr('无效导入位置'));
     if(scope!=='inbox'&&this.lastError)throw new Error(tr('源数据不完整，请等待同步'));
     if(!Platform.isDesktopApp||!Platform.isMacOS)throw new Error(tr('保留 Skim 批注的拖拽导入目前支持 Mac；其他设备可将文件放入 temp'));
     const base=this.app.vault.adapter.getBasePath?.();if(!base)throw new Error(tr('无法读取本机仓库路径'));
@@ -277,31 +277,46 @@ module.exports=class LiteratureManager extends Plugin {
       return {name:file.name,path:source};
     });
     if(inputs.some(f=>!f.path))throw new Error(tr('未取得本地 PDF 路径，请先保存文件，再从 Finder 拖入'));
-    const category=scope==='inbox'?'':nav.category||this.stagingGroup(scope);
-    if(scope!=='inbox'){
+    const category=scope==='inbox'?'':nav.category||(publicImport?'':this.stagingGroup(scope));
+    if(publicImport){
+      if(this.hasPendingEdit())throw new Error(tr('请先保存或取消编辑'));
+      if(!category||category===Engine.UNFILED_CATEGORY||!this.snapshot?.collections?.some(g=>g.scope===scope&&g.name===category))throw new Error(tr('请拖到已创建的分类或项目'));
+    }
+    if(!publicImport&&scope!=='inbox'){
       const file=this.app.vault.getAbstractFileByPath(TRACK_FILES[scope]);if(!file)throw new Error(tr('源表尚未同步'));
       Engine.updateTracker(await this.app.vault.read(file),TRACK_FILES[scope],null,{title:'Validation',pdfPath:'',category,status:'待整理',due:'—',next:'',notes:''});
     }
-    let folder=scope==='inbox'?'temp':scope+'/'+(category===this.stagingGroup(scope)?'_staging':category.replace(/[\\/:*?"<>|.]/g,'-').replace(/\s+/g,'-').slice(0,60)||'venue');
-    this.importing=true;const progress=new Notice(tr('正在导入 ')+inputs.length+tr(' 篇 PDF…'),0);
+    let folder=publicImport?'papers':scope==='inbox'?'temp':scope+'/'+(category===this.stagingGroup(scope)?'_staging':category.replace(/[\\/:*?"<>|.]/g,'-').replace(/\s+/g,'-').slice(0,60)||'venue');
+    this.importing=true;let importedPaths=[];const progress=new Notice(tr('正在导入 ')+inputs.length+tr(' 篇 PDF…'),0);
     try{
       const results=await InboxImport.importInboxFiles(base,inputs,{folder});
       const added=results.filter(r=>r.path),skipped=results.filter(r=>r.skipped),failed=results.filter(r=>r.error);
-      if(scope!=='inbox'&&added.length){
+      if(publicImport){
+        const existing=results.filter(r=>r.existingPath&&this.snapshot.library.some(p=>p.path===r.existingPath));
+        importedPaths=[...new Set([...added.map(r=>r.path),...existing.map(r=>r.existingPath)])];
+        if(importedPaths.length)try{await this.mutateDeadlineSources(texts=>{
+          let library=texts[LIBRARY_SOURCE];
+          for(const path of importedPaths){
+            if(!added.some(r=>r.path===path)&&!Engine.parseLibrary(library).some(r=>r.path===path))throw new Error(tr('文献已被其他窗口移除，请重试'));
+            library=Engine.addLibraryEntry(library,path);
+          }
+          return {[LIBRARY_SOURCE]:library,[COLLECTION_SOURCE]:Collections.change(texts[COLLECTION_SOURCE],importedPaths,{scope,name:category})};
+        },[LIBRARY_SOURCE,COLLECTION_SOURCE],'import');}catch(error){importedPaths=[];throw new Error(tr('附件保留在 ')+folder+tr('；记录写入失败：')+error.message);}
+      }else if(scope!=='inbox'&&added.length){
         try{await this.mutate(TRACK_FILES[scope],text=>{
           for(const r of added)text=Engine.updateTracker(text,TRACK_FILES[scope],null,{title:r.path.split('/').pop(),pdfPath:r.path,category,status:scope==='reviews'?'待审':'准备中',due:'—',next:'',notes:''});return text;
         });}catch(error){throw new Error(tr('附件保留在 ')+folder+tr('；记录写入失败：')+error.message);}
       }
       await this.refresh();
-      if(added.length&&!this.hasPendingEdit())await this.openLibrary({scope,category,status:''});
+      if((added.length||importedPaths.length)&&!this.hasPendingEdit())await this.openLibrary({scope,category,status:''});
       const summary=[tr`已导入 ${added.length} 篇 PDF`];
       const attached=added.reduce((n,r)=>n+r.attachments,0);if(attached)summary.push(tr`保留 ${attached} 个批注附件`);
-      if(added.some(r=>r.renamed))summary.push(tr('重名文件已加后缀，原件未覆盖'));
+      if(added.some(r=>r.collision))summary.push(tr('重名文件放入独立子目录，文件名和原件保持不变'));
       if(skipped.length)summary.push(tr`${skipped.length} 篇已在本库，保留原位置`);
       if(failed.length)summary.push(...failed.map(r=>r.name+'：'+r.error));
       if(files.some(f=>!/\.(pdf|skim|fdf|xfdf)$/i.test(f.name)))summary.push(tr('已忽略非 PDF 文件'));
       new Notice(summary.join('\n'),failed.length?15000:8000);return results;
-    }finally{progress.hide();this.importing=false;}
+    }finally{progress.hide();this.importing=false;if(importedPaths.length&&typeof loadPdfJs==='function')this.ensureCitationRows(this.snapshot.library.filter(r=>importedPaths.includes(r.path))).catch(e=>new Notice(e.message,8000));}
   }
   schedule(){if(this.stopped)return;clearTimeout(this.timer);this.timer=setTimeout(()=>this.refresh(),300);}
   async refresh(notify=false){
@@ -329,7 +344,7 @@ module.exports=class LiteratureManager extends Plugin {
       if(this.stopped)return;
       this.snapshot={library,reviews,submissions,inbox,collections,deadlineEntries,categories:collections?[...collections.filter(g=>g.scope==='library').map(g=>g.name),...(library.some(r=>!r.categories.length)?[Engine.UNFILED_CATEGORY]:[])]:Engine.getCategories(texts[0]),groups:{projects:collections?.filter(g=>g.scope==='projects').map(g=>g.name)||[],reviews:Engine.trackerGroups(texts[1]),submissions:Engine.trackerGroups(texts[2])},deadlines};this.lastError='';
       const added=this.citationKnown?library.filter(r=>!this.citationKnown.has(r.path)):[];this.citationKnown=new Set(library.map(r=>r.path));
-      if(added.length&&typeof loadPdfJs==='function')this.ensureCitationRows(added).catch(e=>new Notice(e.message,8000));
+      if(added.length&&!this.importing&&typeof loadPdfJs==='function')this.ensureCitationRows(added).catch(e=>new Notice(e.message,8000));
     }catch(e){const message=tr('保留上次列表：')+e.message;if(message!==this.lastError)new Notice(message,8000);this.lastError=message;}
     this.renderNavigation();for(const leaf of this.app.workspace.getLeavesOfType(LIBRARY_VIEW))if(leaf.view instanceof LiteratureBrowser)await leaf.view.reload();
   }
@@ -343,15 +358,15 @@ module.exports=class LiteratureManager extends Plugin {
     await vault.process(file,current=>{if(current!==before)throw new Error(tr('备份期间文件发生变化，请重试；草稿已保留'));return after;});
     await this.refresh();
   }
-  async mutateDeadlineSources(transform){
+  async mutateDeadlineSources(transform,names=[COLLECTION_SOURCE,TRACK_FILES.submissions],label='ddl'){
     if(this.lastError)throw new Error(tr('源数据不完整，暂不能保存'));
-    const vault=this.app.vault,names=[COLLECTION_SOURCE,TRACK_FILES.submissions],files=names.map(n=>vault.getAbstractFileByPath(n));
+    const vault=this.app.vault,files=names.map(n=>vault.getAbstractFileByPath(n));
     if(files.some(f=>!(f instanceof TFile)))throw new Error(tr('源文件尚未同步'));
     const before=Object.fromEntries(await Promise.all(names.map(async(n,i)=>[n,await vault.read(files[i])]))),after=transform(before);
     const changed=names.filter(n=>before[n]!==after[n]);if(!changed.length)return;
     const folder='.maintenance-backups';if(!await vault.adapter.exists(folder))await vault.adapter.mkdir(folder);
     const stamp=new Date().toISOString().replace(/[:.]/g,'-')+'-'+Math.random().toString(36).slice(2,8);
-    for(const n of changed)await vault.adapter.write(folder+'/'+n.replace(/\.md$/,'')+'-ddl-'+stamp+'.md',before[n]);
+    for(const n of changed)await vault.adapter.write(folder+'/'+n.replace(/\.md$/,'')+'-'+label+'-'+stamp+'.md',before[n]);
     const written=[];this.ddlWriting=true;
     try{
       // Guard both files, including a read-only source used by a selection.
@@ -413,15 +428,16 @@ module.exports=class LiteratureManager extends Plugin {
         let changes={},error='';
         try{
           // Existing bibliography and keys are never overwritten by automatic retrieval.
-          if(row.bibtex){const entry=getCitations().parseEntry(row.bibtex);if(!row.title&&CitationMetadata.validTitle(entry.data.title))changes.title=entry.data.title;if(entry.issues.length)error=tr('既有引用缺少')+entry.issues.join('、');}
-          else if(!(options.titleOnly&&row.title)){
+          if(row.bibtex){const entry=getCitations().parseEntry(row.bibtex);if(row.organizing!=='人工完成'&&Organization.temporaryTitle(row)&&CitationMetadata.validTitle(entry.data.title))changes.title=entry.data.title;if(entry.issues.length)error=tr('既有引用缺少')+entry.issues.join('、');}
+          else if(!(options.titleOnly&&!Organization.temporaryTitle(row))){
             if(!row.path.startsWith('papers/'))throw new Error(tr('只识别公开文献'));
             const file=this.app.vault.getAbstractFileByPath(row.path);if(!(file instanceof TFile))throw new Error(tr('PDF 尚未同步到本机'));
             if(file.stat.size>150*1024*1024)throw new Error(tr('PDF 超过 150 MB，未自动解析'));
             const bytes=await this.app.vault.readBinary(file),evidence=await CitationMetadata.readPdf(await loadPdfJs(),bytes);
             if(this.stopped||options.cancelled?.())break;
-            const result=options.titleOnly?{title:CitationMetadata.pdfTitle(evidence,row)}:await CitationMetadata.resolve(row,evidence,{request:this.citationTransport,fromCsl:getCitations().fromCsl});
-            if(!row.title&&result.title)changes.title=result.title;
+            const evidenceRow=Organization.temporaryTitle(row)?{...row,title:''}:row;
+            const result=options.titleOnly?{title:CitationMetadata.pdfTitle(evidence,evidenceRow)}:await CitationMetadata.resolve(evidenceRow,evidence,{request:this.citationTransport,fromCsl:getCitations().fromCsl});
+            if(row.organizing!=='人工完成'&&Organization.temporaryTitle(row)&&result.title)changes.title=result.title;
             if(result.bibtex){changes.bibtex=result.bibtex;changes.citationSource=result.citationSource;}
             error=result.citationError||(!result.title&&!row.title?tr('尚未取得论文篇名'):'');
           }
@@ -430,9 +446,9 @@ module.exports=class LiteratureManager extends Plugin {
             if(this.hasPendingEdit()||this.importing)throw new Error(tr('存在未保存编辑，引用暂未写入；保存后再次导出即可'));
             await this.mutate(LIBRARY_SOURCE,text=>{
               const current=Engine.parseLibrary(text).find(r=>r.path===row.path);
-              if(!current||['title','bibtex','citationSource'].some(k=>current[k]!==row[k]))throw new Error(tr('引用或篇名已被其他窗口修改，请重试'));
+              if(!current||['title','bibtex','citationSource','organizing','provenance'].some(k=>JSON.stringify(current[k])!==JSON.stringify(row[k])))throw new Error(tr('引用或篇名已被其他窗口修改，请重试'));
               if(changes.bibtex){const key=getCitations().parseEntry(changes.bibtex).key;for(const other of Engine.parseLibrary(text))if(other.path!==row.path&&other.bibtex){let existing;try{existing=getCitations().parseEntry(other.bibtex).key;}catch(_){}if(existing===key)throw new Error(tr('引用键冲突，未覆盖已有引用'));}}
-              return Engine.updateLibraryEntry(text,current,changes);
+              return Engine.updateLibraryEntry(text,current,changes,{kind:'system',name:'PDF / official metadata'});
             });
             row=this.snapshot.library.find(r=>r.path===row.path)||row;
           }

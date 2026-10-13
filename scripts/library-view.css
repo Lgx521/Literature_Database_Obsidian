@@ -208,3 +208,7 @@
 .ldb-browser[lang="en"] .ldb-metadata { grid-template-columns: 118px minmax(0, 1fr); }
 
 .ldb-full-width { width: 100%; }
+
+/* Stable filenames are secondary to the editable paper title. */
+.ldb-browser .ldb-original-filename { font-size: 11px; line-height: 1.4; color: var(--text-muted); overflow-wrap: anywhere; margin: 0 0 12px; }
+.ldb-tags .ldb-tag.ldb-tag-human { color: var(--text-accent); background: color-mix(in srgb, var(--interactive-accent) 12%, transparent); }

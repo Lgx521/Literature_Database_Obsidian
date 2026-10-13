@@ -1,0 +1,28 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),E=require('./dashboard'),O=E.Organization;
+const source=fs.readFileSync('templates/empty-vault/library.md','utf8'),path='papers/import-2/2601.12345v2.PDF';
+let text=E.addLibraryEntry(source,path);const row=()=>E.parseLibrary(text)[0];
+const human={kind:'human',name:'user'},ai={kind:'ai',name:'Codex'},write=(changes,actor)=>{text=E.updateLibraryEntry(text,row(),changes,actor);};
+assert.equal(row().title,'2601.12345v2.PDF');assert.equal(row().filename,row().title);assert(O.temporaryTitle(row()));assert(O.pending(row()));assert.equal(row().tldr,'');assert.equal(row().tags,'');assert.equal(row().cells.length,13);
+assert.equal(E.addLibraryEntry(text,path),text);
+write({title:'Verified Scientific Paper',tldr:'Summary | part\nsecond <literal>',tags:'#ai',organizing:'AI 已整理'},ai);
+assert.equal(row().path,path);assert.equal(row().filename,'2601.12345v2.PDF');assert(!O.temporaryTitle(row()));assert(!O.pending(row()));assert.equal(O.source(row(),'title').name,'Codex');assert.equal(O.source({...row(),tldr:E.decodeText(row().tldr)},'tldr').kind,'ai');
+assert.equal(E.decodeText(row().tldr),'Summary | part second <literal>');
+write({tags:'#ai #human',title:'Human corrected title'},human);
+assert.equal(O.source(row(),'#human',true).kind,'human');assert.equal(O.source(row(),'#ai',true).kind,'ai');
+assert.throws(()=>write({title:'AI overwrite'},ai),/人工或未知/);assert.throws(()=>write({tags:'#new'},ai),/已有标签/);
+for(const field of ['bibtex','citationSource','notes','venues','status','priority','category','path'])assert.throws(()=>write({[field]:'forbidden'},ai));
+write({organizing:'人工完成'},human);assert(!O.pending(row()));for(const changes of [{title:'Overwrite'},{tags:'#ai #human #new'},{organizing:'待整理'}])assert.throws(()=>write(changes,ai),/人工完成/);
+write({organizing:'待整理'},human);assert(O.pending(row()));write({tags:'#ai #human #new',organizing:'AI 已整理'},ai);assert.equal(O.source(row(),'#new',true).name,'Codex');
+// Direct external edits invalidate fingerprints instead of being assigned the previous authorship.
+write({title:'External title'});assert.equal(O.source(row(),'title').kind,'unknown');assert.throws(()=>write({title:'Overwritten'},ai),/未知/);
+const saved=row();text=E.removeRecord(text,'library',saved);text=E.restoreRecord(text,'library',saved);assert.deepEqual(row().cells,saved.cells);
+const legacy='## Legacy\n| '+E.TITLE_HEADERS.join(' | ')+' |\n| '+E.TITLE_HEADERS.map(()=> '---').join(' | ')+' |\n| [Old.pdf](papers/Old.pdf) | 2020 | #old | Original | 在读 | 高 | Personal | User venue | @misc{keep} | Source | Original title |\n<!-- library:end -->\nPrivate prose';
+const old=E.parseLibrary(legacy)[0],migrated=E.migrateLibraryOrganization(legacy),newRow=E.parseLibrary(migrated)[0];
+assert.deepEqual(newRow.cells.slice(0,11),old.cells);assert(migrated.endsWith('Private prose'));assert.equal(O.source(newRow,'#old',true).kind,'unknown');assert.equal(O.source(newRow,'title').kind,'unknown');
+assert.equal(E.migrateLibraryOrganization(migrated),migrated);assert.throws(()=>E.updateLibraryEntry(migrated,newRow,{title:'AI title'},ai),/未知/);
+assert.throws(()=>O.parse('{"v":1,"fields":"invalid","tags":{}}'));
+assert.throws(()=>O.parse('{"v":1,"fields":{},"tags":{"#x":{"kind":"ai","name":"Codex","hash":"invalid"}}}'));
+assert.throws(()=>E.updateLibraryEntry(migrated,newRow,{organizing:'invalid'}));
+const incomplete={...row(),tldr:'',organizing:'AI 已整理'};assert(O.pending(incomplete));assert(!O.pending({...incomplete,organizing:'人工完成'}));
+assert.equal(E.filterLibrary([incomplete,{...incomplete,path:'other',organizing:'人工完成'}],{organizing:'pending'}).length,1);
+console.log('PASS: immutable basenames, provisional titles, human/AI attribution, field fingerprints, human locks, legacy migration, incomplete filtering and trash restoration.');

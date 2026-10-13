@@ -26,7 +26,7 @@ const event=(types,files=[])=>({dataTransfer:{types,files,dropEffect:'none',getD
  const otherScope=event(['Files'],[pdf]);await list.events.drop(otherScope);assert(!otherScope.prevented);assert.equal(calls.length,0);
  enabled=true;const link=event(['text/uri-list']);await list.events.drop(link);assert.equal(calls.length,0);
  const internalToInbox=event([dragMime]);inbox.events.dragover(internalToInbox);assert.equal(internalToInbox.dataTransfer.dropEffect,'none');
- plugin.importDroppedFiles=async()=>{throw new Error('copy failed');};await inbox.events.drop(event(['Files'],[pdf]));assert(notices.includes('copy failed'));
+ plugin.hasPendingEdit=()=>false;plugin.importDroppedFiles=async()=>{throw new Error('copy failed');};await inbox.events.drop(event(['Files'],[pdf]));assert(notices.includes('copy failed'));
  plugin.importDroppedFiles=async(files,nav)=>calls.push([nav.scope,nav.category,files[0].name]);
  plugin.hasPendingEdit=()=>false;plugin.dragState={token:'token',scope:'reviews'};
  const review=new Target();dropTarget(review,plugin,{scope:'reviews',category:'CoRL 2027'});await review.events.drop(event(['Files'],[pdf]));assert.deepEqual(calls.pop(),['reviews','CoRL 2027',pdf.name]);
@@ -37,6 +37,9 @@ const event=(types,files=[])=>({dataTransfer:{types,files,dropEffect:'none',getD
  const publicCopy=event([dragMime]);category.events.dragover(publicCopy);assert.equal(publicCopy.dataTransfer.dropEffect,'copy');await category.events.drop(publicCopy);assert.deepEqual(calls.pop(),['library','ML',false]);
  const publicMove=event([dragMime]);publicMove.metaKey=true;category.events.dragover(publicMove);assert.equal(publicMove.dataTransfer.dropEffect,'move');await category.events.drop(publicMove);assert.deepEqual(calls.pop(),['library','ML',true]);
  const project=new Target();dropTarget(project,plugin,{scope:'projects',category:'Work'});const intoProject=event([dragMime]);intoProject.metaKey=true;project.events.dragover(intoProject);assert.equal(intoProject.dataTransfer.dropEffect,'copy');await project.events.drop(intoProject);assert.deepEqual(calls.pop(),['projects','Work',false]);
+ await category.events.drop(event(['Files'],[pdf]));assert.deepEqual(calls.pop(),['library','ML',pdf.name]);
+ await project.events.drop(event(['Files'],[pdf]));assert.deepEqual(calls.pop(),['projects','Work',pdf.name]);
+ const unfiled=new Target();dropTarget(unfiled,plugin,{scope:'library',category:'未分类'});const denied=event(['Files'],[pdf]);unfiled.events.dragover(denied);assert.equal(denied.dataTransfer.dropEffect,'none');
  plugin.dragState.scope='reviews';project.events.dragover(event([dragMime]));assert(!project.classes.has('is-drop-target'));
  console.log('PASS: external PDF and internal row drop routing, copy/move effects, highlight cleanup, dirty-state rejection, wrong-target and URL refusal, error feedback.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

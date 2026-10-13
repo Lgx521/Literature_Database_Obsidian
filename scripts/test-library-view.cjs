@@ -26,7 +26,7 @@ assert.throws(() => E.updateLibraryEntry(updated, rows[0], { status: '待读' })
 const unrelated = E.updateLibraryEntry(source, rows[1], { tldr: '另一窗口的笔记' });
 const merged = E.updateLibraryEntry(unrelated, rows[0], { priority: '低' });
 assert.equal(E.parseLibrary(merged)[1].tldr, '另一窗口的笔记');
-for (const changes of [{ published:'2026.05' }, { tldr:'' }, { status:'Done' }, { priority:'最高' }, { path:'papers/Oops.pdf' }]) assert.throws(() => E.updateLibraryEntry(source, rows[0], changes));
+for (const changes of [{ published:'2026.05' }, { status:'Done' }, { priority:'最高' }, { path:'papers/Oops.pdf' }]) assert.throws(() => E.updateLibraryEntry(source, rows[0], changes));
 const crlf = source.replaceAll('\n', '\r\n');
 const crlfAfter = E.updateLibraryEntry(crlf, E.parseLibrary(crlf)[0], { status: '已读' });
 assert.equal(crlfAfter.split('\r\n').length, crlf.split('\r\n').length);

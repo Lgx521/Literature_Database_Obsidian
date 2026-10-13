@@ -19,7 +19,7 @@ const descendants=element=>element.children.flatMap(e=>[e,...descendants(e)]);
 (async()=>{
   const view=browser();
   assert.equal(view.venueInput.hidden,true);assert.equal(view.venueMenuButton.textContent,'添加 Venue…');assert(!descendants(view.detailEl).some(e=>e.tag==='datalist'));
-  assert.equal(view.quickFields.length,2);assert.equal(view.editing,false);
+  assert.equal(view.quickFields.length,3);assert.equal(view.editing,false);
   assert(descendants(view.detailEl).some(e=>e.tag==='button'&&e.textContent==='Open ↗'));
   assert(!descendants(view.detailEl).some(e=>e.textContent.includes('Skim')));
   view.quickFields[0].select.value='在读';await view.quickFields[0].select.events.change();
@@ -34,7 +34,7 @@ const descendants=element=>element.children.flatMap(e=>[e,...descendants(e)]);
   // Stored selections roll back on write failure while Notes remain untouched.
   view.notesInput.value='Keep this draft';view.notesInput.events.input();fail=true;
   await view.saveQuickField('priority','低');fail=false;
-  assert.equal(view.quickFields[1].select.value,'高');assert.equal(view.quickError.hidden,false);assert.equal(view.quickError.textContent,'write failed');assert.equal(view.notesInput.value,'Keep this draft');assert.equal(view.saving,false);
+  assert.equal(view.quickFields.find(f=>f.key==='priority').select.value,'高');assert.equal(view.quickError.hidden,false);assert.equal(view.quickError.textContent,'write failed');assert.equal(view.notesInput.value,'Keep this draft');assert.equal(view.saving,false);
   // A concurrent edit of this row refuses the quick save rather than absorbing new Notes.
   stored=E.updateLibraryEntry(stored,E.parseLibrary(stored)[0],{notes:'External notes'});
   await view.saveQuickField('priority','低');assert.equal(E.parseLibrary(stored)[0].priority,'高');assert.equal(view.notesInput.value,'Keep this draft');

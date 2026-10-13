@@ -12,7 +12,7 @@ function name(value){
 function encode(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\|/g,'&#124;').replace(/\[/g,'&#91;').replace(/\]/g,'&#93;').replace(/\r?\n/g,'<br>');}
 function decode(s){return String(s).replace(/<br\s*\/?\s*>/gi,'\n').replace(/&#(x[\da-f]+|\d+);/gi,(_,n)=>String.fromCodePoint(n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n))).replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');}
 function cells(s){return s.trim().slice(1,-1).split(/(?<!\\)\|/).map(c=>c.trim());}
-function pdfPath(path){if(typeof path!=='string'||!path.startsWith('papers/')||!path.endsWith('.pdf')||path.includes('\\')||/[\r\n\x00]/.test(path)||path.split('/').some(s=>!s||s==='.'||s==='..'))throw new Error(tr('集合只能引用文献库 PDF'));return path;}
+function pdfPath(path){if(typeof path!=='string'||!path.startsWith('papers/')||!/\.pdf$/i.test(path)||path.includes('\\')||/[\r\n\x00]/.test(path)||path.split('/').some(s=>!s||s==='.'||s==='..'))throw new Error(tr('集合只能引用文献库 PDF'));return path;}
 function link(path){pdfPath(path);return '['+encode(path.split('/').pop())+']('+path.split('/').map(encodeURIComponent).join('/').replace(/\(/g,'%28').replace(/\)/g,'%29')+')';}
 function deadlineValue(value){
   value=String(value||'—').trim()||'—';

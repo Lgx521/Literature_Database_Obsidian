@@ -166,7 +166,7 @@ class CitationExportModal extends Modal {
       try{
         const rows=await this.plugin.ensureCitationRows(chosenRows,(done,total)=>{if(!this.closed&&token===this.refreshToken)count.setText(tr('识别引用 ')+done+' / '+total);},{titleOnly:chosenFormat==='titles',cancelled:()=>this.closed||token!==this.refreshToken});
         if(this.closed||token!==this.refreshToken)return;
-        result=getCitations().exportRows(rows,chosenFormat,this.name+' · '+format.selectedOptions[0].textContent);
+        result=getCitations().exportRows(rows.map(r=>Organization.temporaryTitle(r)?{...r,title:''}:r),chosenFormat,this.name+' · '+format.selectedOptions[0].textContent);
         count.setText(result.ready+tr(' 篇可导出')+(result.missing.length?'，'+result.missing.length+tr(' 篇未识别'):''));
         preview.value=result.text;copy.disabled=save.disabled=!result.ready;missing.hidden=missingSave.hidden=!result.missing.length;
         summary.setText(tr`查看缺失条目（${result.missing.length}）`);missingText.setText(result.report);error.setText('');

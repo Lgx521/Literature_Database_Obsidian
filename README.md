@@ -12,15 +12,17 @@ A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Bro
 
 *Real screenshots from a separate demo vault, using the English interface. Public papers are paired with example notes, projects and review tasks; no private library or confidential manuscripts are shown. Click any image to view it at full size.*
 
-**Status:** **4.3.3**. [View the Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard); new releases may take time to reach the in-app directory. Requires **Obsidian 1.8.7+ on desktop**. Tested locally on macOS with Obsidian 1.14.4. Windows and Linux application behavior has not been validated; Finder drag/paste requires macOS. This release does not run on iPhone or iPad. The interface supports English and Chinese, following the Obsidian language by default. Screenshots below show the 4.3.0 demo UI; the same workflows remain available in 4.3.3.
+**Status:** **4.4.0**. [View the Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard); new releases may take time to reach the in-app directory. Requires **Obsidian 1.8.7+ on desktop**. Tested locally on macOS with Obsidian 1.14.4. Windows and Linux application behavior has not been validated; Finder drag/paste requires macOS. This release does not run on iPhone or iPad. The interface supports English and Chinese, following the Obsidian language by default. Screenshots below show the 4.3.0 demo UI; the screenshots predate the title/provenance improvements in 4.4.0.
 
 ## Features
 
+**New in 4.4.0:** Drop PDFs directly into a category or writing project on macOS. A record appears immediately with its original filename as a provisional title, empty tags/TL;DR and a pending organization status. Edit the title yourself or hand off pending/incomplete entries to an agent. Human tags use the accent color; AI tags are neutral, with source tooltips. Choose **Manually complete** to exclude an entry from future agent enrichment. Existing content has unrecorded provenance unless its source was explicitly tracked. See [the maintenance contract](templates/empty-vault/AGENTS.md).
+
 ### A compact workspace for reading
 
-- **One row per paper.** Browse categories on the left, scan filenames in the middle, and read the confirmed title, TL;DR, tags, venues and notes on the right.
-- **Edit in place.** Change reading status and priority directly in the details pane. Save notes while staying on the same paper.
-- **Find papers quickly.** Search titles, filenames, tags, TL;DR and notes; filter by reading status or tag, and sort the list.
+- **One row per paper.** Browse categories on the left, scan paper titles in the middle, and read the confirmed title, TL;DR, tags, venues and notes on the right.
+- **Edit in place.** Change reading status, organization status and priority directly in the details pane. Save notes while staying on the same paper.
+- **Find papers quickly.** Search titles, filenames, tags, TL;DR and notes; filter by reading status, organization status or tag, and sort the list.
 - **Keep your PDF reader.** **Open ↗** uses the system's default application. Skim is optional; the plugin does not embed a second desktop PDF viewer.
 
 ### Gather references for each writing project
@@ -90,7 +92,7 @@ On upgrade, the plugin backs up and renames the four legacy Chinese source filen
 
 ## Data and privacy
 
-The canonical files are `library.md` (paper metadata), `collections.md` (collection/project memberships), `reviews.md` (reviews) and `submissions.md` (submissions). The right-hand paper title uses the confirmed title; list entries retain the actual PDF filename. Skim `.skim`, `.fdf` and `.xfdf` sidecars stay paired with their PDFs.
+The canonical files are `library.md` (paper metadata), `collections.md` (collection/project memberships), `reviews.md` (reviews) and `submissions.md` (submissions). Both the middle list and right-hand heading use the paper title. The actual PDF filename appears in smaller text in the details pane. Imported filenames are never normalized or renamed; same-name files use separate subfolders. Existing files are not renamed back. Until a real title is known, the original filename is a provisional title, excluded from title exports. Skim `.skim`, `.fdf` and `.xfdf` sidecars stay paired with their PDFs.
 
 The plugin makes local backups before edits, checks for concurrent changes and keeps recoverable deletions under `.maintenance-backups/deleted/`. Permanent deletion removes only the selected archived record and its attachments. This is not a substitute for a separate backup. iCloud and other file sync are provided by your vault's storage provider; this plugin does not implement a sync service.
 

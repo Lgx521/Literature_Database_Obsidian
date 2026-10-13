@@ -1,12 +1,12 @@
 const {t:tr}=require('./i18n');
 // One-shot Mac import. Originals are never modified; no PDF parsing or network I/O.
 async function importInboxFiles(base, files, deps={}) {
-  const fs=deps.fs||require('fs').promises, path=require('path'), {Buffer}=require('buffer');
+  const fs=deps.fs||require('fs').promises, path=require('path');
   const execFile=deps.execFile||require('child_process').execFile;
   const canonical=s=>s.normalize('NFC').toLowerCase();
   const inside=(parent,child)=>{const rel=path.relative(parent,child);return !rel||(!rel.startsWith('..'+path.sep)&&rel!=='..'&&!path.isAbsolute(rel));};
   const folder=deps.folder||'temp';
-  if(!/^(temp|reviews\/[^/]+|submissions\/[^/]+)$/.test(folder)||folder.includes('..')||folder.includes('\\'))throw new Error(tr('无效导入目录'));
+  if(!/^(temp|papers|reviews\/[^/]+|submissions\/[^/]+)$/.test(folder)||folder.includes('..')||folder.includes('\\'))throw new Error(tr('无效导入目录'));
   const root=await fs.realpath(base), inbox=path.join(root,folder);
   await fs.mkdir(inbox,{recursive:true});
   if(!inside(root,await fs.realpath(inbox)))throw new Error(tr('目标目录指向库外，已停止导入'));
@@ -19,10 +19,10 @@ async function importInboxFiles(base, files, deps={}) {
       const filename=path.basename(source);
       if(!/\.pdf$/i.test(filename))throw new Error(tr('只接收本地 PDF 文件'));
       if(!(await fs.stat(source)).isFile())throw new Error(tr('不是普通 PDF 文件'));
-      if(inside(root,source)){results.push({name:filename,skipped:true,reason:tr('已在本库，保留原位置')});continue;}
+      if(inside(root,source)){results.push({name:filename,skipped:true,existingPath:path.relative(root,source).split(path.sep).join('/'),reason:tr('已在本库，保留原位置')});continue;}
       const stem=filename.slice(0,-4), ext=filename.slice(-4), dir=path.dirname(source);
       const companions=(await fs.readdir(dir)).filter(n=>/\.(skim|fdf|xfdf)$/i.test(n)&&canonical(n.replace(/\.[^.]+$/,''))===canonical(stem));
-      const group=[{source,ext},...companions.map(n=>({source:path.join(dir,n),ext:path.extname(n).toLowerCase()}))];
+      const group=[{source,ext,name:filename},...companions.map(n=>({source:path.join(dir,n),ext:path.extname(n),name:n}))];
       if(new Set(group.map(f=>canonical(f.ext))).size!==group.length)throw new Error(tr('有多个同类型批注文件，请先确认版本'));
       for(const item of group)if(!(await fs.lstat(item.source)).isFile())throw new Error(tr('PDF 或批注附件不是普通文件，请从原始目录导入'));
       const staging=path.join(root,'.maintenance-imports');await fs.mkdir(staging,{recursive:true});
@@ -35,19 +35,20 @@ async function importInboxFiles(base, files, deps={}) {
       }
       let saved=false;
       for(let index=1;index<=10000&&!saved;index++){
-        const suffix=index===1?'':` (${index})`;
-        let short=stem;while(Buffer.byteLength(short+suffix+ext,'utf8')>240)short=Array.from(short).slice(0,-1).join('');
-        const next=short+suffix;
-        const occupied=new Set((await fs.readdir(inbox)).map(canonical));
-        if(['.pdf','.skim','.fdf','.xfdf'].some(e=>occupied.has(canonical(next+e))))continue;
+        // Preserve every basename, including annotation companions. Resolve collisions by directory.
+        const relative=index===1?folder:folder+'/import-'+index;
+        const destination=path.join(root,relative);await fs.mkdir(destination,{recursive:true});
+        if(!inside(inbox,await fs.realpath(destination)))throw new Error(tr('目标目录指向库外，已停止导入'));
+        const occupied=new Set((await fs.readdir(destination)).map(canonical));
+        if(['.pdf','.skim','.fdf','.xfdf'].some(e=>occupied.has(canonical(stem+e))))continue;
         const published=[];
         try{
           // Publish companions first and the PDF last; exclusive links never replace a file.
           for(const item of [...group.slice(1),group[0]]){
-            const target=path.join(inbox,next+item.ext);
+            const target=path.join(destination,item.name);
             await fs.link(item.staged,target);published.push({target,staged:item.staged});
           }
-          results.push({name:filename,path:folder+'/'+next+ext,attachments:companions.length,renamed:next+ext!==filename});saved=true;
+          results.push({name:filename,path:relative+'/'+filename,attachments:companions.length,renamed:false,collision:index>1});saved=true;
         }catch(error){
           for(const item of published.reverse()){
             const [current,original]=await Promise.all([fs.lstat(item.target).catch(()=>null),fs.lstat(item.staged)]);

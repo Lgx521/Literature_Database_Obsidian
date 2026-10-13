@@ -35,7 +35,7 @@ vm.runInNewContext(bundle,ctx);
  await reset();store.set('library.md',E.updateLibraryEntry(source,E.parseLibrary(source)[0],{bibtex:'@misc{UserStableKey,title={User Record Title},author={Doe, Jane},year={2022}}',citationSource:'User original source'}));await plugin.refresh();
  const supplied=plugin.snapshot.library[0];const reads=pdfReads;result=await plugin.ensureCitationRows([supplied]);assert.equal(pdfReads,reads);assert.equal(result[0].bibtex,supplied.bibtex);assert.equal(result[0].citationSource,supplied.citationSource);assert.equal(result[0].title,'User Record Title');
  // New public rows trigger once. Reloads and unrelated metadata changes do not retry.
- const newSource=store.get('library.md').replace('<!-- library:end -->',rowLine('B')+'\n<!-- library:end -->');files.set('papers/B.pdf',new TFile('papers/B.pdf'));store.set('library.md',newSource);await plugin.refresh();await plugin.citationQueue;
+ const newSource=store.get('library.md').replace('<!-- library:end -->',rowLine('B').replace(/\|$/, '|  |  |')+'\n<!-- library:end -->');files.set('papers/B.pdf',new TFile('papers/B.pdf'));store.set('library.md',newSource);await plugin.refresh();await plugin.citationQueue;
  assert(plugin.snapshot.library.find(r=>r.path==='papers/B.pdf').bibtex);const intakeReads=pdfReads;await plugin.refresh();await plugin.citationQueue;assert.equal(pdfReads,intakeReads);
  // Removing a PDF while a fetch is pending must not restore a deleted row.
  await reset();onRead=()=>store.set('library.md',E.removeRecord(store.get('library.md'),'library',E.parseLibrary(store.get('library.md'))[0]));result=await plugin.ensureCitationRows(plugin.snapshot.library);assert(result[0].citationError);assert.equal(E.parseLibrary(store.get('library.md')).length,0);

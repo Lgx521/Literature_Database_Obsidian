@@ -14,8 +14,9 @@ function migrate(library){
     const prose=lines.slice(start+1,stop).filter(l=>!l.startsWith('|')).join('\n').trim();
     if(prose)collections=collections.replace('## 分类：'+n+'\n','## 分类：'+n+'\n\n'+prose+'\n');
   }
-  const header='| '+Engine.TITLE_HEADERS.join(' | ')+' |',separator='| '+Engine.TITLE_HEADERS.map(()=> '---').join(' | ')+' |';
-  const migrated=[...lines.slice(0,first),'<!-- library:collections -->','## 文献','',header,separator,...rows.map(r=>'| '+[...r.cells,...Array(Math.max(0,11-r.cells.length)).fill('')].join(' | ')+' |'),'',...lines.slice(end)].join(eol);
+  const headers=rows.some(r=>r.cells.length===13)?Engine.ORGANIZATION_HEADERS:Engine.TITLE_HEADERS;
+  const header='| '+headers.join(' | ')+' |',separator='| '+headers.map(()=> '---').join(' | ')+' |';
+  const migrated=[...lines.slice(0,first),'<!-- library:collections -->','## 文献','',header,separator,...rows.map(r=>'| '+[...r.cells,...Array(Math.max(0,headers.length-r.cells.length)).fill('')].join(' | ')+' |'),'',...lines.slice(end)].join(eol);
   if(eol==='\r\n')collections=collections.replace(/\n/g,eol);
   const after=Engine.parseLibrary(migrated);Collections.parse(collections);
   if(after.length!==rows.length||after.some((r,i)=>JSON.stringify(r.cells.slice(0,rows[i].cells.length))!==JSON.stringify(rows[i].cells)))throw new Error('迁移校验失败');

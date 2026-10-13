@@ -1,13 +1,14 @@
-Fix an existing library appearing empty after restarting Obsidian. [Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard).
+Use paper titles throughout the library while keeping original PDF filenames unchanged. [Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard).
 
-- Wait for Obsidian's workspace and vault file index to be ready before detecting an existing library. Previously, a cold start could mistake an incomplete index for an empty vault and leave the paper list stuck loading until the plugin was reloaded.
-- Resolve first-run defaults after that check, preserving saved language, startup and source-file redirect preferences. Truly empty vaults still require explicit library creation.
-- Prevent refresh and setup commands from acting on an incomplete startup index. Cancel pending startup work if the plugin has been unloaded.
-- Add regression coverage for delayed indexing, saved opt-out settings, unchanged existing source files and startup cancellation. All 26 synthetic test suites pass on macOS.
-- This fix does not restore, move or rewrite papers: the PDFs and source tables remain in place. The safeguards for collection removal from 4.3.2 are retained.
+- Show paper titles in the compact list and detail heading, with the actual filename in smaller detail text. Edit titles without renaming files. Existing PDF names remain unchanged.
+- Import PDFs directly into categories and writing projects on macOS. Create a provisional title, empty tags/TL;DR and pending organization status, with immediate membership. Retain originals, annotation companions and extended attributes. Resolve filename collisions with separate subfolders.
+- Add inline organization status: Pending, AI organized and Manually complete. Manually complete records are excluded from agent enrichment; filter pending/incomplete records for manual handoff.
+- Track per-field and per-tag provenance in the same Markdown row. Human tags use the theme accent; AI tags use neutral gray. Tooltips identify the source. Old content remains unrecorded instead of receiving invented attribution.
+- Preserve existing notes, reading state, priority, memberships and bibliography. The actor-aware agent helper refuses protected edits; agents must never invent citations. Deterministic PDF/official metadata recognition can replace provisional titles while title export excludes filename placeholders.
+- Read older table schemas and safely migrate on the first provenance write. Preserve the 4.3.2 deletion safeguards and 4.3.3 cold-start fix. All 28 synthetic suites pass on macOS.
 
-Requires Obsidian 1.8.7 or newer. Windows and Linux application behavior has not been validated; Finder PDF import/paste requires macOS. iPhone/iPad are not supported by this desktop-only release.
+Requires Obsidian 1.8.7+ on desktop. Finder import/paste requires macOS; Windows/Linux app behavior has not been validated. This release does not support iPhone/iPad. Agent organization remains manually triggered.
 
-For manual installation, place `main.js`, `manifest.json` and `styles.css` into `<vault>/.obsidian/plugins/paper-reservoir-dashboard/`, reload Obsidian, enable Literature Database, then run **Open library** from the command palette. In an empty vault, choose **Create library**. Existing libraries are never replaced with templates. See the README for data/privacy disclosures and full usage instructions.
+For manual installation, copy `main.js`, `manifest.json` and `styles.css` into `<vault>/.obsidian/plugins/paper-reservoir-dashboard/` and reload the plugin. Back up first. Never replace existing library files with empty templates. Existing vault maintainers should adopt the updated filename/provenance rules in `templates/empty-vault/AGENTS.md`; upgrades never overwrite an existing AGENTS.md automatically.
 
-Project code is AGPL-3.0-only. `LICENSE` and `THIRD-PARTY.md` are attached and embedded in `main.js`. GitHub's source archive contains the plugin source, build scripts, pinned dependency lockfile and CSL styles; `dependency-source.tar.gz` contains the exact installed dependency sources used to reproduce the citation bundle. `SHA256SUMS` lists release asset hashes.
+Project code is AGPL-3.0-only. License notices are attached and embedded in main.js. Source, locked dependencies and CSL styles are available in the repository; dependency-source.tar.gz provides exact dependency sources. SHA256SUMS lists release asset hashes.

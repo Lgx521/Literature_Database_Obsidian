@@ -34,7 +34,7 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../main.js'),'utf8')+'\n
   const pdf=path.join(external,'Literal $ (paper).pdf'),skim=pdf.slice(0,-4)+'.skim';await fs.promises.writeFile(pdf,'%PDF test');await fs.promises.writeFile(skim,'personal notes');
   const pasted=await I.readClipboardFiles({readBuffer:f=>Buffer.from(f==='public.file-url'?require('url').pathToFileURL(pdf).href:'')});
   const first=await I.importInboxFiles(base,pasted),second=await I.importInboxFiles(base,pasted);
-  assert.equal(first[0].attachments,1);assert(second[0].renamed);assert.equal(await fs.promises.readFile(skim,'utf8'),'personal notes');assert.equal(await fs.promises.readFile(path.join(base,first[0].path.slice(0,-4)+'.skim'),'utf8'),'personal notes');
+  assert.equal(first[0].attachments,1);assert(second[0].collision);assert.equal(second[0].path.split('/').pop(),path.basename(pdf));assert.equal(second[0].renamed,false);assert.equal(await fs.promises.readFile(skim,'utf8'),'personal notes');assert.equal(await fs.promises.readFile(path.join(base,first[0].path.slice(0,-4)+'.skim'),'utf8'),'personal notes');
  }finally{await fs.promises.rm(tmp,{recursive:true,force:true});}
  const plugin=new ctx.module.exports();plugin.stopped=false;let imports=[];plugin.importDroppedFiles=async(files,nav)=>{imports.push({files,nav});return 'imported';};
  const view=new ctx.module.exports.Browser({},plugin);view.scope='inbox';view.reload=async()=>{};await view.onOpen();
@@ -43,7 +43,7 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../main.js'),'utf8')+'\n
  await menu.items[0].click();assert.equal(imports.length,1);assert.equal(imports[0].nav.scope,'inbox');assert.equal(imports[0].files.length,2);
  plugin.importing=true;view.listEl.events.contextmenu(event);assert(menus.at(-1).items[0].disabled);await assert.rejects(plugin.pasteInboxFiles(),/等待/);plugin.importing=false;
  const n=menus.length;view.scope='library';view.listEl.events.contextmenu(event);assert.equal(menus.length,n,'No paste menu outside the inbox.');
- const row={title:'Actual Paper Title',filename:'1234v2.pdf'};assert.equal(view.detailTitle(row),row.title);assert.equal(view.detailTitle({...row,title:''}),'篇名待确认');view.scope='projects';assert.equal(view.detailTitle(row),row.title);view.scope='inbox';assert.equal(view.detailTitle(row),row.filename);
+ const row={title:'Actual Paper Title',filename:'1234v2.pdf'};assert.equal(view.detailTitle(row),row.title);assert.equal(view.detailTitle({...row,title:''}),row.filename);view.scope='projects';assert.equal(view.detailTitle(row),row.title);view.scope='inbox';assert.equal(view.detailTitle(row),row.filename);
  const manifest=JSON.parse(fs.readFileSync(path.join(__dirname,'../manifest.json'),'utf8'));assert.equal(manifest.name,'Literature Database');assert.equal(manifest.author,'shengzhegan');
  console.log('PASS: Finder XML/binary file lists, multi-file/file-URL import, Unicode paths, clipboard access only on Paste, native blank-space menu, busy state, sidecar/original preservation, filename collisions, real detail titles and plugin identity.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

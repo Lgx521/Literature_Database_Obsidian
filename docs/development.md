@@ -1,6 +1,6 @@
 # Development
 
-This repository contains the plugin source and synthetic tests, with no personal library data. The first version-controlled baseline was 4.2.3; the current release is 4.3.3.
+This repository contains the plugin source and synthetic tests, with no personal library data. The first version-controlled baseline was 4.2.3; the current release is 4.4.0.
 
 ## Build and test
 
@@ -19,7 +19,7 @@ The build assembles source modules into `main.js` and copies the plugin CSS to `
 
 | Files | Responsibility |
 | --- | --- |
-| `dashboard.js`, `collections.js` | Markdown parsing, metadata and collection membership |
+| `dashboard.js`, `collections.js`, `organization.js` | Markdown parsing, metadata and collection membership |
 | `library-view.js`, `collection-view.js`, `library-view.css` | Navigation, compact lists, details and controls |
 | `setup.js` | Explicit empty-vault setup and startup preferences |
 | `plugin-tail.js` | Obsidian lifecycle, mutation guards, coordination and system PDF opening |
@@ -54,3 +54,7 @@ Run `npm run release:check` after building. It validates the manifest and distri
 `scripts/i18n.js` owns English translations and the Chinese source strings. Use `tr()` for UI strings and tagged templates for interpolation. Keep table headers, markers, statuses, record identity and user-entered values independent of interface language. The citation formatter accepts the shared translator when loaded. `getLanguage()` requires Obsidian 1.8.7. Language changes are saved through plugin settings; unsaved edits block switching.
 
 `scripts/storage-migration.js` renames only the four canonical source files on layout readiness, before loading data. Back up all candidates, refuse old/new collisions, check content before each rename and roll back only unchanged files. Old document routes and tracker identifiers remain recognized. Historical backup/receipt contents must not be rewritten.
+
+## Organization data
+
+4.4.0 adds `整理状态` and `整理来源` as columns 12–13. Migration is lazy and preserves old cells and hand-written prose. The source checkout's actor-aware helper computes SHA-256 field/tag fingerprints; external changes invalidate attribution. Unknown history stays unknown. Tests cover manual completion locks, forbidden agent citation edits, protected human fields, original names, nested collisions, paired import rollback and restoration. See `templates/empty-vault/AGENTS.md` for the complete agent contract.
