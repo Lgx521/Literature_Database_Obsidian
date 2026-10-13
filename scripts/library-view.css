@@ -197,3 +197,12 @@
 .ldb-browser .ldb-venue-input[hidden] { display: none; }
 
 .ldb-ddl-choice { display: block; margin: 12px 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Language switch stays compact at either interface width. */
+.ldb-nav-heading { display:flex; align-items:center; gap:6px; }
+.ldb-nav-heading strong { flex:1; min-width:0; }
+.ldb-navigation .ldb-language-button { padding:4px; height:26px; width:26px; flex:none; background:transparent; box-shadow:none; color:var(--text-muted); }
+.ldb-language-button:hover { background:var(--background-modifier-hover); color:var(--text-normal); }
+.ldb-language-button svg { width:16px; height:16px; }
+
+.ldb-browser[lang="en"] .ldb-metadata { grid-template-columns: 118px minmax(0, 1fr); }

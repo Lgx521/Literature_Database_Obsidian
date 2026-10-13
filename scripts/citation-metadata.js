@@ -1,3 +1,4 @@
+const {t:tr}=require('./i18n');
 'use strict';
 // Evidence-based bibliography retrieval. Never executes PDF text, guesses an author/year,
 // follows arbitrary PDF URLs, or sends review/submission PDFs to a metadata service.
@@ -63,7 +64,7 @@ function embedded(e,row={}){
 }
 function tag(text,name){return [...String(text).matchAll(new RegExp('<'+name+'(?:\\s[^>]*)?>([\\s\\S]*?)<\\/'+name+'>','gi'))].map(m=>clean(xmlText(m[1])));}
 function atomEntries(xml){
-  if(/<!DOCTYPE/i.test(xml))throw new Error('不支持的 XML');
+  if(/<!DOCTYPE/i.test(xml))throw new Error(tr('不支持的 XML'));
   return [...xml.matchAll(/<entry\b[^>]*>([\s\S]*?)<\/entry>/gi)].map(m=>{
     const text=m[1],id=tag(text,'id')[0]||'',names=[...text.matchAll(/<author\b[^>]*>([\s\S]*?)<\/author>/gi)].map(a=>tag(a[1],'name')[0]).filter(Boolean);
     const date=dateParts(tag(text,'published')[0]);
@@ -164,18 +165,18 @@ async function resolve(row,e,services){
       if(candidates.length===1)return finish({data:candidates[0],source:'arXiv exact title + PDF author；'+candidates[0].URL});
     }catch(err){errors.push(err.message);}
   }
-  return {title,citationError:errors.length?'元数据检索未完成：'+errors.at(-1):'没有找到篇名、作者与 PDF 一致的完整引用资料'};
+  return {title,citationError:errors.length?tr('元数据检索未完成：')+errors.at(-1):tr('没有找到篇名、作者与 PDF 一致的完整引用资料')};
 }
 function transport(request){
   let lastArxiv=0;
   return async url=>{
-    const parsed=new URL(url);if(parsed.protocol!=='https:'||!['export.arxiv.org','arxiv.org','api.crossref.org'].includes(parsed.hostname))throw new Error('不允许的元数据来源');
+    const parsed=new URL(url);if(parsed.protocol!=='https:'||!['export.arxiv.org','arxiv.org','api.crossref.org'].includes(parsed.hostname))throw new Error(tr('不允许的元数据来源'));
     if(parsed.hostname==='export.arxiv.org'){const wait=3100-(Date.now()-lastArxiv);if(wait>0)await new Promise(r=>setTimeout(r,wait));lastArxiv=Date.now();}
     let timer;try{
-      const response=await Promise.race([request(url),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('来源响应超时')),18000);})]);
+      const response=await Promise.race([request(url),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(tr('来源响应超时'))),18000);})]);
       const status=response.status??200,body=typeof response==='string'?response:response.text;
-      if(status<200||status>=300)throw new Error('来源返回 HTTP '+status);
-      if(typeof body!=='string'||body.length>2000000)throw new Error('来源响应无效');return body;
+      if(status<200||status>=300)throw new Error(tr('来源返回 HTTP ')+status);
+      if(typeof body!=='string'||body.length>2000000)throw new Error(tr('来源响应无效'));return body;
     }finally{clearTimeout(timer);}
   };
 }

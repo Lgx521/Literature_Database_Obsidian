@@ -11,7 +11,7 @@ const notices=[];
 const context={module:{exports:{}},require:n=>n==='obsidian'?{Plugin:class{},ItemView,Modal:class{},Platform:{isDesktopApp:true,isMacOS:true},setIcon(){},Notice:class{constructor(m){notices.push(m);}}}:require(n)};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../main.js'),'utf8')+'\nmodule.exports.Browser=LiteratureBrowser;',context);
 let stored=source,writes=0,fail=false,wait=null;
-const plugin={snapshot:{categories:['ML']},mutate:async(name,transform)=>{assert.equal(name,'文献库.md');if(wait)await wait;if(fail)throw new Error('write failed');stored=transform(stored);writes++;}};
+const plugin={snapshot:{categories:['ML']},mutate:async(name,transform)=>{assert.equal(name,'library.md');if(wait)await wait;if(fail)throw new Error('write failed');stored=transform(stored);writes++;}};
 function browser(){
   const view=new context.module.exports.Browser({},plugin);view.detailEl=new Element();view.rows=E.parseLibrary(stored);view.selectedPath=view.rows[0].path;view.sortButtons=[];view.lockFilters=locked=>{view.filtersLocked=locked;};view.reload=async()=>{view.rows=E.parseLibrary(stored);if(!view.dirty())view.renderDetail();};view.renderDetail();return view;
 }

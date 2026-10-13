@@ -13,3 +13,5 @@ This is the plugin source repository, not a user's vault. Never copy personal PD
 - Follow the AGPL project license and retain third-party notices. Citation dependencies and CSL styles are locked under `scripts/vendor/`; build instructions are there. Keep package-manager caches out of a vault and Git.
 - Development and deployment are separate. Review a built version before copying its three runtime files into an explicitly named vault. Back up the old runtime first; never deploy templates over existing data.
 - Community submission and official release publication are separate from source commits. See `docs/community-release.md`; do not claim directory approval or mobile compatibility without validation.
+
+- Source filenames are `library.md`, `collections.md`, `reviews.md`, and `submissions.md`. Preserve the legacy table schema and Chinese stored status values; localization changes display labels only. Add translations for every new UI message in `scripts/i18n.js`. Never translate user content implicitly.

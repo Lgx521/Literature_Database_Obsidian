@@ -45,3 +45,9 @@ The optional `scripts/setup-skim.sh` is a manually run macOS utility, not part o
 ## Versions
 
 Use normal commits for development. Update the manifest/package/version map together for a release. A future Obsidian release tag must match the manifest version exactly, without a `v` prefix. Upload the three built runtime assets and include the corresponding source and license notices. Creating an initial source commit does not publish a Community directory entry.
+
+## Localization and filename migration
+
+`scripts/i18n.js` owns English translations and the Chinese source strings. Use `tr()` for UI strings and tagged templates for interpolation. Keep table headers, markers, statuses, record identity and user-entered values independent of interface language. The citation formatter accepts the shared translator when loaded. `getLanguage()` requires Obsidian 1.8.7. Language changes are saved through plugin settings; unsaved edits block switching.
+
+`scripts/storage-migration.js` renames only the four canonical source files on layout readiness, before loading data. Back up all candidates, refuse old/new collisions, check content before each rename and roll back only unchanged files. Old document routes and tracker identifiers remain recognized. Historical backup/receipt contents must not be rewritten.

@@ -1,5 +1,17 @@
 # Changelog
 
+## 4.3.0
+
+- Keep the selected manuscript after saving Notes/status or refreshing changed row indices.
+
+- Change review status directly in the details pane (To review / Reviewing / Completed), preserving unsaved Notes.
+
+- Use English source filenames with backed-up legacy migration and collision protection.
+- Add Chinese/English UI and a compact language picker; follow Obsidian by default.
+- Translate controls, menus, dialogs, notices and citation diagnostics without changing stored values or user content.
+- Preserve older tracker identifiers and trash receipts after filename migration.
+- Require Obsidian 1.8.7 for its public language API.
+
 ## 4.2.3 — 2026-10-13
 
 Initial version-controlled baseline of Literature Database.

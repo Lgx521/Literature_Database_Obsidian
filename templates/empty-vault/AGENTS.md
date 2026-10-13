@@ -4,9 +4,9 @@ The plugin's compact three-pane view is the daily interface. Maintain Markdown a
 
 ## Canonical sources
 
-- `文献库.md`: one row per public paper. Columns: `PDF（文件名） | 发表时间 | 标签 | TL;DR | 阅读 | 优先级 | Notes | Venue | BibTeX | 引用来源 | 篇名`.
-- `集合.md`: collection and writing-project memberships, referencing the same PDF paths. A paper may belong to multiple collections/projects.
-- `审稿.md` / `投稿.md`: separate reviewer and author tasks. Keep private manuscripts out of public literature and online citation lookup.
+- `library.md`: one row per public paper. Columns: `PDF（文件名） | 发表时间 | 标签 | TL;DR | 阅读 | 优先级 | Notes | Venue | BibTeX | 引用来源 | 篇名`.
+- `collections.md`: collection and writing-project memberships, referencing the same PDF paths. A paper may belong to multiple collections/projects.
+- `reviews.md` / `submissions.md`: separate reviewer and author tasks. Keep private manuscripts out of public literature and online citation lookup.
 - `temp/`: inbox. `papers/`: public PDFs. `reviews/` and `submissions/`: task attachments.
 - `.maintenance-backups/`: editing backups and recoverable archive receipts. Do not reorganize or ingest them.
 
@@ -30,3 +30,5 @@ Review/submission deadlines belong to their venue, not each manuscript. Writing 
 Use the plugin's recoverable trash. Do not permanently delete archive receipts, PDFs or annotations unless the user explicitly requests the particular deletion. Never clear a backup as routine tidying. Deleting a collection removes membership only, not its papers.
 
 Agent work is manually triggered. Do not add scheduled runs, background metadata scans, or uploads of notes/manuscripts. Report what changed and what remains unresolved; a local file's existence does not prove another device finished syncing.
+
+Interface language (Chinese/English) is independent of storage. Keep schema headings, status values, markers and personal content unchanged when switching language. Do not recreate legacy Chinese source filenames.

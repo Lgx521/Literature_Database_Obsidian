@@ -1,9 +1,9 @@
 {
   "id": "paper-reservoir-dashboard",
   "name": "Literature Database",
-  "version": "4.2.3",
-  "minAppVersion": "1.5.0",
-  "description": "紧凑文献管理：多分类、写作项目、PDF 引用识别与 APA / IEEE / BibTeX 导出、审稿投稿和可恢复删除。",
+  "version": "4.3.0",
+  "minAppVersion": "1.8.7",
+  "description": "Compact literature management with collections, writing projects, PDF citation lookup, APA / IEEE / BibTeX export, manuscript deadlines and recoverable trash.",
   "author": "shengzhegan",
   "isDesktopOnly": false
 }

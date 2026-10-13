@@ -1,6 +1,6 @@
 {
   "name": "literature-database-obsidian",
-  "version": "4.2.3",
+  "version": "4.3.0",
   "private": true,
   "description": "Compact literature management for Obsidian.",
   "author": "shengzhegan",
@@ -13,5 +13,7 @@
     "build": "python3 scripts/build-dashboard.py",
     "test": "npm run build && node scripts/run-tests.cjs"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }

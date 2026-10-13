@@ -34,33 +34,33 @@ for(const value of ['2026-02-29 23:59 +08:00','2026-04-31 23:59 +08:00','2026-10
  manager.trashStore=trash;manager.recordAction=async action=>action();manager.runTrashBatch=context.module.exports.prototype.runTrashBatch;
  try{
   for(const dir of ['papers','reviews','temp'])await fsp.mkdir(absolute(dir));
-  await adapter.write('文献库.md',library);await adapter.write('审稿.md',empty);await adapter.write('投稿.md',empty);
+  await adapter.write('library.md',library);await adapter.write('reviews.md',empty);await adapter.write('submissions.md',empty);
   await adapter.write('papers/Paper.pdf','PDF');await adapter.write('papers/Paper.skim','annotations');
   const deleted=await trash.remove('library',original);assert.equal((await trash.list()).length,1);assert(!await adapter.exists('papers/Paper.pdf'));assert(!await adapter.exists('papers/Paper.skim'));
-  assert.equal(E.parseLibrary(await adapter.read('文献库.md')).length,0);
+  assert.equal(E.parseLibrary(await adapter.read('library.md')).length,0);
   await adapter.write('papers/Paper.pdf','new concurrent file');await assert.rejects(trash.restore(deleted.folder),/同名/);assert.equal(await adapter.read('papers/Paper.pdf'),'new concurrent file');await fsp.unlink(absolute('papers/Paper.pdf'));
-  await trash.restore(deleted.folder);assert.equal(await adapter.read('papers/Paper.skim'),'annotations');assert.deepEqual(E.parseLibrary(await adapter.read('文献库.md'))[0].cells,original.cells);assert.equal((await trash.list()).length,0);
+  await trash.restore(deleted.folder);assert.equal(await adapter.read('papers/Paper.skim'),'annotations');assert.deepEqual(E.parseLibrary(await adapter.read('library.md'))[0].cells,original.cells);assert.equal((await trash.list()).length,0);
   // Partial attachment failure rolls back the PDF move and restores the row.
-  failMove=true;await assert.rejects(trash.remove('library',E.parseLibrary(await adapter.read('文献库.md'))[0]),/删除未完成/);
-  assert.equal(await adapter.read('papers/Paper.pdf'),'PDF');assert.equal(await adapter.read('papers/Paper.skim'),'annotations');assert.equal(E.parseLibrary(await adapter.read('文献库.md')).length,1);
+  failMove=true;await assert.rejects(trash.remove('library',E.parseLibrary(await adapter.read('library.md'))[0]),/删除未完成/);
+  assert.equal(await adapter.read('papers/Paper.pdf'),'PDF');assert.equal(await adapter.read('papers/Paper.skim'),'annotations');assert.equal(E.parseLibrary(await adapter.read('library.md')).length,1);
   // Shared review attachments remain active until the last reference is removed.
   const reviewValues={title:'Shared',pdfPath:'reviews/Shared.pdf',category:'CoRL 2027',status:'待审',due:'—',next:'Read',notes:'private notes'};
   let reviews=E.updateTracker(empty,'审稿',null,reviewValues);reviews=E.updateTracker(reviews,'审稿',null,{...reviewValues,category:'CoRL 2027 / R2'});
-  await adapter.write('审稿.md',reviews);await adapter.write('reviews/Shared.pdf','private PDF');await adapter.write('reviews/Shared.skim','private annotations');
+  await adapter.write('reviews.md',reviews);await adapter.write('reviews/Shared.pdf','private PDF');await adapter.write('reviews/Shared.skim','private annotations');
   const shared=await trash.remove('reviews',E.parseTracker(reviews,'审稿')[0]);assert.equal(shared.files.length,0);assert(await adapter.exists('reviews/Shared.pdf'));await trash.restore(shared.folder);
-  assert.equal(E.parseTracker(await adapter.read('审稿.md'),'审稿').length,2);
+  assert.equal(E.parseTracker(await adapter.read('reviews.md'),'审稿').length,2);
   // Inbox deletion and restoration preserve sidecars without adding source-table rows.
   await adapter.write('temp/Inbox.pdf','inbox');await adapter.write('temp/Inbox.xfdf','notes');const stat=await adapter.stat('temp/Inbox.pdf');
   const inbox=await trash.remove('inbox',{path:'temp/Inbox.pdf',filename:'Inbox.pdf',fileMtime:stat.mtime,fileSize:stat.size});assert(!await adapter.exists('temp/Inbox.pdf'));await trash.restore(inbox.folder);assert.equal(await adapter.read('temp/Inbox.xfdf'),'notes');
   await assert.rejects(trash.read('../../etc'),/无效/);
   // Permanent deletion is restricted to this receipt, never active or shared attachments.
-  const permanent=await trash.remove('library',E.parseLibrary(await adapter.read('文献库.md'))[0]);
+  const permanent=await trash.remove('library',E.parseLibrary(await adapter.read('library.md'))[0]);
   await assert.rejects(trash.purge(permanent.folder,{...permanent,row:{...permanent.row,filename:'changed.pdf'}}),/重新确认/);
   assert(await adapter.exists(permanent.files[0].to));
   await adapter.write(permanent.folder+'/files/unexpected.txt','do not touch');await assert.rejects(trash.purge(permanent.folder,permanent),/发生变化/);assert(await adapter.exists(permanent.folder+'/files/unexpected.txt'));await fsp.unlink(absolute(permanent.folder+'/files/unexpected.txt'));
   await adapter.write('papers/Paper.pdf','new active copy');await trash.purge(permanent.folder,permanent);
   assert(!await adapter.exists(permanent.folder));assert.equal(await adapter.read('papers/Paper.pdf'),'new active copy');assert(!await adapter.exists(permanent.files[0].to));
-  const secondShared=await trash.remove('reviews',E.parseTracker(await adapter.read('审稿.md'),'审稿')[0]);assert.equal(secondShared.files.length,0);await trash.purge(secondShared.folder,secondShared);assert.equal(await adapter.read('reviews/Shared.pdf'),'private PDF');assert.equal(await adapter.read('reviews/Shared.skim'),'private annotations');
+  const secondShared=await trash.remove('reviews',E.parseTracker(await adapter.read('reviews.md'),'审稿')[0]);assert.equal(secondShared.files.length,0);await trash.purge(secondShared.folder,secondShared);assert.equal(await adapter.read('reviews/Shared.pdf'),'private PDF');assert.equal(await adapter.read('reviews/Shared.skim'),'private annotations');
   await assert.rejects(trash.purge(inbox.folder,inbox),/已恢复/);
   const current=await adapter.stat('temp/Inbox.pdf'),partial=await trash.remove('inbox',{path:'temp/Inbox.pdf',filename:'Inbox.pdf',fileMtime:current.mtime,fileSize:current.size});
   failPurge=true;await assert.rejects(trash.purge(partial.folder,partial),/未完成/);

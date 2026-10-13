@@ -2,7 +2,7 @@
 
 A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Browse collections on the left, papers in a dense list, and metadata and notes on the right. Your library stays in Markdown, with PDFs stored as ordinary files.
 
-**Status:** development baseline **4.2.3**, tested locally on macOS with Obsidian 1.14.4. This repository is not yet listed in the Obsidian Community directory. Windows, Linux, iPhone and iPad support has not been validated. The current interface is primarily Chinese.
+**Status:** development baseline **4.3.0**, tested locally on macOS with Obsidian 1.14.4. This repository is not yet listed in the Obsidian Community directory. Windows, Linux, iPhone and iPad support has not been validated. The interface supports English and Chinese, following the Obsidian language by default. Obsidian 1.8.7 or newer is required.
 
 [中文使用指南](docs/usage.zh-CN.md) · [Development](docs/development.md) · [Community release preparation](docs/community-release.md)
 
@@ -11,7 +11,7 @@ A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Bro
 - Compact three-pane browsing, search, reading status, priority, tags, publication venues, TL;DR and personal notes.
 - Multiple collections and writing projects per paper, without duplicating its PDF or metadata. Drag papers to add memberships; explicitly move or remove a membership when needed.
 - A PDF inbox with Finder drag-and-drop and blank-area **Paste** on macOS. Original files and matching annotation sidecars are preserved.
-- Separate review and submission trackers, venue deadlines, AoE time zones and countdowns. Writing projects are independent; deadlines are shared only by explicit choice.
+- Separate review and submission trackers, directly editable review status, venue deadlines, AoE time zones and countdowns. Writing projects are independent; deadlines are shared only by explicit choice.
 - Open PDFs in the system's default application. Skim is optional; the plugin does not embed a second desktop PDF viewer.
 - Recoverable deletion, multi-select trash, batch restore and batch permanent deletion with a single confirmation. File collisions are never overwritten.
 - BibTeX, APA 7, IEEE and paper-title exports. Citation metadata comes from PDF evidence and verified Crossref/arXiv lookups, not AI-generated bibliographies.
@@ -30,9 +30,15 @@ Use a separate test vault first. This version expects a fixed Markdown schema an
 
 Do not overwrite existing source tables with the templates. The internal plugin ID remains `paper-reservoir-dashboard` for compatibility with existing installations.
 
+## Interface language and existing vaults
+
+Use the language icon beside **Literature Database** in the sidebar, or run **Change interface language…** from the command palette. Choose **Follow Obsidian**, **中文** or **English**. The preference syncs with the plugin settings. Save or cancel any edits before switching; paper titles, notes, tags, venue names and stored schema values are never translated.
+
+On upgrade, the plugin backs up and renames the four legacy Chinese source filenames to the English names below. It preserves their contents and historical trash receipts. If both versions of a filename exist, migration stops without overwriting either file; resolve the conflict before reloading. Do not create a second set of source files by copying the empty templates into an existing vault.
+
 ## Data and privacy
 
-The canonical files are `文献库.md` (paper metadata), `集合.md` (collection/project memberships), `审稿.md` (reviews) and `投稿.md` (submissions). The right-hand paper title uses the confirmed title; list entries retain the actual PDF filename. Skim `.skim`, `.fdf` and `.xfdf` sidecars stay paired with their PDFs.
+The canonical files are `library.md` (paper metadata), `collections.md` (collection/project memberships), `reviews.md` (reviews) and `submissions.md` (submissions). The right-hand paper title uses the confirmed title; list entries retain the actual PDF filename. Skim `.skim`, `.fdf` and `.xfdf` sidecars stay paired with their PDFs.
 
 The plugin makes local backups before edits, checks for concurrent changes and keeps recoverable deletions under `.maintenance-backups/deleted/`. Permanent deletion removes only the selected archived record and its attachments. This is not a substitute for a separate backup. iCloud and other file sync are provided by your vault's storage provider; this plugin does not implement a sync service.
 

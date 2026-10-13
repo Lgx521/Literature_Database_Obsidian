@@ -18,11 +18,17 @@ __pycache__/
 /reviews/
 /submissions/
 /exports/
-/文献库.md
-/集合.md
-/审稿.md
-/投稿.md
+/library.md
+/collections.md
+/reviews.md
+/submissions.md
 *.pdf
 *.skim
 *.fdf
 *.xfdf
+
+# Pre-4.3 source names are private data too.
+/文献库.md
+/集合.md
+/审稿.md
+/投稿.md

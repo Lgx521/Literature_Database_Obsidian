@@ -50,11 +50,11 @@ def check(root):
             target = (md.parent / unquote(url.path)).resolve()
             if not target.is_relative_to(root.resolve()):
                 errors.append(f'{md.name}: 链接离开 vault: {destination}')
-            elif not target.is_file() and not (md.name == '集合.md' and target in trashed):
+            elif not target.is_file() and not (md.name == 'collections.md' and target in trashed):
                 errors.append(f'{md.name}: 失效链接: {destination}')
             if target.suffix.lower() == '.pdf' and html.unescape(label) != target.name:
                 errors.append(f'{md.name}: 链接显示名不等于实际文件名: {label}')
-        if md.name == '集合.md':
+        if md.name == 'collections.md':
             if text.count('<!-- collections:end -->') != 1:
                 errors.append('集合: 完整性标记缺失或重复')
             groups, members, current = set(), set(), ''
@@ -73,7 +73,7 @@ def check(root):
                     if target in members:
                         errors.append('集合: 同一集合重复引用: ' + current)
                     members.add(target); collection_refs.add(target)
-        if md.name == '文献库.md':
+        if md.name == 'library.md':
             for line in text.splitlines():
                 if not re.match(r'^\|\s*\[', line):
                     continue
@@ -96,9 +96,9 @@ def check(root):
                 linked.add(target)
     for target in collection_refs - linked - trashed:
         errors.append('集合引用未收录的文献: ' + str(target.relative_to(root.resolve()) if target.is_relative_to(root.resolve()) else target))
-    library_text = (root / '文献库.md').read_text()
-    if '<!-- library:collections -->' in library_text and not (root / '集合.md').is_file():
-        errors.append('集合.md 尚未同步')
+    library_text = (root / 'library.md').read_text()
+    if '<!-- library:collections -->' in library_text and not (root / 'collections.md').is_file():
+        errors.append('collections.md 尚未同步')
     hashes = {}
     pdfs = sorted((root / 'papers').glob('*.pdf'))
     for p in pdfs:
