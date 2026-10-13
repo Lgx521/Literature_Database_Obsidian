@@ -2,20 +2,61 @@
 
 A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Browse collections on the left, papers in a dense list, and metadata and notes on the right. Your library stays in Markdown, with PDFs stored as ordinary files.
 
-**Status:** development baseline **4.3.0**, tested locally on macOS with Obsidian 1.14.4. This repository is not yet listed in the Obsidian Community directory. Windows, Linux, iPhone and iPad support has not been validated. The interface supports English and Chinese, following the Obsidian language by default. Obsidian 1.8.7 or newer is required.
+[中文使用指南](docs/usage.zh-CN.md) · [Installation](#try-the-current-version) · [Development](docs/development.md) · [Community release preparation](docs/community-release.md)
 
-[中文使用指南](docs/usage.zh-CN.md) · [Development](docs/development.md) · [Community release preparation](docs/community-release.md)
+![English library overview with a compact paper list, reading status, priority, tags and personal notes](docs/screenshots/library-overview.jpg)
+
+*Real screenshots from a separate demo vault, using the English interface. Public papers are paired with example notes, projects and review tasks; no private library or confidential manuscripts are shown. Click any image to view it at full size.*
+
+**Status:** development baseline **4.3.0**, tested locally on macOS with Obsidian 1.14.4. This repository is not yet listed in the Obsidian Community directory. Windows, Linux, iPhone and iPad support has not been validated. The interface supports English and Chinese, following the Obsidian language by default. Obsidian 1.8.7 or newer is required.
 
 ## Features
 
-- Compact three-pane browsing, search, reading status, priority, tags, publication venues, TL;DR and personal notes.
-- Multiple collections and writing projects per paper, without duplicating its PDF or metadata. Drag papers to add memberships; explicitly move or remove a membership when needed.
-- A PDF inbox with Finder drag-and-drop and blank-area **Paste** on macOS. Original files and matching annotation sidecars are preserved.
-- Separate review and submission trackers, directly editable review status, venue deadlines, AoE time zones and countdowns. Writing projects are independent; deadlines are shared only by explicit choice.
-- Open PDFs in the system's default application. Skim is optional; the plugin does not embed a second desktop PDF viewer.
-- Recoverable deletion, multi-select trash, batch restore and batch permanent deletion with a single confirmation. File collisions are never overwritten.
-- BibTeX, APA 7, IEEE and paper-title exports. Citation metadata comes from PDF evidence and verified Crossref/arXiv lookups, not AI-generated bibliographies.
-- Manual agent handoff. No scheduled agent runs, per-paper Markdown files or second JSON metadata database.
+### A compact workspace for reading
+
+- **One row per paper.** Browse categories on the left, scan filenames in the middle, and read the confirmed title, TL;DR, tags, venues and notes on the right.
+- **Edit in place.** Change reading status and priority directly in the details pane. Save notes while staying on the same paper.
+- **Find papers quickly.** Search titles, filenames, tags, TL;DR and notes; filter by reading status or tag, and sort the list.
+- **Keep your PDF reader.** **Open ↗** uses the system's default application. Skim is optional; the plugin does not embed a second desktop PDF viewer.
+
+### Gather references for each writing project
+
+![Writing project with an AoE deadline, reference list and separate project notes](docs/screenshots/writing-project.jpg)
+
+A paper can belong to several categories and writing projects while keeping one PDF and one metadata record. Drag papers into a collection to add them, or use the native checked menu to manage memberships. Explicitly move or remove a membership when needed.
+
+Project notes capture why a paper matters to a particular draft, independently of its shared personal notes. Projects have their own deadlines and sidebar countdowns, including **AoE**. They remain separate from submissions; deadline sharing happens only when you explicitly choose it.
+
+### Export references when you write
+
+![IEEE reference export preview for the demo writing project](docs/screenshots/citation-export.jpg)
+
+Export the current list or selected papers, preview the result, then copy it or save a file.
+
+| Format | Output |
+| --- | --- |
+| **BibTeX** | `.bib`, preserving stored entries and citation keys |
+| **APA 7** | Formatted HTML, with plain-text or rich-text copying |
+| **IEEE** | Numbered references in HTML, with plain-text or rich-text copying |
+| **Title list** | `.txt`, one confirmed paper title per line—not filenames |
+
+Citation recognition uses PDF evidence and verified Crossref/arXiv lookups. Formatting is deterministic; agents do not invent bibliographies. Missing or uncertain records are reported instead of filled with guesses. Recognition runs on demand, without a background full-library scan.
+
+### Track reviews and submissions by venue
+
+![ICLR2027 demo review tracker with To review, Reviewing and Completed in the native status menu](docs/screenshots/review-tracker.jpg)
+
+Keep review tasks and your own submissions in separate trackers. Drop PDFs into a venue or its unassigned area, drag tasks between venues, and change review status directly in the right pane: **To review → Reviewing → Completed**. Each venue has one deadline, a time-zone selector and a countdown. Deleting a venue returns its papers to the unassigned area.
+
+*The ICLR2027 (Demo) tasks above use already published BERT, NeRF and DDPM papers. The assignments, notes and deadline are fictional examples, not actual ICLR submissions, reviews or official dates.*
+
+### Built around ordinary files
+
+- **PDF inbox:** drag from Finder or right-click the empty inbox area and choose **Paste** on macOS. Original files and matching annotation sidecars are preserved.
+- **Recoverable trash:** multi-select, batch restore and batch permanent deletion with one confirmation. File collisions are never overwritten.
+- **English and Chinese:** switch from the sidebar or follow Obsidian's language; your paper titles and notes are not translated.
+- **Manual agent handoff:** copy organization instructions when you want help. No scheduled agent runs, per-paper Markdown files or second JSON metadata database.
+- **Portable storage:** metadata and memberships live in Markdown; PDFs and Skim sidecars remain ordinary vault files. File syncing is handled by your vault's storage provider.
 
 ## Try the current version
 
