@@ -419,7 +419,7 @@ class LiteratureBrowser extends ItemView {
     }
     await super.setState(state,result);
   }
-  dirty(){return this.editing||this.notesDirty||!!this.venueDraft||this.saving||this.deleting;}
+  dirty(){return this.editing||this.notesDirty||!!this.venueDraft||this.saving||this.deleting||!!this.plugin.removalModal;}
   remember(){this.app.workspace.requestSaveLayout();}
   button(...args){return ldbButton(...args);}
   async navigate(nav){
@@ -567,9 +567,14 @@ class LiteratureBrowser extends ItemView {
     }else{this.selectedPaths=new Set([path]);this.selectionAnchor=path;}
     this.selectedPath=path;this.updateSelection();this.renderDetail();this.remember();
   }
-  async removeMembership(rows=this.selectedRows()){
+  async removeMembership(rows=this.selectedRows(),askScope=false){
     if(!this.filters.category||this.filters.category===Engine.UNFILED_CATEGORY)return;
-    try{await this.plugin.changeMembership(rows,null,{scope:this.scope,name:this.filters.category});new Notice(tr('已从当前集合移除，文献仍在库中'));}catch(e){new Notice(e.message,8000);}
+    if(!rows.length)return;
+    try{
+      const shared=askScope&&Collections.removalPlan(this.plugin.snapshot?.collections||[],rows.map(r=>r.path)).shared;
+      const decision=await ldbPlanPaperRemoval(this.plugin,rows,{scope:this.scope,name:this.filters.category},shared?'trash':'remove');
+      await this.applyRemoval(rows,decision);
+    }catch(e){new Notice(e.message,8000);}
   }
   updateSelection(){for(const [p,el]of this.rowEls||[]){el.toggleClass('is-selected',this.selectedPaths.has(p));el.setAttribute('aria-selected',String(this.selectedPaths.has(p)));}const el=this.rowEls?.get(this.selectedPath);if(el)this.listEl.setAttribute('aria-activedescendant',el.id);else this.listEl.removeAttribute('aria-activedescendant');}
   listKeydown(e){
@@ -577,7 +582,7 @@ class LiteratureBrowser extends ItemView {
     if(this.isPublic()&&(e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='a'){e.preventDefault();this.selectedPaths=new Set(this.visibleRows.map(r=>r.path));this.updateSelection();return;}
     if(e.metaKey||e.ctrlKey||e.altKey)return;
     let i=this.visibleRows.findIndex(r=>r.path===this.selectedPath);
-    if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();if(this.isPublic()&&this.filters.category&&this.filters.category!==Engine.UNFILED_CATEGORY)this.removeMembership();else this.requestDelete(this.visibleRows[i]);return;}
+    if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();if(this.isPublic()&&this.filters.category&&this.filters.category!==Engine.UNFILED_CATEGORY)this.removeMembership(this.selectedRows(),true);else this.requestDelete(this.visibleRows[i]);return;}
     if(e.key==='Enter'){e.preventDefault();this.openPDF(this.visibleRows[i]);return;}
     if(e.key==='ArrowDown')i=Math.min(this.visibleRows.length-1,i+1);else if(e.key==='ArrowUp')i=Math.max(0,i-1);else if(e.key==='Home')i=0;else if(e.key==='End')i=this.visibleRows.length-1;else return;
     e.preventDefault();this.select(this.visibleRows[i].path,e);this.rowEls.get(this.selectedPath)?.scrollIntoView({block:'nearest'});
@@ -586,9 +591,22 @@ class LiteratureBrowser extends ItemView {
     if(!row||this.deleting)return;
     if(this.dirty()||this.plugin.hasPendingEdit()){new Notice(tr('请先保存或取消编辑'));return;}
     const rows=this.isPublic()&&this.selectedPaths.has(row.path)?this.selectedRows():[row];if(!rows.length)return;
+    try{
+      const from=this.isPublic()&&this.filters.category&&this.filters.category!==Engine.UNFILED_CATEGORY?{scope:this.scope,name:this.filters.category}:null;
+      const decision=this.isPublic()?await ldbPlanPaperRemoval(this.plugin,rows,from,'trash'):{action:'trash',memberships:null};
+      await this.applyRemoval(rows,decision);
+    }catch(error){new Notice(error.message,8000);}
+  }
+  async applyRemoval(rows,decision){
+    if(!decision.action||this.closed)return;
+    if(this.dirty()||this.plugin.hasPendingEdit())throw new Error(tr('请先保存或取消编辑，并等待当前操作结束'));
+    if(decision.action==='remove'){
+      await this.plugin.changeMembership(rows,null,decision.from,false,{allMemberships:decision.memberships});
+      new Notice(tr('已从当前集合移除，文献仍在库中'));return;
+    }
     const progress=new Notice(tr('正在移至回收站…'),0);
     // Start the manager lock before marking this view busy, so its own busy flag is not a draft.
-    const pending=this.plugin.deleteRecords(this.isPublic()?'library':this.scope,[...rows]);
+    const pending=this.plugin.deleteRecords(this.isPublic()?'library':this.scope,[...rows],decision.memberships);
     this.deleting=true;this.lockFilters(true);
     for(const element of this.detailEl.querySelectorAll?.('button,input,select,textarea')||[])element.disabled=true;
     try{const count=await pending;new Notice(tr('已移至回收站')+(count>1?' · '+count+tr(' 篇'):''));}

@@ -166,16 +166,28 @@ module.exports=class LiteratureManager extends Plugin {
     if(!TRACK_FILES[scope]||Engine.isStagingGroup(name))throw new Error(tr('请为具体 Venue 设置截止时间'));
     return this.recordAction(()=>this.mutate(TRACK_FILES[scope],text=>Engine.setTrackerDeadline(text,TRACK_FILES[scope],name,value,expected)));
   }
-  hasPendingEdit(){return this.recordBusy||this.app.workspace.getLeavesOfType(LIBRARY_VIEW).some(leaf=>leaf.view?.dirty?.()||leaf.getViewState?.().state?.draft);}
+  hasPendingEdit(){return this.recordBusy||!!this.removalModal||this.app.workspace.getLeavesOfType(LIBRARY_VIEW).some(leaf=>leaf.view?.dirty?.()||leaf.getViewState?.().state?.draft);}
   async recordAction(action){
     if(this.hasPendingEdit()||this.importing)throw new Error(tr('请先保存或取消编辑，并等待当前操作结束'));
     this.recordBusy=true;try{return await action();}finally{this.recordBusy=false;}
   }
   async deleteRecord(scope,row){return this.recordAction(()=>this.trashStore.remove(scope,row));}
-  async deleteRecords(scope,rows){
+  async deleteRecords(scope,rows,expectedMemberships=null){
     return this.recordAction(async()=>{
       let done=0;
-      try{for(const row of rows){await this.trashStore.remove(scope,row);done++;}return done;}
+      try{
+        const verifyMemberships=scope==='library'&&expectedMemberships?async()=>{
+          const file=this.app.vault.getAbstractFileByPath(COLLECTION_SOURCE),text=await this.app.vault.read(file);
+          const actual=Collections.removalPlan(Collections.parse(text).groups,rows.map(r=>r.path)).memberships;
+          if(JSON.stringify(actual)!==JSON.stringify(expectedMemberships))throw new Error(tr('文献归属或项目备注已改变，请重新选择删除方式'));
+        }:null;
+        for(const row of rows){
+          // Recheck the whole selection before each archive; earlier archives retain memberships.
+          if(verifyMemberships)await verifyMemberships();
+          await this.trashStore.remove(scope,row,verifyMemberships);done++;
+        }
+        return done;
+      }
       catch(error){throw new Error((done?tr('已移入 ')+done+tr(' 篇，其余保留。'):'')+error.message);}
     });
   }
@@ -370,8 +382,14 @@ module.exports=class LiteratureManager extends Plugin {
       const source=this.app.vault.getAbstractFileByPath(LIBRARY_SOURCE),current=Engine.parseLibrary(await this.app.vault.read(source));
       for(const row of rows){const found=current.find(r=>r.path===row.path);if(!found||JSON.stringify(found.cells)!==JSON.stringify(row.cells))throw new Error(tr('文献已在其他窗口或设备中修改，请刷新后重试'));}
       await this.mutate(COLLECTION_SOURCE,text=>{
-        if(expected){
-          const group=Collections.parse(text).groups.find(g=>g.scope===expected.target.scope&&g.name===expected.target.name);
+        const groups=Collections.parse(text).groups,plan=Collections.removalPlan(groups,rows.map(r=>r.path),from);
+        if(expected?.allMemberships&&JSON.stringify(plan.memberships)!==JSON.stringify(expected.allMemberships))throw new Error(tr('文献归属或项目备注已改变，请重新选择删除方式'));
+        if(!target&&from){
+          if(!plan.sourceValid)throw new Error(tr('来源集合已改变，请刷新后重试'));
+          if(!plan.canRemove)throw new Error(tr('无法移除唯一归属；请重新操作并选择是否移至回收站'));
+        }
+        if(expected?.target){
+          const group=groups.find(g=>g.scope===expected.target.scope&&g.name===expected.target.name);
           const actual=group&&rows.map(row=>{const m=group.members.find(m=>m.path===row.path);return m?m.notes:null;});
           if(!group||JSON.stringify(actual)!==JSON.stringify(expected.members))throw new Error(tr('集合归属或项目备注已被修改，请重新打开勾选菜单'));
         }
@@ -438,5 +456,5 @@ module.exports=class LiteratureManager extends Plugin {
       else await this.app.workspace.getLeaf('tab').openFile(file);
     }catch(e){new Notice(e.message,8000);}
   }
-  onunload(){this.stopped=true;this.membershipMenu?.close();clearTimeout(this.timer);for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))leaf.view.stopCountdowns?.();this.endPaperDrag();this.endGroupDrag();}
+  onunload(){this.stopped=true;this.membershipMenu?.close();this.removalModal?.close();clearTimeout(this.timer);for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))leaf.view.stopCountdowns?.();this.endPaperDrag();this.endGroupDrag();}
 };

@@ -36,6 +36,8 @@ for(const value of ['2026-02-29 23:59 +08:00','2026-04-31 23:59 +08:00','2026-10
   for(const dir of ['papers','reviews','temp'])await fsp.mkdir(absolute(dir));
   await adapter.write('library.md',library);await adapter.write('reviews.md',empty);await adapter.write('submissions.md',empty);
   await adapter.write('papers/Paper.pdf','PDF');await adapter.write('papers/Paper.skim','annotations');
+  await assert.rejects(trash.remove('library',original,async()=>{throw Error('Membership changed during archive preparation');}),/Membership changed/);
+  assert.equal(await adapter.read('library.md'),library);assert.equal(await adapter.read('papers/Paper.skim'),'annotations');assert.equal((await trash.list()).length,0);
   const deleted=await trash.remove('library',original);assert.equal((await trash.list()).length,1);assert(!await adapter.exists('papers/Paper.pdf'));assert(!await adapter.exists('papers/Paper.skim'));
   assert.equal(E.parseLibrary(await adapter.read('library.md')).length,0);
   await adapter.write('papers/Paper.pdf','new concurrent file');await assert.rejects(trash.restore(deleted.folder),/同名/);assert.equal(await adapter.read('papers/Paper.pdf'),'new concurrent file');await fsp.unlink(absolute('papers/Paper.pdf'));

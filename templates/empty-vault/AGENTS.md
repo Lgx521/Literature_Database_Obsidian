@@ -29,6 +29,8 @@ Review/submission deadlines belong to their venue, not each manuscript. Writing 
 
 Use the plugin's recoverable trash. Do not permanently delete archive receipts, PDFs or annotations unless the user explicitly requests the particular deletion. Never clear a backup as routine tidying. Deleting a collection removes membership only, not its papers.
 
+Do not remove a paper's last category/project membership on its own. The UI offers cancel or move to recoverable trash instead. For papers in multiple collections, a trash action asks whether to remove only the current membership or trash the entire paper everywhere. Smart views do not count as collections. Explicit moves may replace the last membership with a target. Preserve all memberships and project notes of a recoverable paper until restore or explicit permanent purge.
+
 Agent work is manually triggered. Do not add scheduled runs, background metadata scans, or uploads of notes/manuscripts. Report what changed and what remains unresolved; a local file's existence does not prove another device finished syncing.
 
 Interface language (Chinese/English) is independent of storage. Keep schema headings, status values, markers and personal content unchanged when switching language. Do not recreate legacy Chinese source filenames.

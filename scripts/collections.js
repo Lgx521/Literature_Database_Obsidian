@@ -116,5 +116,11 @@ function setDeadline(text,project,value,expected){
   return finish(info.lines);
 }
 function memberships(groups,path,scope){return groups.filter(g=>g.scope===scope&&g.members.some(m=>m.path===path)).map(g=>g.name);}
+// Count real categories and writing projects together; smart views are not memberships.
+function removalPlan(groups,paths,from=null){
+  const memberships=[...new Set(paths)].map(path=>({path,groups:groups.filter(g=>g.members.some(m=>m.path===path)).map(g=>({scope:g.scope,name:g.name,notes:g.members.find(m=>m.path===path).notes})).sort((a,b)=>JSON.stringify([a.scope,a.name]).localeCompare(JSON.stringify([b.scope,b.name])))}));
+  const sourceValid=!!from&&memberships.length>0&&memberships.every(m=>m.groups.some(g=>g.scope===from.scope&&g.name===from.name));
+  return {memberships,sourceValid,shared:memberships.some(m=>m.groups.length>1),canRemove:sourceValid&&memberships.every(m=>m.groups.length>1)};
+}
 function decorate(rows,groups){return rows.map(r=>({...r,categories:memberships(groups,r.path,'library'),projects:memberships(groups,r.path,'projects')}));}
-module.exports={END,HEADERS,parse,empty,add,rename,remove,reorder,change,setNote,setVenue,setDeadline,memberships,decorate,link,encode,decode};
+module.exports={END,HEADERS,parse,empty,add,rename,remove,reorder,change,setNote,setVenue,setDeadline,memberships,removalPlan,decorate,link,encode,decode};

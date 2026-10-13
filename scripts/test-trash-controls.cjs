@@ -18,7 +18,7 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve)),find=(modal,text)=>mo
  view.rows=view.visibleRows=[one,two];view.selectedPaths=new Set([one.path,two.path]);let reloads=0;const locks=[];
  view.lockFilters=value=>locks.push(value);view.reload=async()=>{reloads++;};
  const removed=[];let release;manager.trashStore={remove:async(scope,row)=>{removed.push({scope,row});if(removed.length===1)await new Promise(resolve=>release=resolve);}};
- const deletion=view.requestDelete(one);assert.equal(removed.length,1);assert.equal(modals.length,0,'Recoverable delete starts without any modal.');assert(manager.recordBusy&&view.deleting&&view.dirty());assert(control.disabled);
+ const deletion=view.requestDelete(one);await tick();assert.equal(removed.length,1);assert.equal(modals.length,0,'Recoverable delete starts without any modal when there are no shared memberships.');assert(manager.recordBusy&&view.deleting&&view.dirty());assert(control.disabled);
  await view.requestDelete(one);assert.equal(removed.length,1,'Second click does not start another delete.');
  await assert.rejects(manager.deleteRecords('library',[two]),/等待当前操作/);release();await deletion;
  assert.equal(removed.length,2);assert(!manager.recordBusy&&!view.deleting);assert.deepEqual(locks,[true,false]);assert.equal(reloads,1);assert(notices.some(n=>n.text.includes('正在移至')&&n.hidden));assert(notices.some(n=>n.text==='已移至回收站 · 2 篇'));

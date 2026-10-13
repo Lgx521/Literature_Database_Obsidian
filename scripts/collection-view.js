@@ -26,7 +26,12 @@ class CollectionMembershipMenu {
           if(this.busy||this.closed)return;
           this.busy=true;menu.hide();
           try{
-            await this.plugin.changeMembership(this.rows,checked?null:target,checked?target:null,false,expected);
+            if(checked){
+              const decision=await ldbPlanPaperRemoval(this.plugin,this.rows,target,'remove');
+              if(decision.action==='trash'){
+                await this.plugin.deleteRecords('library',this.rows,decision.memberships);this.close();new Notice(tr('已移至回收站'));
+              }else if(decision.action==='remove')await this.plugin.changeMembership(this.rows,null,target,false,{...expected,allMemberships:decision.memberships});
+            }else await this.plugin.changeMembership(this.rows,target,null,false,expected);
           }catch(e){new Notice(e.message,8000);this.close();}
           finally{this.busy=false;}
           // Reopen in place with the saved checkmarks, allowing another click to toggle back.
@@ -37,6 +42,37 @@ class CollectionMembershipMenu {
     if(!sections)menu.addItem(item=>item.setTitle(tr('请先在左侧新建分类或项目')).setDisabled(true));
     menu.showAtPosition(this.position,this.doc);
   }
+}
+// A choice of deletion scope is distinct from irreversible purge confirmation.
+async function ldbPlanPaperRemoval(plugin,rows,from,intent){
+  if(plugin.hasPendingEdit())throw new Error(tr('请先保存或取消编辑，并等待当前操作结束'));
+  const groups=plugin.snapshot?.collections;
+  const plan=groups?Collections.removalPlan(groups,rows.map(r=>r.path),from):null;
+  if(intent==='remove'&&!plan?.sourceValid)throw new Error(tr('来源集合已改变，请刷新后重试'));
+  const needsChoice=intent==='remove'?!plan.canRemove:plan?.shared;
+  let action=intent;
+  if(needsChoice)action=await new Promise(resolve=>{
+    const modal=new PaperRemovalModal(plugin,rows,from,plan,intent,resolve);plugin.removalModal=modal;modal.open();
+  });
+  return {action:plugin.stopped?null:action,from,memberships:plan?.memberships||null};
+}
+class PaperRemovalModal extends Modal {
+  constructor(plugin,rows,from,plan,intent,resolve){super(plugin.app);Object.assign(this,{plugin,rows:[...rows],from,plan,intent,resolve,action:null});}
+  onOpen(){
+    const last=this.intent==='remove';this.titleEl.setText(tr(last?'仅有一个归属':'选择删除范围'));
+    this.contentEl.createEl('p',{text:tr(last?'所选文献中有文献仅属于这一个集合。是否将所选文献移至回收站？':'所选文献存在多个归属。请选择仅从当前集合移除，或将整篇文献移至回收站。')});
+    const names=this.contentEl.createDiv('ldb-trash-confirm-list');
+    for(const row of this.rows)names.createDiv({text:row.title?.trim()||row.filename||row.path});
+    if(!last&&!this.plan.canRemove)this.contentEl.createEl('p',{text:tr(this.from?'所选文献中有文献仅属于当前集合，不能仅移除归属。':'当前视图没有可移除的集合；整篇回收会影响所有分类和写作项目。')});
+    if(this.from)this.contentEl.createEl('p',{text:tr('当前集合：')+this.from.name});
+    this.contentEl.createEl('p',{text:tr('整篇移至回收站后可恢复，所有归属和项目备注会一并恢复。')});
+    const actions=this.contentEl.createDiv('ldb-actions');
+    ldbButton(actions,tr('取消'),()=>this.close());
+    if(!last&&this.plan.canRemove)ldbButton(actions,tr('仅从当前集合移除'),()=>this.choose('remove'));
+    ldbButton(actions,tr('整篇移至回收站'),()=>this.choose('trash'),'mod-warning');
+  }
+  choose(action){this.action=action;this.close();}
+  onClose(){if(this.plugin.removalModal===this)this.plugin.removalModal=null;this.contentEl.empty();this.resolve(this.action);}
 }
 function ldbOpenMoveMenu(plugin,rows,from,position,doc){
   if(plugin.hasPendingEdit()){new Notice(tr('请先保存或取消右侧编辑'));return;}

@@ -1,11 +1,11 @@
-First installable release prepared for Obsidian Community review. The plugin is not yet listed in the Community directory.
+Safer paper removal across categories and writing projects. [Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard).
 
-- Compact three-pane paper library with English/Chinese UI, collections and writing projects.
-- Separate review/submission trackers, venue deadlines, AoE and sidebar countdowns.
-- PDF citation recognition and deterministic BibTeX, APA 7, IEEE and confirmed-title exports.
-- macOS PDF drag/paste with annotation preservation; recoverable trash and batch operations.
-- Explicit first-run library creation; configurable startup and source-table redirects.
-- Desktop-only manifest, consistent version metadata, bundled license notices and reproducible release checks.
+- Removing a paper's only collection membership now offers cancel or move the paper to recoverable trash, instead of silently leaving it unassigned.
+- Trashing papers with multiple memberships asks whether to remove only the current membership or move the papers to trash everywhere. Restoring a paper restores its existing memberships and project notes.
+- Apply the same behavior to right-click actions, detail trash buttons, keyboard removal, native collection checkboxes and multi-selection. Mixed batches containing a last membership explain why local-only removal is unavailable; smart views do not pretend to be collections.
+- Revalidate membership and project notes after the choice and before archiving. Cancel safely if they changed in another window or device. Explicit moves can still replace a last membership.
+- Keep inbox/review/submission trash, batch restoration and permanent purge behavior unchanged.
+- Update English/Chinese guidance and the README's published Community badge. Add regression coverage for the new choices, cancellation and stale selections.
 
 Requires Obsidian 1.8.7 or newer. Tested interactively on macOS with Obsidian 1.14.4. Windows and Linux application behavior has not been validated; Finder PDF import/paste requires macOS. iPhone/iPad are not supported by this desktop-only release.
 

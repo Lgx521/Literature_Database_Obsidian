@@ -1,6 +1,6 @@
 # Development
 
-This repository contains the plugin source and synthetic tests, with no personal library data. The first version-controlled baseline was 4.2.3; the current submission candidate is 4.3.1.
+This repository contains the plugin source and synthetic tests, with no personal library data. The first version-controlled baseline was 4.2.3; the current release is 4.3.2.
 
 ## Build and test
 
@@ -11,7 +11,7 @@ npm run build
 npm test
 ```
 
-The build assembles source modules into `main.js` and copies the plugin CSS to `styles.css`. The test runner exercises parsing, collections, deadlines, citation handling, clipboard import, trash, batch operations and view controls. The two macOS filesystem/clipboard suites are explicitly skipped on other systems; that does not establish compatibility on those platforms.
+The build assembles source modules into `main.js` and copies the plugin CSS to `styles.css`. The test runner exercises parsing, collections, deadlines, citation handling, clipboard import, trash, batch operations and view controls. Removal tests cover last-membership prompts, local/global scope, mixed batches, native checkbox and keyboard paths, changed memberships/project notes, and cancellation. The two macOS filesystem/clipboard suites are explicitly skipped on other systems; that does not establish compatibility on those platforms.
 
 `scripts/vendor/citation-engine.cjs` is a vendored dependency build. To change citation formatting, follow its [locked dependency rebuild instructions](../scripts/vendor/THIRD-PARTY.md), then rebuild and test the plugin. Keep all original license notices. `scripts/migrate-collections.cjs` is a pure migration function, not an automatic migration of a user's files.
 

@@ -42,7 +42,7 @@ class RecordTrash {
     if(rows.some(r=>r.category===row.category&&(scope==='library'?JSON.stringify(r.cells)===JSON.stringify(row.cells):this.engine.sameTrackerContent(r.cells,row.cells))))return text;
     return this.engine.restoreRecord(text,scope,row);
   }
-  async remove(scope,row){
+  async remove(scope,row,beforeRemove=null){
     if(scope!=='inbox')this.engine.removeRecord(await this.readSource(scope),scope,row);
     const pdf=scope==='library'||scope==='inbox'?row.path:row.pdfPath;
     if(pdf&&!this.validPath(scope,pdf))throw new Error(tr('无效附件路径'));
@@ -60,6 +60,7 @@ class RecordTrash {
     }
     await this.mkdir(folder+'/files');await this.save(receipt);let removed=false;
     try{
+      if(beforeRemove)await beforeRemove();
       if(scope!=='inbox'){await this.manager.mutate(SOURCES[scope],t=>this.engine.removeRecord(t,scope,row));removed=true;}
       if(pdf&&await this.referenced(pdf)){receipt.files=[];await this.save(receipt);}
       for(const f of receipt.files){

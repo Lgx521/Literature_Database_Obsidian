@@ -2,7 +2,7 @@
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/Lgx521/Literature_Database_Obsidian?label=version&color=blue)](https://github.com/Lgx521/Literature_Database_Obsidian/releases/latest)
-[![Obsidian plugin: not yet listed](https://img.shields.io/badge/Obsidian_plugin-not_yet_listed-8b6cef?logo=obsidian&logoColor=white)](docs/community-release.md)
+[![Obsidian plugin: published](https://img.shields.io/badge/Obsidian_plugin-published-8b6cef?logo=obsidian&logoColor=white)](https://community.obsidian.md/plugins/paper-reservoir-dashboard)
 
 A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Browse collections on the left, papers in a dense list, and metadata and notes on the right. Your library stays in Markdown, with PDFs stored as ordinary files.
 
@@ -12,7 +12,7 @@ A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Bro
 
 *Real screenshots from a separate demo vault, using the English interface. Public papers are paired with example notes, projects and review tasks; no private library or confidential manuscripts are shown. Click any image to view it at full size.*
 
-**Status:** **4.3.1**, prepared for Community review and tested locally on macOS with Obsidian 1.14.4. This repository is not yet listed in the Obsidian Community directory. Requires **Obsidian 1.8.7+ on desktop**. Windows and Linux application behavior has not been validated; Finder drag/paste requires macOS. This release does not run on iPhone or iPad. The interface supports English and Chinese, following the Obsidian language by default. Screenshots below show the 4.3.0 demo UI; the same workflows remain available in 4.3.1.
+**Status:** **4.3.2**. [View the Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard); new releases may take time to reach the in-app directory. Requires **Obsidian 1.8.7+ on desktop**. Tested locally on macOS with Obsidian 1.14.4. Windows and Linux application behavior has not been validated; Finder drag/paste requires macOS. This release does not run on iPhone or iPad. The interface supports English and Chinese, following the Obsidian language by default. Screenshots below show the 4.3.0 demo UI; the same workflows remain available in 4.3.2.
 
 ## Features
 
@@ -28,6 +28,8 @@ A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Bro
 ![Writing project with an AoE deadline, reference list and separate project notes](docs/screenshots/writing-project.jpg)
 
 A paper can belong to several categories and writing projects while keeping one PDF and one metadata record. Drag papers into a collection to add them, or use the native checked menu to manage memberships. Explicitly move or remove a membership when needed.
+
+Removing a paper's last membership offers **Cancel** or **Move papers to trash everywhere**. If a paper belongs to multiple collections, a trash action lets you choose between removing only the current membership and moving the paper to trash everywhere. Restoration brings back its memberships and project notes. The same safeguards cover native checkboxes, keyboard removal and batch selections; explicit moves can still replace a membership. Smart views such as All papers have no current collection to remove from.
 
 Project notes capture why a paper matters to a particular draft, independently of its shared personal notes. Projects have their own deadlines and sidebar countdowns, including **AoE**. They remain separate from submissions; deadline sharing happens only when you explicitly choose it.
 
@@ -64,7 +66,7 @@ Keep review tasks and your own submissions in separate trackers. Drop PDFs into 
 
 ## Try the current version
 
-Use a separate vault for the literature library. Until Community approval, install the release manually:
+Use a separate vault for the literature library. Open the [Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard) and choose **Add to Obsidian**, or search for **Literature Database** in Community plugins. For manual installation while directory updates propagate:
 
 1. Download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/Lgx521/Literature_Database_Obsidian/releases/latest).
 2. Create `<vault>/.obsidian/plugins/paper-reservoir-dashboard/` and place the three files there. Use your vault's configured configuration folder if it differs from `.obsidian`.

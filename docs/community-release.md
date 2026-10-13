@@ -1,6 +1,6 @@
-# Community submission readiness
+# Community releases
 
-Checked against the official requirements on **2026-10-13** for **4.3.1**. This is a repository self-check, not Community approval. Automated review can still request changes.
+The [Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard) was published on **2026-10-13**. The initial submission checklist covered **4.3.1**; the current release is **4.3.2**. New releases are reviewed separately and may take time to propagate to the app directory.
 
 ## Repository and distribution
 
@@ -9,15 +9,15 @@ Checked against the official requirements on **2026-10-13** for **4.3.1**. This 
 | Public source repository | `Lgx521/Literature_Database_Obsidian`, with no personal vault contents |
 | Root `README.md`, `LICENSE`, `manifest.json` | Present; usage, installation, screenshots, data access and platform limits documented |
 | Plugin identity | `paper-reservoir-dashboard`, displayed as Literature Database, author shengzhegan; retain the installed ID for upgrade compatibility |
-| ID uniqueness | No matching ID or name in the published plugin list at the time of this check; the directory performs the authoritative check |
-| Version metadata | Manifest, package and version map agree on `4.3.1`; release tag must be exactly `4.3.1`, without `v` |
+| Community entry | Published as `paper-reservoir-dashboard`; retain this ID across updates |
+| Version metadata | Manifest, package and version map agree on `4.3.2`; release tag must be exactly `4.3.2`, without `v` |
 | Description | Short action statement, under 250 characters, ending with a period |
 | Minimum app | `1.8.7` for the public `getLanguage()` API; native menus and deferred views also use public APIs available by this version |
 | Desktop declaration | `isDesktopOnly: true` because the implementation uses Node/Electron; mobile installation is not supported |
 | Runtime assets | `main.js`, `manifest.json`, `styles.css` staged by `npm run release:check` and attached by the tag release workflow |
 | Reproducible dependencies | Locked versions; rebuilding the citation bundle produces the committed bytes |
 | License materials | AGPL-3.0-only project license, dependency notices embedded in `main.js`, separate release attachments, CSL source/styles in Git and dependency source archive in the release |
-| Badges | License, latest release, and an explicitly **not yet listed** Obsidian plugin badge; no install-from-directory claim |
+| Badges | License, latest GitHub release, and a published Obsidian plugin badge linking to the Community entry |
 
 The first release is [4.3.1](https://github.com/Lgx521/Literature_Database_Obsidian/releases/tag/4.3.1). Check that the three required runtime attachments are present before submitting. A tag or source archive alone is insufficient.
 
@@ -35,13 +35,17 @@ The first release is [4.3.1](https://github.com/Lgx521/Literature_Database_Obsid
 
 ## Validation and limits
 
-- **25 synthetic regression suites pass on macOS**, including first-run defaults, initialization races, existing-file preservation, legacy migration, concurrent source edits, citation evidence, trash, deadlines and inline controls.
+- **26 synthetic regression suites pass on macOS**, including first-run defaults, initialization races, existing-file preservation, legacy migration, concurrent source edits, citation evidence, deletion scope, trash, deadlines and inline controls.
 - macOS application smoke checks use a separate temporary vault: plugin enable/disable, settings, explicit creation and library opening. No personal vault is used for testing.
 - The locked dependency audit reports **0 known vulnerabilities** as of the check date. This is not a guarantee that the software is vulnerability-free.
 - Release CI tests macOS and Linux, compares the rebuilt dependency bundle and validates version/asset consistency before publishing. Linux skips the two macOS Finder/clipboard suites; this does not establish Linux GUI compatibility.
 - Interactive testing used **macOS / Obsidian 1.14.4**, not every older app version. Windows/Linux GUI behavior, third-party themes and mobile compatibility are not claimed. Sync is provided by the vault's storage provider; simultaneous-device/iCloud failure testing is not an exhaustive certification.
 
-## Submit as the repository owner
+## Publish an update
+
+Commit the source, update the manifest/package/version map, then push a new exact-version tag. The release workflow runs the tests and publishes the runtime attachments. The existing Community entry detects new releases; the owner can use **Check for new releases** or **Request review** on its management page. Do not create a second entry for an update.
+
+## Initial submission (completed)
 
 1. Verify [release 4.3.1](https://github.com/Lgx521/Literature_Database_Obsidian/releases/tag/4.3.1) has `main.js`, `manifest.json` and `styles.css`, and that the latest [workflow run](https://github.com/Lgx521/Literature_Database_Obsidian/actions) succeeded.
 2. Sign in at [Obsidian Community](https://community.obsidian.md) with your Obsidian account and connect the GitHub account that owns the repository.
