@@ -1,6 +1,6 @@
 # Screenshot provenance
 
-Captured on 2026-10-14 with Literature Database **4.8.0**, Obsidian **1.14.4** on macOS, the default light theme and the plugin's English interface. These are application captures from a separate **Literature Database Demo 4.8.0** vault, not UI mockups. Captured with the official Obsidian CLI (`dev:screenshot`), without Computer Use, cursor overlays or operating-system window borders. PNG captures were converted to JPEG for the README; the interface was not retouched.
+Captured on 2026-10-14 with Literature Database **4.8.0**, Obsidian **1.14.4** on macOS, the default light theme and the plugin's English interface. These are application captures from a separate **Literature Database Demo 4.8.0** vault, not UI mockups. Captured through the official Obsidian CLI (`dev:screenshot`, with `eval`/`capturePage` for a tooltip-free capture), without Computer Use, cursor overlays or operating-system window borders. PNG captures were converted to JPEG for the README; the interface was not retouched.
 
 | Image | Demonstrates |
 | --- | --- |
