@@ -8,6 +8,7 @@ const VENUE_HEADERS = [...NOTES_HEADERS, 'Venue'];
 const CITATION_HEADERS = [...VENUE_HEADERS, 'BibTeX', '引用来源'];
 const TITLE_HEADERS = [...CITATION_HEADERS, '篇名'];
 const ORGANIZATION_HEADERS=[...TITLE_HEADERS,'整理状态','整理来源'];
+const BOOKMARK_HEADERS=[...ORGANIZATION_HEADERS,'书签'];
 const STATUSES = ['在读', '待读', '待整理', '未标记', '已读', '暂存'];
 const PRIORITIES = ['高', '中', '低', '—'];
 const REVIEW_STATUSES = ['待审', '在审', '完成'];
@@ -51,9 +52,11 @@ function parseLibrary(text) {
     const organizing=r.cells[11]||'待整理';
     if(!Organization.STATES.includes(organizing))throw new Error(tr('整理状态无效'));
     const provenance=Organization.parse(decodeText(r.cells[12]||''));
+    if(!['','是'].includes(r.cells[13]||''))throw new Error(tr('书签须为空或「是」'));
+    const bookmarked=r.cells[13]==='是';
     paths.add(path);
     const venues=normalizeVenues(decodeText(r.cells[7]||'').split('\n').filter(Boolean));
-    Object.assign(r, { organizing, provenance, pdf, published, tags, tldr, status, priority, notes, venues, bibtex:decodeText(r.cells[8]||''), citationSource:decodeText(r.cells[9]||''), title:decodeText(r.cells[10]||''), path, filename });
+    Object.assign(r, { bookmarked, organizing, provenance, pdf, published, tags, tldr, status, priority, notes, venues, bibtex:decodeText(r.cells[8]||''), citationSource:decodeText(r.cells[9]||''), title:decodeText(r.cells[10]||''), path, filename });
   }
   return rows;
 }
@@ -100,9 +103,9 @@ function publicationRank(value) {
   const [year, month = '0'] = value.split('.');
   return Number(year) * 12 + Number(month);
 }
-function filterLibrary(rows, { query = '', category = '', status = '', tag = '', sort = 'filename', descending = false, organizing = '' } = {}) {
+function filterLibrary(rows, { query = '', category = '', status = '', tag = '', sort = 'filename', descending = false, organizing = '', bookmarked = false } = {}) {
   const tokens = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-  const result = rows.filter(r => (!category || (r.categories ? (category===UNFILED_CATEGORY?!r.categories.length:r.categories.includes(category)) : r.category === category)) && (!status || r.status === status)
+  const result = rows.filter(r => (!bookmarked || r.bookmarked) && (!category || (r.categories ? (category===UNFILED_CATEGORY?!r.categories.length:r.categories.includes(category)) : r.category === category)) && (!status || r.status === status)
     && (!organizing || (organizing==='pending'?Organization.pending(r):r.organizing===organizing))
     && (!tag || r.tags.split(/\s+/).includes(tag))
     && tokens.every(t => [r.filename, r.title||'', ...(r.categories||[r.category]), r.tags, r.tldr, decodeText(r.notes || ''), r.published, r.status, r.priority, ...(r.venues||[])].join(' ').toLocaleLowerCase().includes(t)));
@@ -115,6 +118,21 @@ function filterLibrary(rows, { query = '', category = '', status = '', tag = '',
       : sort==='title'?(a.title||a.filename).localeCompare(b.title||b.filename,'en',{numeric:true}):a.filename.localeCompare(b.filename, 'en', { numeric: true });
     return (descending ? -cmp : cmp) || a.filename.localeCompare(b.filename, 'en', { numeric: true });
   });
+}
+
+// Rows remain unique in the canonical list; grouping repeats only their visual membership.
+function groupLibrary(rows, categoryOrder=[]){
+  const groups=new Map();
+  for(const row of rows){
+    const categories=row.categories??(row.category&&row.category!=='文献'?[row.category]:[]);
+    for(const name of new Set(categories.length?categories:[UNFILED_CATEGORY])){
+      if(!groups.has(name))groups.set(name,[]);
+      groups.get(name).push(row);
+    }
+  }
+  const order=[...new Set([...categoryOrder,...groups.keys()])].filter(name=>name!==UNFILED_CATEGORY);
+  if(groups.has(UNFILED_CATEGORY))order.push(UNFILED_CATEGORY);
+  return order.filter(name=>groups.has(name)).map(name=>({name,rows:groups.get(name)}));
 }
 
 function decodeText(value) {
@@ -143,7 +161,7 @@ function normalizeVenues(values){
   return result;
 }
 function venueOptions(rows){return normalizeVenues(rows.flatMap(r=>r.venues||[])).sort((a,b)=>a.localeCompare(b,'en',{numeric:true}));}
-function libraryHeaders(text){const n=Math.max(...libraryTables(text).tables.map(t=>t.header.length));return n===13?ORGANIZATION_HEADERS:n===11?TITLE_HEADERS:n===10?CITATION_HEADERS:n===8?VENUE_HEADERS:NOTES_HEADERS;}
+function libraryHeaders(text){const n=Math.max(...libraryTables(text).tables.map(t=>t.header.length));return n===14?BOOKMARK_HEADERS:n===13?ORGANIZATION_HEADERS:n===11?TITLE_HEADERS:n===10?CITATION_HEADERS:n===8?VENUE_HEADERS:NOTES_HEADERS;}
 function libraryTables(text) {
   if (text.split('<!-- library:end -->').length!==2) throw new Error(tr('文献库尚未完整同步，暂停刷新'));
   const lines=text.split(/\r?\n/), tables=[], rows=[]; let heading='',headingLine=-1;
@@ -152,7 +170,7 @@ function libraryTables(text) {
     if(lines[i].startsWith('## ')){heading=lines[i].slice(3).trim();headingLine=i;}
     if(!lines[i].startsWith('|')) continue;
     const header=cells(lines[i]);
-    if (!same(header,HEADERS) && !same(header,NOTES_HEADERS) && !same(header,VENUE_HEADERS) && !same(header,CITATION_HEADERS) && !same(header,TITLE_HEADERS) && !same(header,ORGANIZATION_HEADERS)) throw new Error(tr`${heading}：文献表头无效`);
+    if (!same(header,HEADERS) && !same(header,NOTES_HEADERS) && !same(header,VENUE_HEADERS) && !same(header,CITATION_HEADERS) && !same(header,TITLE_HEADERS) && !same(header,ORGANIZATION_HEADERS) && !same(header,BOOKMARK_HEADERS)) throw new Error(tr`${heading}：文献表头无效`);
     categoryName(heading);
     if(tables.some(t=>t.name.toLocaleLowerCase()===heading.toLocaleLowerCase())) throw new Error(tr('分类名称重复：')+heading);
     const start=i;
@@ -173,6 +191,7 @@ function migrateLibraryNotes(text) {
 }
 function migrateLibraryVenues(text){return migrateLibraryColumns(text,VENUE_HEADERS);}
 function migrateLibraryTitles(text){return migrateLibraryColumns(text,TITLE_HEADERS);}
+function migrateLibraryBookmarks(text){return migrateLibraryColumns(text,BOOKMARK_HEADERS);}
 function migrateLibraryOrganization(text){return migrateLibraryColumns(text,ORGANIZATION_HEADERS);}
 function migrateLibraryCitations(text){return migrateLibraryColumns(text,CITATION_HEADERS);}
 function migrateLibraryColumns(text,headers){
@@ -242,14 +261,20 @@ function updateLibraryEntry(text, expected, changes, actor=null) {
     throw new Error(tr('这篇文献已在其他窗口或设备中修改。请取消编辑，查看最新内容后重试；你的输入仍保留。'));
   }
   changes={...changes};
+  if('bookmarked' in changes){
+    if(actor?.kind!=='human')throw new Error(tr('书签只能由用户修改'));
+    if(typeof changes.bookmarked!=='boolean')throw new Error(tr('书签值无效'));
+  }
   if('title' in changes)changes.title=String(changes.title).replace(/\r\n?/g,'\n').trim();
   for(const key of ['tldr','published','tags','organizing'])if(key in changes)changes[key]=String(changes[key]).replace(/\r?\n/g,' ').trim();
-  changes=Organization.apply({...current,tldr:decodeText(current.tldr)},changes,actor);
-  const columns = { organizing:11, provenance:12, published: 1, tags: 2, tldr: 3, status: 4, priority: 5, notes:6, venues:7, bibtex:8, citationSource:9, title:10 };
+  if(!(Object.keys(changes).length===1&&'bookmarked' in changes))changes=Organization.apply({...current,tldr:decodeText(current.tldr)},changes,actor);
+  const columns = { bookmarked:13, organizing:11, provenance:12, published: 1, tags: 2, tldr: 3, status: 4, priority: 5, notes:6, venues:7, bibtex:8, citationSource:9, title:10 };
   for (const key of Object.keys(changes)) if (!(key in columns) && key!=='category') throw new Error(tr('不支持修改字段：') + key);
   const target=changes.category===undefined?current.category:categoryName(changes.category);
   if(!getCategories(text).includes(target)) throw new Error(tr('目标分类不存在'));
-  if('organizing' in changes||'provenance' in changes){
+  if('bookmarked' in changes){
+    text=migrateLibraryBookmarks(text);current=parseLibrary(text).find(r=>r.path===expected.path);
+  }else if('organizing' in changes||'provenance' in changes){
     text=migrateLibraryOrganization(text);current=parseLibrary(text).find(r=>r.path===expected.path);
   }else if('title' in changes){
     text=migrateLibraryTitles(text);current=parseLibrary(text).find(r=>r.path===expected.path);
@@ -263,7 +288,7 @@ function updateLibraryEntry(text, expected, changes, actor=null) {
   const next = [...current.cells];
   for (const [key,value] of Object.entries(changes)) {
     if(key==='category') continue;
-    next[columns[key]]=key==='provenance'?encodeNotes(JSON.stringify(Organization.parse(value))):key==='venues'?normalizeVenues(value).map(encodeNotes).join('<br>'):['notes','bibtex','citationSource','title','tldr'].includes(key)?encodeNotes(value):String(value).replace(/\r?\n/g,' ').trim().replace(/\|/g,'&#124;');
+    next[columns[key]]=key==='bookmarked'?(value?'是':''):key==='provenance'?encodeNotes(JSON.stringify(Organization.parse(value))):key==='venues'?normalizeVenues(value).map(encodeNotes).join('<br>'):['notes','bibtex','citationSource','title','tldr'].includes(key)?encodeNotes(value):String(value).replace(/\r?\n/g,' ').trim().replace(/\|/g,'&#124;');
   }
   if(same(next,current.cells) && target===current.category) return text;
   const lines=text.split('\n'), index=lines.findIndex(l=>l.startsWith('|')&&same(cells(l),current.cells));
@@ -287,6 +312,7 @@ function addLibraryEntry(text,path){
   const provenance=Organization.apply({title:'',tags:'',tldr:''},{title:filename},{kind:'import',name:'filename'}).provenance;
   const values=['['+escapeLabel(filename)+']('+encodeURIPath(path)+')','待核实','','','待读','—','','','','',encodeNotes(filename),'待整理',encodeNotes(JSON.stringify(provenance))];
   const info=libraryTables(text),target=info.tables.find(t=>t.name==='文献')||info.tables[0],lines=text.split('\n');
+  while(values.length<target.header.length)values.push('');
   lines.splice(target.end+1,0,'| '+values.join(' | ')+' |'+(text.includes('\r\n')?'\r':''));
   const output=lines.join('\n');parseLibrary(output);return output;
 }
@@ -433,7 +459,7 @@ function restoreRecord(text,scope,row){
   if(!['library','reviews','submissions'].includes(scope))throw new Error(tr('无效记录类型'));
   const rows=library?parseLibrary(text):parseTracker(text,source),group=library&&text.includes('<!-- library:collections -->')?'文献':categoryName(row.category);
   if(rows.some(r=>library?r.path===row.path:r.category===group&&sameTrackerContent(r.cells,row.cells)))throw new Error(tr('这条记录已存在，未重复恢复'));
-  if(library)text=row.cells.length===13?migrateLibraryOrganization(text):row.cells.length===11?migrateLibraryTitles(text):row.cells.length===10?migrateLibraryCitations(text):row.cells.length===8?migrateLibraryVenues(text):migrateLibraryNotes(text);
+  if(library)text=row.cells.length===14?migrateLibraryBookmarks(text):row.cells.length===13?migrateLibraryOrganization(text):row.cells.length===11?migrateLibraryTitles(text):row.cells.length===10?migrateLibraryCitations(text):row.cells.length===8?migrateLibraryVenues(text):migrateLibraryNotes(text);
   const names=library?getCategories(text):trackerGroups(text),cr=text.includes('\r\n')?'\r':'';
   if(!names.includes(group)){
     if(library)text=addCategory(text,group);
@@ -444,4 +470,4 @@ function restoreRecord(text,scope,row){
   if(end<0)throw new Error(tr('无法恢复到分类'));const values=[...row.cells];if(library)while(values.length<header.length)values.push('');if(!library)values[2]=trackerDeadline(text,group);
   lines.splice(end+1,0,'| '+values.join(' | ')+' |'+cr);const output=lines.join('\n');library?parseLibrary(output):parseTracker(output,source);return output;
 }
-module.exports = { Organization, ORGANIZATION_HEADERS, migrateLibraryOrganization, addLibraryEntry, REVIEW_STATUSES, updateReviewStatus, TITLE_HEADERS, migrateLibraryTitles, trackerLayout, CITATION_HEADERS, migrateLibraryCitations, HEADERS, NOTES_HEADERS, VENUE_HEADERS, normalizeVenues, venueOptions, migrateLibraryVenues, STATUSES, PRIORITIES, UNFILED_CATEGORY, TRACKING_HEADERS, parseLibrary, deadline, deadlineParts, composeDeadline, displayDeadline, deadlineCountdown, escapeLabel, filterLibrary, updateLibraryEntry, decodeText, encodeNotes, getCategories, migrateLibraryNotes, addCategory, renameCategory, deleteCategory, reorderGroups, parseTracker, trackerGroups, trackerDeadline, setTrackerDeadline, migrateTrackerDeadlines, isStagingGroup, renameTrackerGroup, deleteTrackerGroup, addTrackerGroup, updateTracker, removeRecord, restoreRecord, sameTrackerContent };
+module.exports = { BOOKMARK_HEADERS, migrateLibraryBookmarks, groupLibrary, Organization, ORGANIZATION_HEADERS, migrateLibraryOrganization, addLibraryEntry, REVIEW_STATUSES, updateReviewStatus, TITLE_HEADERS, migrateLibraryTitles, trackerLayout, CITATION_HEADERS, migrateLibraryCitations, HEADERS, NOTES_HEADERS, VENUE_HEADERS, normalizeVenues, venueOptions, migrateLibraryVenues, STATUSES, PRIORITIES, UNFILED_CATEGORY, TRACKING_HEADERS, parseLibrary, deadline, deadlineParts, composeDeadline, displayDeadline, deadlineCountdown, escapeLabel, filterLibrary, updateLibraryEntry, decodeText, encodeNotes, getCategories, migrateLibraryNotes, addCategory, renameCategory, deleteCategory, reorderGroups, parseTracker, trackerGroups, trackerDeadline, setTrackerDeadline, migrateTrackerDeadlines, isStagingGroup, renameTrackerGroup, deleteTrackerGroup, addTrackerGroup, updateTracker, removeRecord, restoreRecord, sameTrackerContent };

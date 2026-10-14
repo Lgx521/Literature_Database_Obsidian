@@ -35,6 +35,8 @@ const input=(name,text='%PDF synthetic')=>({name,arrayBuffer:async()=>new TextEn
  assert.equal(p.snapshot.library.length,2);assert.equal(p.snapshot.library[1].path,'papers/import-2/2605.12345v1.pdf');
  await p.mutate('library.md',text=>E.updateLibraryEntry(text,r,{title:'Verified Synthetic Paper',notes:'Mobile notes\n第二行',status:'在读',organizing:'人工完成',tags:'#human'},{kind:'human',name:'user'}));
  r=p.snapshot.library[0];assert.equal(r.organizing,'人工完成');assert.equal(E.Organization.source(r,'#human',true).kind,'human');assert.equal(E.decodeText(r.notes),'Mobile notes\n第二行');
+ await p.mutate('library.md',text=>E.updateLibraryEntry(text,r,{bookmarked:true},{kind:'human',name:'user'}));
+ r=p.snapshot.library[0];assert.equal(r.bookmarked,true);assert.equal(E.groupLibrary(E.filterLibrary(p.snapshot.library,{bookmarked:true}),p.snapshot.categories).length,1);
  await p.openPDF(r.path);assert.deepEqual(opened,[r.path]);
  await p.importDroppedFiles([input('Private.pdf')],{scope:'reviews'});assert.equal(p.snapshot.reviews.length,1);assert.equal(p.snapshot.library.length,2);assert(buffers.has('reviews/_staging/Private.pdf'));
  // Existing local bibliography and deterministic formats work with no Node or process global.
@@ -46,6 +48,6 @@ const input=(name,text='%PDF synthetic')=>({name,arrayBuffer:async()=>new TextEn
  failPath='temp/Interrupted.pdf';result=await M.importFiles(vault,[input('Interrupted.pdf'),input('Interrupted.skim')]);assert(result[0].error);assert(buffers.has('temp/Interrupted.skim'));assert(!buffers.has(failPath));failPath='';
  result=await M.importFiles(vault,[input('Interrupted.pdf'),input('Interrupted.skim')]);assert.equal(result[0].path,'temp/import-2/Interrupted.pdf');
  // Same non-Node vault adapter supports recoverable deletion and restoration.
- const receipt=await p.trashStore.remove('library',p.snapshot.library[0]);assert.equal(p.snapshot.library.length,1);assert(!buffers.has(r.path));await p.trashStore.restore(receipt.folder,receipt);assert.equal(p.snapshot.library.length,2);assert(buffers.has(r.path));
+ const receipt=await p.trashStore.remove('library',p.snapshot.library[0]);assert.equal(p.snapshot.library.length,1);assert(!buffers.has(r.path));await p.trashStore.restore(receipt.folder,receipt);assert.equal(p.snapshot.library.length,2);assert(buffers.has(r.path));assert.equal(p.snapshot.library.find(row=>row.path===r.path).bookmarked,true);
  p.onunload();console.log('PASS: mobile startup, browser imports and annotations, collision/error recovery, metadata/Notes/provenance, PDF opening, reviews, trash/restore and all citation formats without Node/Electron globals.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -45,12 +45,22 @@
 .ldb-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 20px; }
 .ldb-filename { display: flex; min-width: 0; gap: 7px; align-items: center; }
 .ldb-filename-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ldb-pdf-icon { display: flex; color: var(--text-faint); flex: 0 0 13px; }
+.ldb-pdf-icon { position: relative; display: flex; color: var(--text-faint); flex: 0 0 13px; }
 .ldb-pdf-icon svg { width: 13px; height: 13px; }
+.ldb-pdf-icon .ldb-bookmark-badge { position: absolute; display: flex; top: -2px; right: -1px; color: var(--color-red, #d64545); }
+.ldb-pdf-icon .ldb-bookmark-badge svg { width: 8px; height: 10px; fill: currentColor; stroke-width: 1.5px; }
+.ldb-group-heading { display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 12px; background: var(--background-secondary); border-bottom: 1px solid var(--background-modifier-border); font-size: 11px; font-weight: 600; color: var(--text-muted); }
+.ldb-group-count { font-weight: 400; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.ldb-bookmark-button { margin-left: auto; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 5px; background: transparent; box-shadow: none; color: var(--text-muted); }
+.ldb-bookmark-button svg { width: 15px; height: 15px; }
+.ldb-bookmark-button.is-bookmarked { color: var(--color-red, #d64545); }
+.ldb-bookmark-button.is-bookmarked svg { fill: currentColor; }
+.ldb-bookmark-button + .ldb-delete-button { margin-left: 0; }
+.ldb-mobile .ldb-bookmark-button { margin-left: 0; width: 36px; height: 36px; }
 .ldb-date { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .ldb-reading, .ldb-priority { font-size: 11px; color: var(--text-muted); }
 .ldb-reading[data-status="在读"], .ldb-priority[data-priority="高"] { color: var(--text-accent); font-weight: 650; }
-.ldb-details { border-left: 1px solid var(--background-modifier-border); min-height: 0; overflow: auto; padding: 18px; background: var(--background-primary); }
+.ldb-details { position: relative; border-left: 1px solid var(--background-modifier-border); min-height: 0; overflow: auto; padding: 18px; background: var(--background-primary); }
 .ldb-detail-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .ldb-delete-button { margin-left: auto; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 5px; background: transparent; box-shadow: none; color: var(--text-muted); }
 .ldb-delete-button svg { width: 15px; height: 15px; }
@@ -254,7 +264,7 @@
 .ldb-mobile .ldb-list-pane { overflow: hidden; }
 .ldb-browser.ldb-mobile .ldb-details { border-left: 3px solid var(--background-modifier-border); padding: 0 14px calc(14px + var(--view-bottom-spacing, 0px)); scroll-padding-top: 44px; }
 .ldb-browser.ldb-mobile button { border-radius: 5px; }
-.ldb-browser.ldb-mobile .ldb-detail-top :is(.ldb-edit-button,.ldb-delete-button) { background: transparent; box-shadow: none; }
+.ldb-browser.ldb-mobile .ldb-detail-top :is(.ldb-edit-button,.ldb-bookmark-button,.ldb-delete-button) { background: transparent; box-shadow: none; }
 .ldb-mobile .ldb-list { scrollbar-gutter: auto; overscroll-behavior: contain; }
 .ldb-mobile .ldb-row { --ldb-line: 38px; font-size: 13px; }
 .ldb-mobile .ldb-columns, .ldb-mobile .ldb-row { grid-template-columns: minmax(0,1fr) 72px 60px; }
@@ -305,4 +315,13 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .ldb-mobile .ldb-body, .ldb-mobile .ldb-list-pane { transition: none; }
+}
+
+/* Short interaction feedback; never animate routine refreshes or the whole page. */
+.ldb-browser :is(.ldb-tag,.ldb-venue-tag,.ldb-venue-remove,.ldb-venue-picker,.ldb-bookmark-button,.ldb-inline-select) { transition: background-color 120ms ease, color 120ms ease; }
+.ldb-browser :is(button.ldb-tag,.ldb-bookmark-button,.ldb-venue-picker):active:not(:disabled) { transform: scale(.96); }
+.ldb-details .ldb-motion-exit { position: absolute !important; pointer-events: none !important; margin: 0 !important; z-index: 2; transform-origin: center; }
+@media (prefers-reduced-motion: reduce) {
+  .ldb-browser :is(.ldb-tag,.ldb-venue-tag,.ldb-venue-remove,.ldb-venue-picker,.ldb-bookmark-button,.ldb-inline-select) { transition: none; }
+  .ldb-browser :is(button.ldb-tag,.ldb-bookmark-button,.ldb-venue-picker):active:not(:disabled) { transform: none; }
 }

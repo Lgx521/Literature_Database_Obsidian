@@ -94,12 +94,13 @@ class LibraryNavigation extends ItemView {
       const b=ldbButton(root,'',()=>this.plugin.openLibrary(nav),'ldb-nav-item'+(child?' is-child':''));
       b.setAttribute('aria-label',label);setIcon(b.createSpan('ldb-nav-icon'),icon);
       b.createSpan({cls:'ldb-nav-label',text:label});if(count!==undefined)b.createSpan({cls:'ldb-nav-count',text:String(count)});
-      const selected=active.scope===nav.scope&&(active.category||'')===(nav.category||'')&&(active.status||'')===(nav.status||'');
+      const selected=active.scope===nav.scope&&(active.category||'')===(nav.category||'')&&(active.status||'')===(nav.status||'')&&!!active.bookmarked===!!nav.bookmarked;
       b.toggleClass('is-active',selected);b.setAttribute('aria-current',selected?'page':'false');return b;
     };
     add(tr('全部文献'),'library',{scope:'library',category:'',status:''},data?.library.length||0);
     const inbox=add(tr('收件箱'),'inbox',{scope:'inbox',category:'',status:''},data?.inbox.length||0);
     inbox.title=tr('将本地 PDF 拖到这里导入');ldbDropTarget(inbox,this.plugin);
+    add(tr('书签'),'bookmark',{scope:'library',bookmarked:true},data?.library.filter(r=>r.bookmarked).length||0);
     add(tr('在读'),'book-open',{scope:'library',category:'',status:'在读'},data?.library.filter(r=>r.status==='在读').length||0);
     add(tr('待读'),'bookmark',{scope:'library',category:'',status:'待读'},data?.library.filter(r=>r.status==='待读').length||0);
     const heading=root.createDiv('ldb-nav-section');heading.createSpan({text:tr('分类')});
@@ -298,7 +299,7 @@ class AgentHandoffModal extends Modal {
     this.titleEl.setText(tr('手动交给 Agent 整理'));
     this.contentEl.createEl('p',{text:tr('复制指令，粘贴到 Codex 执行。')});
     const base=this.app.vault.adapter.getBasePath?.()||this.app.vault.getName();
-    const prompt=tr`请整理论文库 ${base}。先读根目录 AGENTS.md。处理 temp 收件箱，以及 library.md 中待整理、自动整理或元信息不完整且未标为人工完成的文献。PDF 原文件名永远不改；同名文件放不同子目录，保留 PDF、Skim 批注和扩展属性。核实真实篇名后写入篇名列，保留已选集合。补齐空缺的篇名、标签、TL;DR；保留人工及未知来源的已有内容、Notes、阅读状态、优先级和项目备注。人工完成的条目跳过；通过带 actor 的 updateLibraryEntry 记录每个字段和标签来源（kind: ai，name: 实际 Agent 名，如 Codex），读取 PDF 后标为 AI 已整理，无法确认的字段留空并报告。核实重复与版本，不擅自合并。严禁生成或修改 BibTeX、引用来源、引用键、作者、DOI 等引用字段；新条目这些字段留空。只处理公开文献，不搜索或上传审稿、投稿材料。先备份，检查并发修改，最后验证源表、集合和附件。仅执行本次手动整理，不创建定时任务。`;
+    const prompt=tr`请整理论文库 ${base}。先读根目录 AGENTS.md。处理 temp 收件箱，以及 library.md 中待整理、自动整理或元信息不完整且未标为人工完成的文献。PDF 原文件名永远不改；同名文件放不同子目录，保留 PDF、Skim 批注和扩展属性。核实真实篇名后写入篇名列，保留已选集合。补齐空缺的篇名、标签、TL;DR；保留人工及未知来源的已有内容、Notes、阅读状态、优先级、书签和项目备注。人工完成的条目跳过；通过带 actor 的 updateLibraryEntry 记录每个字段和标签来源（kind: ai，name: 实际 Agent 名，如 Codex），读取 PDF 后标为 AI 已整理，无法确认的字段留空并报告。核实重复与版本，不擅自合并。严禁生成或修改 BibTeX、引用来源、引用键、作者、DOI 等引用字段；新条目这些字段留空。只处理公开文献，不搜索或上传审稿、投稿材料。先备份，检查并发修改，最后验证源表、集合和附件。仅执行本次手动整理，不创建定时任务。`;
     const area=this.contentEl.createEl('textarea',{attr:{rows:'10','aria-label':tr('Agent 整理指令')}});area.value=prompt;area.addClass('ldb-full-width');
     ldbButton(this.contentEl,tr('复制整理指令'),async()=>{try{await navigator.clipboard.writeText(area.value);new Notice(tr('已复制，请粘贴到 Codex 执行'));this.close();}catch(e){area.focus();area.select();new Notice(tr('请按 ⌘C 复制'));}},'mod-cta');
   }
@@ -395,10 +396,62 @@ class TrashModal extends Modal {
   }
   onClose(){this.closed=true;this.renderVersion++;this.contentEl.empty();}
 }
+// One-shot feedback for changed detail controls. No timers, polling, or storage changes.
+class LdbDetailMotion {
+  constructor(root){
+    this.root=root;this.win=root.ownerDocument.defaultView;this.items=new Map();this.animations=new Set();
+    this.media=this.win.matchMedia?.('(prefers-reduced-motion: reduce)');
+    this.reduce=()=>{if(this.media.matches)this.cancelAnimations();};this.media?.addEventListener?.('change',this.reduce);
+  }
+  cancelAnimations(){for(const animation of this.animations){animation.cancel();animation.oncancel?.();}this.animations.clear();}
+  pause(){if(this.frame)this.win.cancelAnimationFrame(this.frame);this.frame=0;this.cancelAnimations();for(const item of this.items.values())item.present=false;}
+  capture(identity){
+    if(identity!==this.identity){this.pause();this.identity=identity;this.items.clear();this.initialized=false;}
+    for(const item of this.items.values())if(item.el.isConnected){item.rect=item.el.getBoundingClientRect();item.present=true;}
+  }
+  animate(el,kind,cleanup=()=>{}){
+    if(this.media?.matches||!el.animate){cleanup();return;}
+    const frames=kind==='out'?[{opacity:1,transform:'scale(1)'},{opacity:0,transform:'scale(.9)'}]
+      :kind==='in'?[{opacity:0,transform:'translateY(2px) scale(.92)'},{opacity:1,transform:'translateY(0) scale(1.035)',offset:.7},{opacity:1,transform:'scale(1)'}]
+      :kind==='bookmark'?[{transform:'scale(.88)'},{transform:'scale(1.14)',offset:.6},{transform:'scale(1)'}]
+      :[{opacity:.45},{opacity:1}];
+    const animation=el.animate(frames,{duration:kind==='out'?130:kind==='change'?150:200,easing:'cubic-bezier(.2,.8,.2,1)'});
+    this.animations.add(animation);let cleaned=false;const finish=()=>{if(cleaned)return;cleaned=true;this.animations.delete(animation);cleanup();};
+    animation.onfinish=animation.oncancel=finish;animation.finished?.then(finish,finish);
+  }
+  fadeRemoved(item){
+    if(!item.present||!item.rect||!item.key.startsWith('chip:'))return;
+    const rect=item.rect,rootRect=this.root.getBoundingClientRect();
+    if(!rect.width||rect.bottom<=rootRect.top||rect.top>=rootRect.bottom)return;
+    const ghost=item.el.cloneNode(true);ghost.removeAttribute('data-ldb-motion');ghost.removeAttribute('id');
+    // Keep the chip's parent class so a fading copy retains its typography and tag styling.
+    const layer=this.root.ownerDocument.createElement('div');layer.className='ldb-motion-exit '+(item.el.parentElement?.className||'');
+    layer.setAttribute('aria-hidden','true');layer.inert=true;
+    Object.assign(layer.style,{left:(rect.left-rootRect.left-this.root.clientLeft+this.root.scrollLeft)+'px',top:(rect.top-rootRect.top-this.root.clientTop+this.root.scrollTop)+'px',width:rect.width+'px',height:rect.height+'px'});
+    layer.appendChild(ghost);this.root.appendChild(layer);this.animate(layer,'out',()=>layer.remove());
+  }
+  schedule(identity){
+    if(this.frame)this.win.cancelAnimationFrame(this.frame);
+    this.frame=this.win.requestAnimationFrame(()=>{
+      this.frame=0;if(this.identity!==identity||!this.root.isConnected)return;
+      const next=new Map();
+      for(const el of this.root.querySelectorAll('[data-ldb-motion]')){
+        const key=el.getAttribute('data-ldb-motion');next.set(key,{key,el,value:el.getAttribute('data-ldb-motion-value')??el.value??el.textContent});
+      }
+      if(this.initialized&&!this.media?.matches){
+        for(const [key,item]of next){const previous=this.items.get(key);if(!previous)this.animate(item.el,'in');else if(previous.value!==item.value)this.animate(item.el,key==='bookmark'?'bookmark':'change');}
+        for(const [key,item]of this.items)if(!next.has(key))this.fadeRemoved(item);
+      }
+      this.items=next;this.initialized=true;
+    });
+  }
+  destroy(){this.pause();this.items.clear();this.media?.removeEventListener?.('change',this.reduce);}
+}
+
 class LiteratureBrowser extends ItemView {
   constructor(leaf,plugin){
     super(leaf);this.plugin=plugin;this.rows=[];this.visibleRows=[];this.selectedPath='';this.selectedPaths=new Set();this.scope='library';
-    this.filters={query:'',category:'',status:'',tag:'',sort:'title',descending:false,organizing:''};
+    this.filters={query:'',category:'',status:'',tag:'',sort:'title',descending:false,organizing:'',bookmarked:false};
     this.editing=false;this.notesDirty=false;this.venueDraft='';this.saving=false;this.deleting=false;this.closed=false;
   }
   getViewType(){return LIBRARY_VIEW;}
@@ -421,6 +474,7 @@ class LiteratureBrowser extends ItemView {
       if(SCOPES[state.scope])this.scope=state.scope;
       if(this.isPublic()&&this.filters.sort==='filename')this.filters.sort='title';
       this.filters.descending=state.descending===true;
+      this.filters.bookmarked=this.scope==='library'&&state.bookmarked===true;
       this.selectedPath=typeof state.selectedPath==='string'?state.selectedPath:'';
       this.pendingDraft=state.draft||null;
       this.pendingVenueDraft=state.venueDraft||null;
@@ -435,11 +489,11 @@ class LiteratureBrowser extends ItemView {
     if(this.dirty()){new Notice(tr('请先保存或取消右侧编辑；草稿已保留'));return false;}
     if(Platform?.isMobile)this.setMobileExpanded(false);
     this.scope=nav.scope||'library';
-    Object.assign(this.filters,{query:'',tag:'',organizing:'',category:nav.category||'',status:nav.status||'',sort:this.isPublic()?'title':'published',descending:this.scope==='inbox'});
-    this.selectedPath='';this.selectedPaths.clear();await this.reload();return true;
+    Object.assign(this.filters,{bookmarked:this.scope==='library'&&nav.bookmarked===true,query:'',tag:'',organizing:'',category:nav.category||'',status:nav.status||'',sort:this.isPublic()?'title':'published',descending:this.scope==='inbox'});
+    this.selectedPath='';this.activeRowId=this.selectionAnchorId='';this.selectedPaths.clear();await this.reload();return true;
   }
   async onOpen(){
-    this.closed=false;const root=this.contentEl;root.empty();root.addClass('ldb-browser');root.lang=LdbI18n.getLanguage();
+    this.closed=false;this.detailRenderKey=this.listRenderKey=null;const root=this.contentEl;root.empty();root.addClass('ldb-browser');root.lang=LdbI18n.getLanguage();
     if(Platform?.isMobile)root.addClass('ldb-mobile');
     const toolbar=root.createDiv('ldb-toolbar');
     if(Platform?.isMobile)this.mobileIcon(toolbar,'panel-left',tr('文献分类'),()=>this.plugin.showNavigation());
@@ -502,7 +556,7 @@ class LiteratureBrowser extends ItemView {
       if(this.scope==='inbox'||!row||!this.plugin.beginPaperDrag(e,row,this.scope,this.isPublic()?this.selectedRows():[row],this.filters.category===Engine.UNFILED_CATEGORY?'':this.filters.category)){e.preventDefault();return;}
       target.addClass('is-dragging');
     });
-    this.listEl.addEventListener('dragend',()=>{this.plugin.endPaperDrag();for(const el of this.rowEls.values())el.removeClass('is-dragging');});
+    this.listEl.addEventListener('dragend',()=>{this.plugin.endPaperDrag();for(const {el} of this.renderedRows||[])el.removeClass('is-dragging');});
     this.detailEl=body.createEl('aside',{cls:'ldb-details',attr:{'aria-label':tr('论文详情')}});
 
     if(!this.shortcutRegistered)this.registerDomEvent(root,'keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='f'&&!this.dirty()){e.preventDefault();e.stopPropagation();this.searchEl.focus();this.searchEl.select();}});
@@ -549,7 +603,7 @@ class LiteratureBrowser extends ItemView {
     const previous=TRACK_FILES[this.scope]&&this.rowsScope===this.scope?this.rows.find(r=>r.path===this.selectedPath):null;
     this.rows=this.scope==='projects'?data.library.filter(r=>!this.filters.category||r.projects.includes(this.filters.category)):data[this.scope]||[];this.rowsScope=this.scope;
     if(previous){const same=this.findTrackerSelection(this.rows,previous);this.selectedPath=same?.path||'';if(same)this.selectedPaths=new Set([same.path]);}
-    this.headingEl.setText(TRACK_FILES[this.scope]&&this.filters.category===this.plugin.stagingGroup(this.scope)?tr('暂存区'):(this.filters.category===Engine.UNFILED_CATEGORY?tr(this.filters.category):this.filters.category)||tr(this.filters.status)||(this.scope==='library'?tr('全部文献'):SCOPES[this.scope]));this.countEl.setText(tr`${this.rows.filter(r=>!this.filters.category||r.category===this.filters.category).length} 篇`);
+    this.headingEl.setText(this.filters.bookmarked?tr('书签'):TRACK_FILES[this.scope]&&this.filters.category===this.plugin.stagingGroup(this.scope)?tr('暂存区'):(this.filters.category===Engine.UNFILED_CATEGORY?tr(this.filters.category):this.filters.category)||tr(this.filters.status)||(this.scope==='library'?tr('全部文献'):SCOPES[this.scope]));this.countEl.setText(tr`${this.rows.filter(r=>!this.filters.category||r.category===this.filters.category).length} 篇`);
     this.contentEl.toggleClass('ldb-tracking',!!TRACK_FILES[this.scope]);
     this.contentEl.toggleClass('ldb-venue-view',!!TRACK_FILES[this.scope]&&!!this.filters.category);
     const tags=[...new Set(this.rows.flatMap(r=>(r.tags||'').split(/\s+/).filter(t=>t.startsWith('#'))))].sort();
@@ -571,7 +625,7 @@ class LiteratureBrowser extends ItemView {
       if(!this.notesDirty){this.selectedPath=draft.base.path;this.renderDetail(draft.base);}
       if(this.venueInput){this.venueInput.hidden=false;this.venueInput.value=this.venueDraft=draft.value;this.lockFilters(true);this.remember();}
     }
-    this.plugin.navigation={scope:this.scope,category:this.filters.category,status:this.filters.status};this.plugin.renderNavigation();
+    this.plugin.navigation={scope:this.scope,category:this.filters.category,status:this.filters.status,bookmarked:this.filters.bookmarked};this.plugin.renderNavigation();
   }
   primaryAction(){if(this.dirty()){new Notice(tr('请先保存或取消编辑'));return;}if(this.isPublic())new CategoryModal(this.plugin,this.scope).open();else if(this.scope==='inbox')new AgentHandoffModal(this.plugin).open();else new VenueModal(this.plugin,this.scope).open();}
   renderList(reset=false){
@@ -588,26 +642,56 @@ class LiteratureBrowser extends ItemView {
     this.selectedPaths=new Set([...this.selectedPaths].filter(path=>this.visibleRows.some(r=>r.path===path)));if(!this.selectedPaths.size&&this.selectedPath)this.selectedPaths.add(this.selectedPath);
     this.countEl.setText(tr`${this.visibleRows.length} 篇`);this.clearEl.hidden=!['query','status','tag','organizing'].some(k=>this.filters[k]);
     for(const b of this.sortButtons){const on=b.dataset.sort===this.filters.sort;b.setText(b.dataset.label+(on?(this.filters.descending?' ↓':' ↑'):''));}
-    this.listEl.empty();this.rowEls=new Map();
-    this.visibleRows.forEach((r,i)=>{
-      const row=this.listEl.createDiv({cls:'ldb-row',attr:{role:'option','aria-selected':String(r.path===this.selectedPath),id:`ldb-${this.leaf.id}-${i}`}});row.dataset.paperPath=r.path;row.title=this.detailTitle(r);
-      row.draggable=this.scope!=='inbox';
-      const name=row.createSpan('ldb-filename');setIcon(name.createSpan('ldb-pdf-icon'),'file-text');name.createSpan({cls:'ldb-filename-text',text:this.detailTitle(r)});
-      row.createSpan({cls:'ldb-date',text:TRACK_FILES[this.scope]?Engine.displayDeadline(r.published):tr(r.published),attr:{title:TRACK_FILES[this.scope]?Engine.displayDeadline(r.published):tr(r.published)}});row.createSpan({cls:'ldb-reading',text:tr(r.status),attr:{'data-status':r.status}});row.createSpan({cls:'ldb-priority',text:TRACK_FILES[this.scope]?(r.category===this.plugin.stagingGroup(this.scope)?tr('暂存区'):r.priority):tr(r.priority),attr:{'data-priority':r.priority}});this.rowEls.set(r.path,row);
-    });
+    const groups=this.filters.bookmarked?Engine.groupLibrary(this.visibleRows,this.plugin.snapshot?.categories):[{name:'',rows:this.visibleRows}];
+    // A bookmark write must not rebuild the unchanged list or its focus/scroll state.
+    const listKey=JSON.stringify([LdbI18n.getLanguage(),this.scope,this.filters.bookmarked,groups.map(g=>[g.name,g.rows.map(r=>[r.path,this.detailTitle(r),r.published,r.status,r.priority])])]);
+    if(listKey===this.listRenderKey&&this.listEl.querySelector){
+      const current=new Map(this.visibleRows.map(row=>[row.path,row]));
+      for(const item of this.renderedRows){
+        item.row=current.get(item.row.path);const icon=item.el.querySelector('.ldb-pdf-icon'),badge=icon?.querySelector('.ldb-bookmark-badge');
+        if(this.isPublic()&&item.row.bookmarked&&!badge){const marker=icon.createSpan({cls:'ldb-bookmark-badge',attr:{'aria-label':tr('已加书签')}});setIcon(marker,'bookmark');this.detailMotion?.animate(marker,'in');}
+        else if(!item.row.bookmarked&&badge)badge.remove();
+      }
+      this.syncMobileControls();this.updateSelection();if(!this.dirty())this.renderDetail();this.remember();return;
+    }
+    this.listRenderKey=listKey;this.listEl.empty();this.rowEls=new Map();this.renderedRows=[];
+    for(const group of groups){
+      let container=this.listEl;
+      if(this.filters.bookmarked){
+        container=this.listEl.createDiv({cls:'ldb-bookmark-group',attr:{role:'group','aria-label':group.name===Engine.UNFILED_CATEGORY?tr(group.name):group.name}});
+        const heading=container.createDiv({cls:'ldb-group-heading',attr:{role:'presentation'}});
+        heading.createSpan({text:group.name===Engine.UNFILED_CATEGORY?tr(group.name):group.name});
+        heading.createSpan({cls:'ldb-group-count',text:String(group.rows.length)});
+      }
+      for(const r of group.rows){
+        const i=this.renderedRows.length;
+        const row=container.createDiv({cls:'ldb-row',attr:{role:'option','aria-selected':String(this.selectedPaths.has(r.path)),id:`ldb-${this.leaf.id}-${i}`}});row.dataset.paperPath=r.path;row.title=this.detailTitle(r);
+        row.draggable=this.scope!=='inbox';
+        const name=row.createSpan('ldb-filename'),icon=name.createSpan('ldb-pdf-icon');setIcon(icon,'file-text');
+        if(this.isPublic()&&r.bookmarked){const badge=icon.createSpan({cls:'ldb-bookmark-badge',attr:{'aria-label':tr('已加书签')}});setIcon(badge,'bookmark');}
+        name.createSpan({cls:'ldb-filename-text',text:this.detailTitle(r)});
+        row.createSpan({cls:'ldb-date',text:TRACK_FILES[this.scope]?Engine.displayDeadline(r.published):tr(r.published),attr:{title:TRACK_FILES[this.scope]?Engine.displayDeadline(r.published):tr(r.published)}});row.createSpan({cls:'ldb-reading',text:tr(r.status),attr:{'data-status':r.status}});row.createSpan({cls:'ldb-priority',text:TRACK_FILES[this.scope]?(r.category===this.plugin.stagingGroup(this.scope)?tr('暂存区'):r.priority):tr(r.priority),attr:{'data-priority':r.priority}});
+        if(!this.rowEls.has(r.path))this.rowEls.set(r.path,row);
+        this.renderedRows.push({row:r,el:row});
+      }
+    }
     if(!this.visibleRows.length)this.listEl.createDiv({cls:'ldb-empty',text:this.scope==='inbox'||TRACK_FILES[this.scope]?tr(Platform?.isMobile?'点击 ＋ 导入 PDF':'拖入 PDF'):tr('暂无文献')});
     this.syncMobileControls();
     this.listEl.scrollTop=scroll;this.updateSelection();if(!this.dirty()){this.renderDetail();}this.remember();
   }
-  select(path,event={}){
+  selectionRows(){return this.renderedRows?.length?this.renderedRows:this.visibleRows.map(row=>({row,el:this.rowEls?.get(row.path)}));}
+  select(path,event={},element=null){
     if(this.dirty()){new Notice(tr('请先保存或取消右侧编辑'));return;}
+    const rows=this.selectionRows(),target=element||event.target?.closest?.('[data-paper-path]')||this.rowEls?.get(path);
     if(this.isPublic()&&event.shiftKey&&this.selectedPath){
-      const a=this.visibleRows.findIndex(r=>r.path===(this.selectionAnchor||this.selectedPath)),b=this.visibleRows.findIndex(r=>r.path===path);
-      if(!event.metaKey&&!event.ctrlKey)this.selectedPaths.clear();for(let i=Math.min(a,b);i<=Math.max(a,b);i++)if(this.visibleRows[i])this.selectedPaths.add(this.visibleRows[i].path);
+      let a=rows.findIndex(r=>r.el?.id===this.selectionAnchorId);if(a<0)a=rows.findIndex(r=>r.row.path===(this.selectionAnchor||this.selectedPath));
+      let b=rows.findIndex(r=>r.el===target);if(b<0)b=rows.findIndex(r=>r.row.path===path);
+      if(a<0)a=b;
+      if(!event.metaKey&&!event.ctrlKey)this.selectedPaths.clear();for(let i=Math.min(a,b);i<=Math.max(a,b);i++)if(rows[i])this.selectedPaths.add(rows[i].row.path);
     }else if(this.isPublic()&&(event.metaKey||event.ctrlKey)){
-      if(this.selectedPaths.has(path)){this.selectedPaths.delete(path);if(!this.selectedPaths.size)this.selectedPaths.add(path);}else this.selectedPaths.add(path);this.selectionAnchor=path;
-    }else{this.selectedPaths=new Set([path]);this.selectionAnchor=path;}
-    this.selectedPath=path;this.updateSelection();this.renderDetail();this.remember();
+      if(this.selectedPaths.has(path)){this.selectedPaths.delete(path);if(!this.selectedPaths.size)this.selectedPaths.add(path);}else this.selectedPaths.add(path);this.selectionAnchor=path;this.selectionAnchorId=target?.id;
+    }else{this.selectedPaths=new Set([path]);this.selectionAnchor=path;this.selectionAnchorId=target?.id;}
+    this.selectedPath=path;this.activeRowId=target?.id;this.updateSelection();this.renderDetail();this.remember();
   }
   async removeMembership(rows=this.selectedRows(),askScope=false){
     if(!this.filters.category||this.filters.category===Engine.UNFILED_CATEGORY)return;
@@ -618,16 +702,23 @@ class LiteratureBrowser extends ItemView {
       await this.applyRemoval(rows,decision);
     }catch(e){new Notice(e.message,8000);}
   }
-  updateSelection(){for(const [p,el]of this.rowEls||[]){el.toggleClass('is-selected',this.selectedPaths.has(p));el.setAttribute('aria-selected',String(this.selectedPaths.has(p)));}const el=this.rowEls?.get(this.selectedPath);if(el)this.listEl.setAttribute('aria-activedescendant',el.id);else this.listEl.removeAttribute('aria-activedescendant');}
+  updateSelection(){
+    const rows=this.selectionRows();
+    for(const {row,el}of rows){el?.toggleClass('is-selected',this.selectedPaths.has(row.path));el?.setAttribute('aria-selected',String(this.selectedPaths.has(row.path)));}
+    const active=rows.find(r=>r.el?.id===this.activeRowId&&r.row.path===this.selectedPath)||rows.find(r=>r.row.path===this.selectedPath);
+    this.activeRowId=active?.el?.id;
+    if(active?.el)this.listEl.setAttribute('aria-activedescendant',active.el.id);else this.listEl.removeAttribute('aria-activedescendant');
+  }
   listKeydown(e){
     if(this.dirty()||!this.visibleRows.length)return;
     if(this.isPublic()&&(e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='a'){e.preventDefault();this.selectedPaths=new Set(this.visibleRows.map(r=>r.path));this.updateSelection();return;}
     if(e.metaKey||e.ctrlKey||e.altKey)return;
-    let i=this.visibleRows.findIndex(r=>r.path===this.selectedPath);
-    if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();if(this.isPublic()&&this.filters.category&&this.filters.category!==Engine.UNFILED_CATEGORY)this.removeMembership(this.selectedRows(),true);else this.requestDelete(this.visibleRows[i]);return;}
-    if(e.key==='Enter'){e.preventDefault();this.openPDF(this.visibleRows[i]);return;}
-    if(e.key==='ArrowDown')i=Math.min(this.visibleRows.length-1,i+1);else if(e.key==='ArrowUp')i=Math.max(0,i-1);else if(e.key==='Home')i=0;else if(e.key==='End')i=this.visibleRows.length-1;else return;
-    e.preventDefault();this.select(this.visibleRows[i].path,e);this.rowEls.get(this.selectedPath)?.scrollIntoView({block:'nearest'});
+    const rows=this.selectionRows();let i=rows.findIndex(r=>r.el?.id===this.activeRowId&&r.row.path===this.selectedPath);
+    if(i<0)i=rows.findIndex(r=>r.row.path===this.selectedPath);
+    if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();if(this.isPublic()&&this.filters.category&&this.filters.category!==Engine.UNFILED_CATEGORY)this.removeMembership(this.selectedRows(),true);else this.requestDelete(rows[i]?.row);return;}
+    if(e.key==='Enter'){e.preventDefault();this.openPDF(rows[i]?.row);return;}
+    if(e.key==='ArrowDown')i=Math.min(rows.length-1,i+1);else if(e.key==='ArrowUp')i=Math.max(0,i-1);else if(e.key==='Home')i=0;else if(e.key==='End')i=rows.length-1;else return;
+    e.preventDefault();this.select(rows[i].row.path,e,rows[i].el);rows[i].el?.scrollIntoView({block:'nearest'});
   }
   async requestDelete(row){
     if(!row||this.deleting)return;
@@ -655,9 +746,21 @@ class LiteratureBrowser extends ItemView {
     catch(error){new Notice(error.message,10000);}
     finally{this.deleting=false;progress.hide();this.lockFilters(false);if(!this.closed)await this.reload();}
   }
+  prepareDetailMotion(row=this.detailRow){
+    if(!this.detailEl.ownerDocument?.defaultView?.requestAnimationFrame)return;
+    this.detailMotion??=new LdbDetailMotion(this.detailEl);
+    this.detailMotion.capture(this.scope+':'+(row?.path||''));
+  }
+  queueDetailMotion(){this.detailMotion?.schedule(this.scope+':'+(this.detailRow?.path||''));}
   renderDetail(override){
-    this.detailEl.empty();const row=override||this.rows.find(r=>r.path===this.selectedPath);
-    this.detailRow=row;this.quickFields=[];this.venueInput=null;this.venueMenuButton=null;this.venueRemoveButtons=[];
+    const row=override||this.rows.find(r=>r.path===this.selectedPath);this.prepareDetailMotion(row);
+    const project=this.scope==='projects'&&this.plugin.snapshot.collections?.find(g=>g.scope==='projects'&&g.name===this.filters.category);
+    const detailKey=row&&this.isPublic()?JSON.stringify([LdbI18n.getLanguage(),this.scope,this.filters.category,row.path,Array.from({length:13},(_,i)=>row.cells?.[i]||''),row.categories,row.projects,project?.members?.find(m=>m.path===row.path)?.notes]):null;
+    if(!override&&detailKey&&detailKey===this.detailRenderKey){
+      this.detailRow=this.notesBase=row;this.syncQuickFields();this.queueDetailMotion();return;
+    }
+    this.detailRenderKey=detailKey;this.detailEl.empty();
+    this.detailRow=row;this.bookmarkButton=null;this.quickFields=[];this.venueInput=null;this.venueMenuButton=null;this.venueRemoveButtons=[];
     if(!row){if(Platform?.isMobile)this.setMobileExpanded(false);this.detailEl.createDiv({cls:'ldb-empty',text:tr('选择一篇论文查看详情')});return;}
     const top=this.detailEl.createDiv('ldb-detail-top');
     if(Platform?.isMobile){
@@ -669,11 +772,12 @@ class LiteratureBrowser extends ItemView {
       });
       expand.setAttribute('aria-expanded',String(!!this.mobileExpanded));
     }
-    if(this.scope!=='inbox')this.button(top,tr('编辑'),()=>this.dirty()?new Notice(tr('请先保存或取消 Notes')):this.startEditing(row),'ldb-edit-button');
-    const remove=this.button(top,'',()=>this.requestDelete(row),'ldb-delete-button');setIcon(remove,'trash-2');remove.setAttribute('aria-label',tr('移至回收站'));remove.title=tr('移至回收站');
+    if(this.scope!=='inbox')this.button(top,tr('编辑'),()=>this.dirty()?new Notice(tr('请先保存或取消 Notes')):this.startEditing(this.detailRow),'ldb-edit-button');
+    if(this.isPublic()){this.bookmarkButton=this.button(top,'',()=>this.saveQuickField('bookmarked',!this.detailRow.bookmarked),'ldb-bookmark-button');setIcon(this.bookmarkButton,'bookmark');this.bookmarkButton.setAttribute('data-ldb-motion','bookmark');this.syncQuickFields();}
+    const remove=this.button(top,'',()=>this.requestDelete(this.detailRow),'ldb-delete-button');setIcon(remove,'trash-2');remove.setAttribute('aria-label',tr('移至回收站'));remove.title=tr('移至回收站');
     const title=this.detailEl.createEl('h2',{cls:'ldb-title',text:this.detailTitle(row)});
     if(this.isPublic()){title.title=this.sourceLabel(row,'title');this.detailEl.createDiv({cls:'ldb-original-filename',text:row.filename,attr:{title:tr('文件名')}});}
-    if(this.scope==='inbox'||this.isPublic()||row.pdfPath)this.button(this.detailEl,'Open ↗',()=>this.openPDF(row),'mod-cta');
+    if(this.scope==='inbox'||this.isPublic()||row.pdfPath)this.button(this.detailEl,'Open ↗',()=>this.openPDF(this.detailRow),'mod-cta');
     if(this.scope==='inbox'){
       this.button(this.detailEl,tr('复制 Agent 整理指令'),()=>new AgentHandoffModal(this.plugin).open());return;
     }
@@ -683,19 +787,19 @@ class LiteratureBrowser extends ItemView {
     const quick=this.isPublic()?[['status',tr('阅读状态'),Engine.STATUSES],['organizing',tr('整理状态'),Organization.STATES],['priority',tr('优先级'),Engine.PRIORITIES]]:this.scope==='reviews'?[['status',tr('状态'),[...new Set([...Engine.REVIEW_STATUSES,row.status])]]]:[];
     for(const [key,label,options] of quick){
       meta.createEl('dt',{text:label});const field=meta.createEl('dd');
-      const select=this.makeSelect(field,label,options.map(value=>[value,tr(value)]));select.addClass('ldb-inline-select');select.value=row[key];select.disabled=this.readError;
+      const select=this.makeSelect(field,label,options.map(value=>[value,tr(value)]));select.addClass('ldb-inline-select');select.setAttribute('data-ldb-motion','field:'+key);select.value=row[key];select.disabled=this.readError;
       this.quickFields.push({key,select});select.addEventListener('change',()=>this.saveQuickField(key,select.value));
     }
     this.quickError=this.detailEl.createDiv({cls:'ldb-form-error',attr:{role:'alert'}});this.quickError.hidden=true;
     this.detailEl.createEl('h3',{text:this.isPublic()?'TL;DR':tr('下一步'),cls:'ldb-section-label'});this.detailEl.createEl('p',{text:libraryText(row.tldr),cls:'ldb-tldr',attr:{title:this.isPublic()?this.sourceLabel(row,'tldr'):''}});
     if(this.isPublic()){
       this.detailEl.createEl('h3',{text:tr('标签'),cls:'ldb-section-label'});const tags=this.detailEl.createDiv('ldb-tags');
-      for(const tag of row.tags.split(/\s+/).filter(t=>t.startsWith('#'))){const source=Organization.source(row,tag,true);const chip=this.button(tags,tag.replace(/^#research\//,''),()=>{if(this.dirty()){new Notice(tr('请先保存或取消 Notes'));return;}this.filters.tag=tag;this.syncControls();this.renderList(true);},'ldb-tag'+(source.kind==='human'?' ldb-tag-human':''));chip.title=this.sourceLabel(row,tag,true);}
+      for(const tag of row.tags.split(/\s+/).filter(t=>t.startsWith('#'))){const source=Organization.source(row,tag,true);const chip=this.button(tags,tag.replace(/^#research\//,''),()=>{if(this.dirty()){new Notice(tr('请先保存或取消 Notes'));return;}this.filters.tag=tag;this.syncControls();this.renderList(true);},'ldb-tag'+(source.kind==='human'?' ldb-tag-human':''));chip.title=this.sourceLabel(row,tag,true);chip.setAttribute('data-ldb-motion','chip:tag:'+tag);}
       this.detailEl.createEl('h3',{text:'Venue',cls:'ldb-section-label'});
       const venues=this.detailEl.createDiv('ldb-paper-venues');this.venueTags=venues.createDiv('ldb-venue-tags');
       this.venueMenuButton=this.button(venues,tr('添加 Venue…'),e=>ldbPaperVenueMenu(this,e.currentTarget),'ldb-venue-picker');
       this.venueInput=venues.createEl('input',{type:'text',cls:'ldb-venue-input',attr:{placeholder:tr('输入新 Venue，按 Enter 添加'),'aria-label':tr('新 Venue 名称'),title:tr('输入名称后按 Enter，Esc 取消'),autocomplete:'off'}});
-      this.venueInput.hidden=true;this.renderPaperVenues();
+      this.venueInput.hidden=true;this.renderPaperVenues(false);
       this.venueInput.addEventListener('input',()=>{this.venueDraft=this.venueInput.value;this.syncQuickFields();this.lockFilters(this.notesDirty||!!this.venueDraft);this.remember();});
       this.venueInput.addEventListener('change',()=>this.addPaperVenue());
       this.venueInput.addEventListener('keydown',e=>{
@@ -706,12 +810,12 @@ class LiteratureBrowser extends ItemView {
     }
     if(this.isPublic()&&this.plugin.snapshot.collections){
       const groups=this.detailEl.createDiv('ldb-memberships');
-      for(const category of row.categories||[])this.button(groups,category,()=>this.plugin.openLibrary({scope:'library',category}),'ldb-tag');
-      this.button(groups,tr('＋ 集合'),e=>{const rect=e.currentTarget.getBoundingClientRect();ldbOpenCollectionMenu(this.plugin,[row],{x:rect.left,y:rect.bottom},this.contentEl.ownerDocument);},'ldb-edit-button');
+      for(const category of row.categories||[])this.button(groups,category,()=>this.plugin.openLibrary({scope:'library',category}),'ldb-tag').setAttribute('data-ldb-motion','chip:category:'+category);
+      this.button(groups,tr('＋ 集合'),e=>{const rect=e.currentTarget.getBoundingClientRect();ldbOpenCollectionMenu(this.plugin,[this.detailRow],{x:rect.left,y:rect.bottom},this.contentEl.ownerDocument);},'ldb-edit-button');
       if(this.scope==='projects'&&this.filters.category){
-        const project=this.plugin.snapshot.collections.find(g=>g.scope==='projects'&&g.name===this.filters.category),note=project?.members.find(m=>m.path===row.path)?.notes||'';
+        const project=this.plugin.snapshot.collections.find(g=>g.scope==='projects'&&g.name===this.filters.category),note=project?.members?.find(m=>m.path===row.path)?.notes||'';
         this.detailEl.createEl('h3',{text:tr('项目备注'),cls:'ldb-section-label'});
-        this.button(this.detailEl,note||tr('添加项目备注…'),()=>new ProjectNoteModal(this.plugin,this.filters.category,row,note).open(),'ldb-project-note');
+        this.button(this.detailEl,note||tr('添加项目备注…'),()=>new ProjectNoteModal(this.plugin,this.filters.category,this.detailRow,note).open(),'ldb-project-note');
       }
 
     }
@@ -720,21 +824,22 @@ class LiteratureBrowser extends ItemView {
     this.notesBase=row;this.notesInput.addEventListener('input',()=>this.markNotesDirty(this.detailRow));
     this.notesError=this.detailEl.createDiv('ldb-form-error');const actions=this.detailEl.createDiv('ldb-actions');
     this.notesSave=this.button(actions,tr('保存 Notes'),()=>this.saveNotes(),'mod-cta');this.notesSave.disabled=true;
-    this.notesCancel=this.button(actions,tr('撤销修改'),()=>{this.notesDirty=false;this.notesInput.value=this.isPublic()?libraryText(this.notesBase.notes):this.notesBase.notes;this.notesSave.disabled=true;this.notesCancel.hidden=true;this.lockFilters(!!this.venueDraft);this.renderList();});this.notesCancel.hidden=true;
+    this.notesCancel=this.button(actions,tr('撤销修改'),()=>{this.notesDirty=false;this.notesInput.value=this.isPublic()?libraryText(this.notesBase.notes):this.notesBase.notes;this.notesSave.disabled=true;this.notesCancel.hidden=true;this.lockFilters(!!this.venueDraft);this.renderList();});this.notesCancel.hidden=true;this.queueDetailMotion();
   }
   markNotesDirty(row){
     this.notesBase=row;this.notesDirty=this.notesInput.value!==(this.isPublic()?libraryText(row.notes):row.notes);
     this.notesSave.disabled=!this.notesDirty;this.notesCancel.hidden=!this.notesDirty;this.lockFilters(this.notesDirty||!!this.venueDraft);this.remember();
   }
-  renderPaperVenues(){
+  renderPaperVenues(animate=true){
     if(!this.venueInput)return;
+    if(animate)this.prepareDetailMotion();
     this.venueTags.empty();this.venueRemoveButtons=[];
     const venues=this.detailRow.venues||[];
     for(const name of venues){
-      const chip=this.venueTags.createSpan('ldb-venue-tag');chip.createSpan({text:name});
+      const chip=this.venueTags.createSpan('ldb-venue-tag');chip.setAttribute('data-ldb-motion','chip:venue:'+name);chip.createSpan({text:name});
       const remove=this.button(chip,'×',()=>this.saveQuickField('venues',(this.detailRow.venues||[]).filter(v=>v!==name)),'ldb-venue-remove');remove.setAttribute('aria-label',tr('移除 Venue ')+name);this.venueRemoveButtons.push(remove);
     }
-    this.syncQuickFields();
+    this.syncQuickFields();if(animate)this.queueDetailMotion();
   }
   async addPaperVenue(){
     if(this.saving||!this.venueInput)return false;
@@ -747,10 +852,32 @@ class LiteratureBrowser extends ItemView {
       return saved;
     }catch(error){this.quickError.setText(error.message);this.quickError.hidden=false;return false;}
   }
+  async saveBookmark(value){
+    const row=this.detailRow;
+    if(!row||!this.isPublic()||this.saving||this.editing||this.readError)return false;
+    if(!!row.bookmarked===value)return true;
+    // Keep unrelated controls and Notes live; the existing saving guard serializes writes.
+    this.saving=true;this.bookmarkButton?.setAttribute('aria-busy','true');this.quickError.hidden=true;
+    try{
+      let updated;
+      await this.plugin.mutate(LIBRARY_SOURCE,text=>{
+        const next=Engine.updateLibraryEntry(text,row,{bookmarked:value},{kind:'human',name:'user'});
+        updated=Engine.parseLibrary(next).find(item=>item.path===row.path);return next;
+      });
+      this.detailRow=this.notesBase=updated;
+    }catch(error){this.quickError.setText(error.message);this.quickError.hidden=false;}
+    finally{
+      this.saving=false;this.bookmarkButton?.setAttribute('aria-busy','false');this.syncQuickFields();this.remember();
+    }
+    const saved=this.quickError.hidden;
+    if(saved){await this.reload();this.queueDetailMotion();}
+    return saved;
+  }
   async saveQuickField(key,value){
+    if(key==='bookmarked')return this.saveBookmark(value);
     const row=this.detailRow;
     const review=this.scope==='reviews'&&key==='status';
-    if(!row||!(review||(this.isPublic()&&['status','priority','venues','organizing'].includes(key))))return false;
+    if(!row||!(review||(this.isPublic()&&['status','priority','venues','organizing','bookmarked'].includes(key))))return false;
     if(this.saving||this.editing||this.readError){for(const field of this.quickFields)field.select.value=row[field.key];return false;}
     if(JSON.stringify(row[key])===JSON.stringify(value))return true;
     this.saving=true;this.lockFilters(true);this.syncQuickFields();this.notesInput.readOnly=true;
@@ -770,12 +897,18 @@ class LiteratureBrowser extends ItemView {
       this.lockFilters(this.notesDirty||!!this.venueDraft);this.syncQuickFields();this.remember();
     }
     const saved=this.quickError.hidden;
-    if(saved){this.renderPaperVenues();if(!this.dirty())await this.reload();}
+    if(saved){this.renderPaperVenues();if(!this.dirty())await this.reload();this.queueDetailMotion();}
     return saved;
   }
   syncQuickFields(){
     const disabled=this.saving||this.editing||this.readError;
     for(const {key,select} of this.quickFields||[]){select.value=this.detailRow[key];select.disabled=disabled;}
+    if(this.bookmarkButton){
+      const marked=!!this.detailRow.bookmarked,label=tr(marked?'取消书签':'添加书签');
+      this.bookmarkButton.disabled=disabled;this.bookmarkButton.title=label;
+      this.bookmarkButton.setAttribute('aria-label',label);this.bookmarkButton.setAttribute('aria-pressed',String(marked));this.bookmarkButton.setAttribute('data-ldb-motion-value',String(marked));
+      this.bookmarkButton.setAttribute('class','ldb-bookmark-button'+(marked?' is-bookmarked':''));
+    }
     if(this.venueInput)this.venueInput.disabled=disabled;
     if(this.venueMenuButton)this.venueMenuButton.disabled=disabled||!!this.venueDraft;
     for(const button of this.venueRemoveButtons||[])button.disabled=disabled;
@@ -802,7 +935,7 @@ class LiteratureBrowser extends ItemView {
   }
   startForm(row,spec){
     if(this.readError){new Notice(tr('请等待源数据同步完成'));return;}
-    this.editing=true;this.editBase=row;this.lockFilters(true);this.detailEl.empty();
+    this.editing=true;this.editBase=row;this.detailRenderKey=null;this.lockFilters(true);this.detailMotion?.pause();this.detailEl.empty();
     this.detailEl.createDiv({cls:'ldb-eyebrow',text:row.path?tr('编辑详情'):tr('新增')+SCOPES[this.scope]});this.detailEl.createEl('h2',{cls:'ldb-title',text:this.detailTitle(row)});
     const form=this.detailEl.createEl('form',{cls:'ldb-editor'});this.fields={};this.initialInputs={};
     for(const [key,label,type]of spec){
@@ -831,7 +964,7 @@ class LiteratureBrowser extends ItemView {
     }catch(e){this.saving=false;this.saveEl.disabled=this.cancelEl.disabled=false;this.formError.setText(e.message);}
   }
   async openPDF(row){if(row)await this.plugin.openPDF(row.pdfPath||row.path);}
-  async onClose(){this.closed=true;}
+  async onClose(){this.closed=true;this.detailMotion?.destroy();}
 }
 
 class LanguageModal extends Modal {

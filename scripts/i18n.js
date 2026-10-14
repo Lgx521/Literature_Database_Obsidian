@@ -1,6 +1,13 @@
 'use strict';
 // Source table values and user content are never translated in storage.
 const english = {
+  "书签": "Bookmarks",
+  "添加书签": "Add bookmark",
+  "取消书签": "Remove bookmark",
+  "已加书签": "Bookmarked",
+  "书签须为空或「是」": "Bookmark must be empty or 是",
+  "书签只能由用户修改": "Only users may change bookmarks",
+  "书签值无效": "Invalid bookmark value",
   "导入 PDF": "Import PDFs",
   "筛选": "Filters",
   "更多操作": "More actions",
@@ -35,7 +42,7 @@ const english = {
   "请拖到已创建的分类或项目": "Drop into an existing category or writing project.",
   "文献已被其他窗口移除，请重试": "A paper was removed in another window. Try again.",
   "重名文件放入独立子目录，文件名和原件保持不变": "Same-name files were placed in separate subfolders; filenames and originals are unchanged.",
-  "请整理论文库 {0}。先读根目录 AGENTS.md。处理 temp 收件箱，以及 library.md 中待整理、自动整理或元信息不完整且未标为人工完成的文献。PDF 原文件名永远不改；同名文件放不同子目录，保留 PDF、Skim 批注和扩展属性。核实真实篇名后写入篇名列，保留已选集合。补齐空缺的篇名、标签、TL;DR；保留人工及未知来源的已有内容、Notes、阅读状态、优先级和项目备注。人工完成的条目跳过；通过带 actor 的 updateLibraryEntry 记录每个字段和标签来源（kind: ai，name: 实际 Agent 名，如 Codex），读取 PDF 后标为 AI 已整理，无法确认的字段留空并报告。核实重复与版本，不擅自合并。严禁生成或修改 BibTeX、引用来源、引用键、作者、DOI 等引用字段；新条目这些字段留空。只处理公开文献，不搜索或上传审稿、投稿材料。先备份，检查并发修改，最后验证源表、集合和附件。仅执行本次手动整理，不创建定时任务。": "Organize the literature library at {0}. Read the root AGENTS.md first. Process the temp inbox and pending, automatically organized or incomplete library.md records, excluding those marked manually complete. Never rename original PDF files; use separate directories for collisions and preserve Skim companions and extended attributes. Verify and store the real paper title; preserve chosen memberships. Fill missing titles, tags and TL;DR, preserving human or unrecorded content, Notes, reading status, priority and project notes. Skip manually complete records. Use updateLibraryEntry with an actor (kind: ai, name: the actual agent, e.g. Codex) to record field/tag provenance. Mark AI organized after reading the PDF; leave unresolved fields empty and report them. Check duplicates and versions without silently merging. Never generate or edit BibTeX, citation sources, citation keys, authors or DOI; leave these fields empty in new entries. Process public literature only; never search or upload review/submission manuscripts. Back up, check concurrent changes, then validate tables, memberships and attachments. Run only this manual session; do not create scheduled tasks.",
+  "请整理论文库 {0}。先读根目录 AGENTS.md。处理 temp 收件箱，以及 library.md 中待整理、自动整理或元信息不完整且未标为人工完成的文献。PDF 原文件名永远不改；同名文件放不同子目录，保留 PDF、Skim 批注和扩展属性。核实真实篇名后写入篇名列，保留已选集合。补齐空缺的篇名、标签、TL;DR；保留人工及未知来源的已有内容、Notes、阅读状态、优先级、书签和项目备注。人工完成的条目跳过；通过带 actor 的 updateLibraryEntry 记录每个字段和标签来源（kind: ai，name: 实际 Agent 名，如 Codex），读取 PDF 后标为 AI 已整理，无法确认的字段留空并报告。核实重复与版本，不擅自合并。严禁生成或修改 BibTeX、引用来源、引用键、作者、DOI 等引用字段；新条目这些字段留空。只处理公开文献，不搜索或上传审稿、投稿材料。先备份，检查并发修改，最后验证源表、集合和附件。仅执行本次手动整理，不创建定时任务。": "Organize the literature library at {0}. Read the root AGENTS.md first. Process the temp inbox and pending, automatically organized or incomplete library.md records, excluding those marked manually complete. Never rename original PDF files; use separate directories for collisions and preserve Skim companions and extended attributes. Verify and store the real paper title; preserve chosen memberships. Fill missing titles, tags and TL;DR, preserving human or unrecorded content, Notes, reading status, priority, bookmarks and project notes. Skip manually complete records. Use updateLibraryEntry with an actor (kind: ai, name: the actual agent, e.g. Codex) to record field/tag provenance. Mark AI organized after reading the PDF; leave unresolved fields empty and report them. Check duplicates and versions without silently merging. Never generate or edit BibTeX, citation sources, citation keys, authors or DOI; leave these fields empty in new entries. Process public literature only; never search or upload review/submission manuscripts. Back up, check concurrent changes, then validate tables, memberships and attachments. Run only this manual session; do not create scheduled tasks.",
 
   "已有源文件，未覆盖。请等待同步完成，或在空库中初始化。": "Source files already exist. Nothing was overwritten. Wait for sync to finish or initialize an empty vault.",
   "文件夹名称已被文件占用：{0}": "A file already uses this folder name: {0}",

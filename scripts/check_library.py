@@ -78,14 +78,16 @@ def check(root):
                 if not re.match(r'^\|\s*\[', line):
                     continue
                 row = [c.strip() for c in re.split(r'(?<!\\)\|', line)[1:-1]]
-                if len(row) not in (6, 7, 8, 10, 11, 13):
+                if len(row) not in (6, 7, 8, 10, 11, 13, 14):
                     errors.append('文献库: 表格列数异常'); continue
                 entries += 1
                 if not PUBLICATION_DATE_RE.fullmatch(row[1]):
                     errors.append(row[0] + ': 发表时间须为 YYYY.M（月份 1–12，不补零）、YYYY 或待核实')
                 if row[4] not in ['未标记', '待整理', '待读', '在读', '已读', '暂存']:
                     errors.append(row[0] + ': 无效阅读状态')
-                if len(row) == 13:
+                if len(row) == 14 and row[13] not in ['', '是']:
+                    errors.append(row[0] + ': 书签须为空或「是」')
+                if len(row) >= 13:
                     if row[11] not in ['', '待整理', 'AI 已整理', '人工完成', '自动整理']:
                         errors.append(row[0] + ': 无效整理状态')
                     if row[12]:

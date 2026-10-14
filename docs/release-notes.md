@@ -1,7 +1,9 @@
-Fix the phone toolbar overlapping the notch/status bar, and animate the stacked detail panel.
+Add bookmarks, subtle interaction feedback, and stable in-place bookmark updates.
 
-- Restore only the system-reported safe-area inset on phones. Version 4.5.1 incorrectly set it to zero; the phone workspace extends behind the status bar. Do not restore the hidden native header’s additional spacing. iPad top spacing is unchanged.
-- Keep the detail expand/collapse button. Animate the stacked list/detail split over 240ms with a short list fade, preserving the current paper, scroll container and unsaved Notes. Rapid repeated taps can reverse the transition. Respect reduced motion and keep the collapsed list out of keyboard/assistive focus.
-- Preserve the flat 3px divider and desktop UI. No paper, annotation, metadata or settings migration.
+- Add **Bookmarks** between Inbox and Reading. Mark or unmark a paper in the details pane; a small red bookmark overlaps its PDF icon.
+- Group bookmarked papers by research category in sidebar order. Papers with multiple categories appear in every category; counts, exports and batch actions remain deduplicated. Papers without a research category appear under Unfiled.
+- Preserve bookmarks through trash and restore. Store the user-controlled marker in an optional 14th Markdown column, extending older tables losslessly on the first bookmark change. Agents preserve this field.
+- Add short pop/fade feedback for tags, venues, memberships and detail controls. Respect reduced motion and avoid replaying animations on navigation or unchanged refreshes.
+- Fix flashing when toggling a bookmark: keep unchanged list/detail controls mounted, preserve focus, scroll and Notes drafts, and avoid disabling unrelated controls. Retained actions use the latest paper data.
 
-Requires Obsidian 1.8.7+. Validation uses the official mobile emulator and synthetic regression tests; physical iPhone/iPad verification still requires the receiving device. Reload the plugin on the phone after all three runtime files have synced.
+Requires Obsidian 1.8.7+. Validated with 30 synthetic regression suites on macOS and app checks in a separate demo vault, including mobile emulation, reduced motion, failed saves and unsaved Notes. Existing PDF filenames, annotations, bibliography and notes are preserved. Reload the plugin on other devices after the runtime files finish syncing.
