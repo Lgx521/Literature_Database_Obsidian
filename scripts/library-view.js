@@ -553,6 +553,7 @@ class LiteratureBrowser extends ItemView {
     super(leaf);this.plugin=plugin;this.rows=[];this.visibleRows=[];this.selectedPath='';this.selectedPaths=new Set();this.scope='library';
     this.filters={query:'',category:'',subgroup:null,status:'',tags:[],sort:'title',descending:false,organizing:'',bookmarked:false,bookmarkOnly:false};
     this.editing=false;this.notesDirty=false;this.venueDraft='';this.saving=false;this.deleting=false;this.closed=false;
+    this.paneSizes={};
   }
   getViewType(){return LIBRARY_VIEW;}
   getDisplayText(){return tr('文献库');}
@@ -566,10 +567,11 @@ class LiteratureBrowser extends ItemView {
     if(this.editing&&this.fields)draft={mode:'metadata',base:this.editBase,values:Object.fromEntries(Object.entries(this.fields).map(([k,v])=>[k,v.value]))};
     if(this.notesDirty)draft={mode:'notes',base:this.notesBase,value:this.notesInput.value};
     const venueDraft=this.venueDraft?{base:this.detailRow,value:this.venueDraft}:null;
-    return {...this.filters,tags:[...(this.filters.tags||[])],scope:this.scope,selectedPath:this.selectedPath,draft,venueDraft};
+    return {...this.filters,tags:[...(this.filters.tags||[])],scope:this.scope,selectedPath:this.selectedPath,draft,venueDraft,paneSizes:{...this.paneSizes}};
   }
   async setState(state={},result){
     if(!this.dirty()){
+      if(state.paneSizes!==undefined){this.paneSizes=LdbPaneSplitter.sizes(state.paneSizes);this.paneSplitter?.sync();}
       for(const k of ['query','category','status','sort','organizing'])if(typeof state[k]==='string')this.filters[k]=state[k];
       this.filters.tags=Engine.normalizeTagFilter(Array.isArray(state.tags)?state.tags:state.tag);
       this.filters.subgroup=typeof state.subgroup==='string'?state.subgroup:null;
@@ -602,7 +604,7 @@ class LiteratureBrowser extends ItemView {
     return true;
   }
   async onOpen(){
-    this.tagFilterMenu?.close();this.closed=false;this.detailRenderKey=this.listRenderKey=null;const root=this.contentEl;root.empty();root.addClass('ldb-browser');root.lang=LdbI18n.getLanguage();
+    this.tagFilterMenu?.close();this.paneSplitter?.destroy();this.closed=false;this.detailRenderKey=this.listRenderKey=null;const root=this.contentEl;root.empty();root.addClass('ldb-browser');root.lang=LdbI18n.getLanguage();
     if(Platform?.isMobile)root.addClass('ldb-mobile');
     const toolbar=root.createDiv('ldb-toolbar');
     if(Platform?.isMobile)this.mobileIcon(toolbar,'panel-left',tr('文献分类'),()=>this.plugin.showNavigation());
@@ -672,6 +674,7 @@ class LiteratureBrowser extends ItemView {
     });
     this.listEl.addEventListener('dragend',()=>{this.plugin.endPaperDrag();for(const {el} of this.renderedRows||[])el.removeClass('is-dragging');});
     this.detailEl=body.createEl('aside',{cls:'ldb-details',attr:{'aria-label':tr('论文详情')}});
+    this.paneSplitter=new LdbPaneSplitter(this,body,list,this.detailEl);
 
     if(!this.shortcutRegistered)this.registerDomEvent(root,'keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='f'&&!this.dirty()){e.preventDefault();e.stopPropagation();this.searchEl.focus();this.searchEl.select();}});
     this.shortcutRegistered=true;
@@ -714,9 +717,11 @@ class LiteratureBrowser extends ItemView {
   syncControls(){if(!this.searchEl)return;this.searchEl.value=this.filters.query;this.statusEl.value=this.filters.status;if(this.organizingEl)this.organizingEl.value=this.filters.organizing;this.syncFilterControls();this.syncMobileControls();}
   mobileIcon(parent,icon,label,action){const b=this.button(parent,'',action,'ldb-mobile-icon');setIcon(b,icon);b.setAttribute('aria-label',label);b.title=label;return b;}
   setMobileExpanded(expanded){
+    this.paneSplitter?.finish(false);
     this.mobileExpanded=expanded;this.contentEl.toggleClass('ldb-detail-expanded',expanded);
     // The animated-away list must not retain keyboard or assistive-technology focus.
     if(this.listEl?.parentElement)this.listEl.parentElement.inert=expanded;
+    this.paneSplitter?.sync();
   }
   syncMobileControls(){
     if(!this.mobileFilterEl)return;
@@ -1185,7 +1190,7 @@ class LiteratureBrowser extends ItemView {
     }catch(e){this.saving=false;this.saveEl.disabled=this.cancelEl.disabled=false;this.formError.setText(e.message);}
   }
   async openPDF(row){if(row)await this.plugin.openPDF(row.pdfPath||row.path);}
-  async onClose(){this.closed=true;this.tagFilterMenu?.close();this.tagMap?.close(true);this.listDropController?.destroy();this.detailMotion?.destroy();}
+  async onClose(){this.closed=true;this.paneSplitter?.destroy();this.tagFilterMenu?.close();this.tagMap?.close(true);this.listDropController?.destroy();this.detailMotion?.destroy();}
 }
 
 class LanguageModal extends Modal {

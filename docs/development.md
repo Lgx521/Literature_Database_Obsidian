@@ -21,6 +21,7 @@ The build assembles source modules into `main.js` and copies the plugin CSS to `
 | --- | --- |
 | `dashboard.js`, `collections.js`, `organization.js` | Markdown parsing, metadata and collection membership |
 | `library-view.js`, `collection-view.js`, `library-view.css` | Navigation, compact lists, details and controls |
+| `pane-splitter.js` | Accessible mouse/touch pane resizing and workspace-only size preferences |
 | `tag-tree.js`, `tag-map-view.js`, `tag-filter-view.js` | Optional Markdown tag vocabulary and editable map; assignments remain in the library |
 | `setup.js` | Explicit empty-vault setup and startup preferences |
 | `plugin-tail.js` | Obsidian lifecycle, mutation guards, coordination and system PDF opening |

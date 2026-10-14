@@ -1,6 +1,7 @@
 'use strict';
 // Source table values and user content are never translated in storage.
 const english = {
+  "调整列表与详情大小": "Resize list and details",
   "包含任一所选标签": "Match any selected tag",
   "清除标签筛选": "Clear tag filters",
   "没有匹配标签": "No matching tags",

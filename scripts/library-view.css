@@ -37,7 +37,29 @@
 .ldb-bookmark-filter.is-active svg { fill: currentColor; }
 .ldb-clear { height: 27px; color: var(--text-muted); box-shadow: none; background: transparent; }
 .ldb-error { padding: 8px 16px; background: var(--background-modifier-error); color: var(--text-error); flex: 0 0 auto; }
-.ldb-body { display: grid; grid-template-columns: minmax(0, 1fr) clamp(280px, 29%, 380px); flex: 1 1 0; min-height: 0; overflow: hidden; }
+.ldb-body {
+  --ldb-split-axis: columns;
+  --ldb-default-width: clamp(280px, 29%, 380px);
+  --ldb-default-rows: 50%;
+  --ldb-detail-size: clamp(min(280px, 48%), var(--ldb-pane-width, var(--ldb-default-width)), calc(100% - min(280px, 48%)));
+  --ldb-list-size: clamp(min(140px, 44%), var(--ldb-pane-rows, var(--ldb-default-rows)), calc(100% - min(180px, 56%)));
+  --ldb-split-hit: 12px; --ldb-divider: 1px;
+  position: relative; display: grid;
+  grid-template-columns: minmax(0, calc(100% - var(--ldb-detail-size))) minmax(0, var(--ldb-detail-size));
+  flex: 1 1 0; min-height: 0; overflow: hidden;
+}
+.ldb-splitter {
+  position: absolute; z-index: 3; top: 0; bottom: 0; right: calc(var(--ldb-detail-size) - var(--ldb-split-hit) / 2);
+  width: var(--ldb-split-hit); cursor: col-resize; touch-action: none; user-select: none; -webkit-user-select: none; outline: none;
+}
+.ldb-splitter::before {
+  content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: var(--ldb-divider); transform: translateX(-50%);
+  background: var(--ldb-divider-color, var(--background-modifier-border)); transition: width 120ms ease, height 120ms ease, background-color 120ms ease;
+}
+.ldb-splitter:is(:hover,:focus-visible) { --ldb-divider: 4px; --ldb-divider-color: var(--interactive-accent); }
+.ldb-body.is-resizing .ldb-splitter { --ldb-divider: 5px; --ldb-divider-color: var(--interactive-accent); }
+.ldb-body.is-resizing, .ldb-body.is-resizing * { cursor: col-resize !important; user-select: none !important; -webkit-user-select: none !important; }
+.ldb-body.is-resizing, .ldb-body.is-resizing .ldb-splitter { transition: none !important; }
 .ldb-list-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 .ldb-columns, .ldb-row { display: grid; grid-template-columns: minmax(0, 1fr) 70px 58px 44px; align-items: center; padding: 0 12px; column-gap: 8px; }
 .ldb-columns { height: 30px; flex: 0 0 auto; border-bottom: 1px solid var(--background-modifier-border); background: var(--background-secondary); }
@@ -67,7 +89,7 @@
 .ldb-date { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .ldb-reading, .ldb-priority { font-size: 11px; color: var(--text-muted); }
 .ldb-reading[data-status="在读"], .ldb-priority[data-priority="高"] { color: var(--text-accent); font-weight: 650; }
-.ldb-details { position: relative; border-left: 1px solid var(--background-modifier-border); min-height: 0; overflow: auto; padding: 18px; background: var(--background-primary); }
+.ldb-details { position: relative; min-width: 0; min-height: 0; overflow: auto; padding: 18px; background: var(--background-primary); }
 .ldb-detail-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .ldb-delete-button { margin-left: auto; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 5px; background: transparent; box-shadow: none; color: var(--text-muted); }
 .ldb-delete-button svg { width: 15px; height: 15px; }
@@ -122,7 +144,7 @@
 .ldb-form-hint { color: var(--text-muted); font-size: 11px; line-height: 1.7; }
 .ldb-form-error { color: var(--text-error); font-size: 12px; line-height: 1.6; }
 @container (max-width: 800px) {
-  .ldb-body { grid-template-columns: minmax(0, 1fr) 260px; }
+  .ldb-body { --ldb-default-width: 280px; }
   .ldb-columns, .ldb-row { grid-template-columns: minmax(0, 1fr) 62px 50px; column-gap: 5px; padding: 0 9px; }
   .ldb-column-priority, .ldb-row .ldb-priority { display: none !important; }
   .ldb-details { padding: 14px; }
@@ -133,8 +155,10 @@
   .ldb-search { order: 3; flex-basis: 100%; }
   .ldb-filterbar { padding: 7px 9px; gap: 6px; }
   .ldb-filter-select { max-width: min(150px, 100%); }
-  .ldb-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(140px, 1fr) minmax(160px, 1fr); }
-  .ldb-details { border-left: 0; border-top: 1px solid var(--background-modifier-border); }
+  .ldb-body { --ldb-split-axis: rows; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, var(--ldb-list-size)) minmax(0, calc(100% - var(--ldb-list-size))); }
+  .ldb-splitter { left: 0; right: 0; top: calc(var(--ldb-list-size) - var(--ldb-split-hit) / 2); bottom: auto; width: auto; height: var(--ldb-split-hit); cursor: row-resize; }
+  .ldb-splitter::before { left: 0; right: 0; top: 50%; bottom: auto; width: 100%; height: var(--ldb-divider); transform: translateY(-50%); }
+  .ldb-body.is-resizing, .ldb-body.is-resizing * { cursor: row-resize !important; }
   .ldb-footer > span:last-child { display: none; }
   .ldb-row { --ldb-line: 32px; }
 }
@@ -285,14 +309,16 @@
 .ldb-mobile .ldb-filterbar .ldb-bookmark-filter { height: 34px; font-size: 13px; }
 .ldb-mobile .ldb-clear { height: 34px; }
 .ldb-mobile .ldb-body {
-  gap: 0; padding: 0; grid-template-columns: minmax(0, 58%) minmax(0, 42%);
+  --ldb-default-width: 42%; --ldb-default-rows: 45%; --ldb-split-hit: 24px; --ldb-divider: 3px;
+  gap: 0; padding: 0;
   grid-template-rows: minmax(0, 1fr); transition: grid-template-columns 240ms cubic-bezier(.2,.8,.2,1);
 }
+.ldb-mobile .ldb-splitter { transition: right 240ms cubic-bezier(.2,.8,.2,1), top 240ms cubic-bezier(.2,.8,.2,1); }
 .ldb-mobile .ldb-list-pane, .ldb-browser.ldb-mobile .ldb-details {
   border: 0; border-radius: 0; background: var(--background-primary); box-shadow: none;
 }
 .ldb-mobile .ldb-list-pane { overflow: hidden; transition: opacity 160ms ease, visibility 0s; }
-.ldb-browser.ldb-mobile .ldb-details { border-left: 3px solid var(--background-modifier-border); padding: 0 14px calc(14px + var(--view-bottom-spacing, 0px)); scroll-padding-top: 44px; }
+.ldb-browser.ldb-mobile .ldb-details { padding: 0 14px calc(14px + var(--view-bottom-spacing, 0px)); scroll-padding-top: 44px; }
 .ldb-browser.ldb-mobile button { border-radius: 5px; }
 .ldb-browser.ldb-mobile .ldb-detail-top :is(.ldb-edit-button,.ldb-bookmark-button,.ldb-delete-button) { background: transparent; box-shadow: none; }
 .ldb-mobile .ldb-list { scrollbar-gutter: auto; overscroll-behavior: contain; }
@@ -315,7 +341,8 @@
 .ldb-mobile .ldb-notes-input { min-height: 112px; }
 .ldb-mobile .ldb-actions button { min-height: 36px; height: auto; }
 .ldb-mobile .ldb-memberships .ldb-tag, .ldb-mobile .ldb-venue-picker { min-height: 32px; height: auto; }
-.ldb-mobile.ldb-detail-expanded .ldb-body { grid-template-columns: minmax(0,0%) minmax(0,100%); }
+.ldb-mobile.ldb-detail-expanded .ldb-body { --ldb-detail-size: 100%; }
+.ldb-mobile.ldb-detail-expanded .ldb-splitter { visibility: hidden; pointer-events: none; }
 .ldb-mobile.ldb-detail-expanded .ldb-list-pane {
   opacity: 0; visibility: hidden; pointer-events: none; transition-delay: 0s, 240ms;
 }
@@ -344,12 +371,15 @@
 .ldb-mobile-navigation .ldb-nav-more svg { width: 16px; height: 16px; }
 @container (max-width: 700px) {
   .ldb-mobile .ldb-body {
-    grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(120px,45%) minmax(160px,55%);
+    --ldb-split-axis: rows;
+    grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(0, var(--ldb-list-size)) minmax(0, calc(100% - var(--ldb-list-size)));
     transition: grid-template-rows 240ms cubic-bezier(.2,.8,.2,1);
   }
+  .ldb-mobile .ldb-splitter { left: 0; right: 0; top: calc(var(--ldb-list-size) - var(--ldb-split-hit) / 2); bottom: auto; width: auto; height: var(--ldb-split-hit); cursor: row-resize; }
+  .ldb-mobile .ldb-splitter::before { left: 0; right: 0; top: 50%; bottom: auto; width: 100%; height: var(--ldb-divider); transform: translateY(-50%); }
+  .ldb-mobile .ldb-body.is-resizing, .ldb-mobile .ldb-body.is-resizing * { cursor: row-resize !important; }
   /* Keep both tracks and the existing DOM so expansion can animate without losing drafts. */
-  .ldb-mobile.ldb-detail-expanded .ldb-body { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(0px,0%) minmax(160px,100%); }
-  .ldb-browser.ldb-mobile:not(.ldb-detail-expanded) .ldb-details { border-left: 0; border-top: 3px solid var(--background-modifier-border); }
+  .ldb-mobile.ldb-detail-expanded .ldb-body { --ldb-list-size: 0%; }
   .ldb-mobile .ldb-columns, .ldb-mobile .ldb-row { grid-template-columns: minmax(0,1fr) 54px 48px; }
   .ldb-mobile .ldb-venue-view .ldb-columns, .ldb-mobile .ldb-venue-view .ldb-row,
   .ldb-mobile.ldb-venue-view .ldb-columns, .ldb-mobile.ldb-venue-view .ldb-row { grid-template-columns: minmax(0,1fr) 56px; }
@@ -357,7 +387,7 @@
   .ldb-mobile .ldb-details h3.ldb-section-label { margin-top: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ldb-mobile .ldb-body, .ldb-mobile .ldb-list-pane { transition: none; }
+  .ldb-mobile .ldb-body, .ldb-mobile .ldb-list-pane, .ldb-mobile .ldb-splitter, .ldb-splitter::before { transition: none; }
 }
 
 /* Short interaction feedback; never animate routine refreshes or the whole page. */
