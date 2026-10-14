@@ -212,3 +212,79 @@
 /* Stable filenames are secondary to the editable paper title. */
 .ldb-browser .ldb-original-filename { font-size: 11px; line-height: 1.4; color: var(--text-muted); overflow-wrap: anywhere; margin: 0 0 12px; }
 .ldb-tags .ldb-tag.ldb-tag-human { color: var(--text-accent); background: color-mix(in srgb, var(--interactive-accent) 12%, transparent); }
+
+/* Mobile only. Desktop rules above and desktop interaction remain unchanged. */
+.is-mobile .workspace-leaf-content[data-type="literature-database-browser"] > .view-content.ldb-browser,
+.workspace-leaf-content[data-type="literature-database-browser"] > .ldb-browser.ldb-mobile {
+  padding: 0; min-height: 0; background: var(--background-primary); --ldb-line: 38px;
+}
+/* The native header is hidden for this view. Keep only the real status-bar inset. */
+.is-phone .workspace-leaf-content[data-type="literature-database-browser"] > .view-content.ldb-browser {
+  margin-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+}
+.ldb-browser.ldb-mobile .ldb-toolbar {
+  display: flex; flex-wrap: wrap; gap: 0 4px; padding: 2px 8px 8px;
+  background: var(--background-primary); border-bottom: 0;
+}
+.ldb-mobile .ldb-toolbar > button:not(.ldb-mobile-icon) { display: none; }
+.ldb-mobile .ldb-brand { flex: 1; gap: 6px; min-width: 0; }
+.ldb-mobile .ldb-brand strong { font-size: 15px; max-width: none; min-width: 0; }
+.ldb-mobile .ldb-count { font-size: 11px; white-space: nowrap; flex-shrink: 0; }
+.ldb-mobile .ldb-search { order: 5; flex-basis: 100%; margin-top: 2px; border-radius: 6px; }
+.ldb-mobile .ldb-search input[type="search"] { height: 36px; font-size: 16px; }
+.ldb-browser.ldb-mobile .ldb-mobile-icon {
+  display: flex; align-items: center; justify-content: center; flex: 0 0 38px;
+  width: 38px; height: 40px; padding: 8px; background: transparent; box-shadow: none; color: var(--text-muted);
+}
+.ldb-mobile-icon svg { width: 18px; height: 18px; }
+.ldb-mobile .ldb-mobile-icon.is-active { color: var(--text-accent); background: var(--background-modifier-active-hover); }
+.ldb-mobile:not(.ldb-filters-open) .ldb-filterbar { display: none; }
+.ldb-mobile .ldb-filterbar { padding: 0 8px 8px; gap: 6px; background: var(--background-primary); border: 0; }
+.ldb-mobile .ldb-filterbar select { flex: 1 1 120px; min-width: 0; max-width: 100%; height: 34px; font-size: 13px; }
+.ldb-mobile .ldb-clear { height: 34px; }
+.ldb-mobile .ldb-body { gap: 0; padding: 0; grid-template-columns: minmax(0, 1fr) minmax(290px, 42%); }
+.ldb-mobile .ldb-list-pane, .ldb-browser.ldb-mobile .ldb-details {
+  border: 0; border-radius: 0; background: var(--background-primary); box-shadow: none;
+}
+.ldb-mobile .ldb-list-pane { overflow: hidden; }
+.ldb-browser.ldb-mobile .ldb-details { border-left: 3px solid var(--background-modifier-border); padding: 0 14px calc(14px + var(--view-bottom-spacing, 0px)); scroll-padding-top: 44px; }
+.ldb-browser.ldb-mobile button { border-radius: 5px; }
+.ldb-browser.ldb-mobile .ldb-detail-top :is(.ldb-edit-button,.ldb-delete-button) { background: transparent; box-shadow: none; }
+.ldb-mobile .ldb-list { scrollbar-gutter: auto; overscroll-behavior: contain; }
+.ldb-mobile .ldb-row { --ldb-line: 38px; font-size: 13px; }
+.ldb-mobile .ldb-columns, .ldb-mobile .ldb-row { grid-template-columns: minmax(0,1fr) 72px 60px; }
+.ldb-mobile.ldb-tracking .ldb-columns, .ldb-mobile.ldb-tracking .ldb-row { grid-template-columns: minmax(0,1fr) 126px 60px; }
+.ldb-mobile.ldb-venue-view .ldb-columns, .ldb-mobile.ldb-venue-view .ldb-row { grid-template-columns: minmax(0,1fr) 60px; }
+.ldb-mobile .ldb-column-priority, .ldb-mobile .ldb-row .ldb-priority { display: none !important; }
+.ldb-mobile .ldb-columns { height: 32px; }
+.ldb-mobile .ldb-detail-top {
+  position: sticky; top: 0; z-index: 1; margin: 0 -14px 10px; padding: 0 6px 0 14px;
+  min-height: 40px; border-bottom: 1px solid var(--background-modifier-border); background: var(--background-primary);
+}
+.ldb-mobile .ldb-mobile-detail-label { color: var(--text-muted); font-size: 12px; font-weight: 600; margin-right: auto; }
+.ldb-mobile .ldb-detail-top .ldb-edit-button { height: 36px; }
+.ldb-mobile .ldb-delete-button { margin-left: 0; width: 36px; height: 36px; }
+.ldb-mobile .ldb-inline-select { min-height: 32px; height: 32px; line-height: 32px; }
+.ldb-mobile .ldb-metadata :is(dt,dd) { min-height: 32px; }
+.ldb-mobile .ldb-notes-input, .ldb-mobile .ldb-field :is(input,textarea,select) { font-size: 16px; }
+.ldb-mobile .ldb-notes-input { min-height: 112px; }
+.ldb-mobile .ldb-actions button { min-height: 36px; height: auto; }
+.ldb-mobile .ldb-memberships .ldb-tag, .ldb-mobile .ldb-venue-picker { min-height: 32px; height: auto; }
+.ldb-mobile.ldb-detail-expanded .ldb-body { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(0,1fr); }
+.ldb-mobile.ldb-detail-expanded .ldb-list-pane { display: none; }
+.ldb-mobile.ldb-detail-expanded .ldb-details { border: 0; }
+.ldb-mobile-navigation .ldb-nav-item { min-height: 40px; font-size: 14px; }
+.ldb-mobile-navigation .ldb-nav-section { margin-top: 12px; }
+.ldb-mobile-navigation .ldb-nav-heading { padding-bottom: 8px; }
+.ldb-mobile-navigation .ldb-language-button { width: 36px; height: 36px; }
+.ldb-mobile-navigation .ldb-nav-more { display: flex; align-items: center; justify-content: center; min-width: 32px; min-height: 32px; margin: -4px -4px -4px 0; color: var(--text-muted); }
+.ldb-mobile-navigation .ldb-nav-more svg { width: 16px; height: 16px; }
+@container (max-width: 700px) {
+  .ldb-mobile .ldb-body { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(120px,.9fr) minmax(160px,1.1fr); }
+  .ldb-browser.ldb-mobile:not(.ldb-detail-expanded) .ldb-details { border-left: 0; border-top: 3px solid var(--background-modifier-border); }
+  .ldb-mobile .ldb-columns, .ldb-mobile .ldb-row { grid-template-columns: minmax(0,1fr) 54px 48px; }
+  .ldb-mobile .ldb-venue-view .ldb-columns, .ldb-mobile .ldb-venue-view .ldb-row,
+  .ldb-mobile.ldb-venue-view .ldb-columns, .ldb-mobile.ldb-venue-view .ldb-row { grid-template-columns: minmax(0,1fr) 56px; }
+  .ldb-mobile .ldb-column-priority, .ldb-mobile .ldb-row .ldb-priority { display: none !important; }
+  .ldb-mobile .ldb-details h3.ldb-section-label { margin-top: 16px; }
+}

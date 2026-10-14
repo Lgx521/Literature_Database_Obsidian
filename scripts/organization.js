@@ -1,7 +1,7 @@
 'use strict';
 const {t:tr}=require('./i18n');
 const STATES=['待整理','AI 已整理','人工完成','自动整理'];
-const hash=value=>require('crypto').createHash('sha256').update(String(value),'utf8').digest('hex');
+const hash=require('./sha256');
 function parse(value){
   if(!value)return {v:1,fields:{},tags:{}};
   let data;try{data=typeof value==='string'?JSON.parse(value):value;}catch(_){throw new Error(tr('整理来源格式无效'));}

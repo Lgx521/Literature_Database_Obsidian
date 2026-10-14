@@ -15,7 +15,7 @@ version = manifest['version']
 assert re.fullmatch(r'\d+\.\d+\.\d+', version), 'Use an x.y.z version without a v prefix'
 assert re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', manifest['id'])
 assert 'obsidian' not in manifest['id']
-assert manifest['isDesktopOnly'] is True, 'Node/Electron APIs require desktop-only marking'
+assert manifest['isDesktopOnly'] is False, 'Mobile release must pass test-mobile.cjs without Node/Electron globals'
 assert len(manifest['description']) <= 250 and manifest['description'].endswith('.')
 assert json.loads((root / 'package.json').read_text())['version'] == version
 assert json.loads((root / 'versions.json').read_text())[version] == manifest['minAppVersion']

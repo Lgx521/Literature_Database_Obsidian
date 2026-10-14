@@ -53,7 +53,7 @@ module.exports=class LiteratureManager extends Plugin {
     this.addCommand({id:'refresh',name:tr('重新读取本地数据'),callback:()=>this.refresh(true)});
   }
   showLanguageMenu(event){
-    const menu=new Menu().setUseNativeMenu(true);
+    const menu=new Menu().setUseNativeMenu(!Platform?.isMobile);
     for(const [value,label] of [['auto',tr('跟随 Obsidian')],['zh','中文'],['en','English']]){
       menu.addItem(item=>item.setTitle(label).setChecked(this.settings.language===value).onClick(()=>this.changeLanguage(value).catch(e=>new Notice(e.message,8000))));
     }
@@ -106,7 +106,8 @@ module.exports=class LiteratureManager extends Plugin {
     if(!leaf){leaf=this.app.workspace.getLeaf('tab');await leaf.setViewState({type:LIBRARY_VIEW,state:{scope:'library',category:this.snapshot?.categories[0]||''},active:true});}
     if(leaf.isDeferred)await leaf.loadIfDeferred();
     if(nav&&leaf.view instanceof LiteratureBrowser)await leaf.view.navigate(nav);
-    await this.showNavigation();await this.app.workspace.revealLeaf(leaf);
+    if(Platform.isMobile)this.app.workspace.leftSplit?.collapse();else await this.showNavigation();
+    await this.app.workspace.revealLeaf(leaf);
   }
   renderNavigation(){for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))if(leaf.view instanceof LibraryNavigation)leaf.view.render();}
   stagingGroup(scope){const groups=this.snapshot?.groups[scope]||[];return groups.includes('暂存区')?'暂存区':groups.includes('待确定 venue')?'待确定 venue':'暂存区';}
@@ -267,16 +268,17 @@ module.exports=class LiteratureManager extends Plugin {
     if(this.recordBusy)throw new Error(tr('请等待当前操作完成'));
     const scope=nav.scope,publicImport=['library','projects'].includes(scope);if(!['inbox','reviews','submissions','library','projects'].includes(scope))throw new Error(tr('无效导入位置'));
     if(scope!=='inbox'&&this.lastError)throw new Error(tr('源数据不完整，请等待同步'));
-    if(!Platform.isDesktopApp||!Platform.isMacOS)throw new Error(tr('保留 Skim 批注的拖拽导入目前支持 Mac；其他设备可将文件放入 temp'));
-    const base=this.app.vault.adapter.getBasePath?.();if(!base)throw new Error(tr('无法读取本机仓库路径'));
+    const mobile=!!Platform.isMobile;
+    if(!mobile&&(!Platform.isDesktopApp||!Platform.isMacOS))throw new Error(tr('保留 Skim 批注的拖拽导入目前支持 Mac；其他设备可将文件放入 temp'));
+    const base=mobile?'':this.app.vault.adapter.getBasePath?.();if(!mobile&&!base)throw new Error(tr('无法读取本机仓库路径'));
     const pdfs=files.filter(f=>/\.pdf$/i.test(f.name));
     if(!pdfs.length)throw new Error(tr('请拖入本地 PDF 文件；链接和单独批注文件不会导入'));
-    const inputs=pdfs.map(file=>{
+    const inputs=mobile?files:pdfs.map(file=>{
       let source='';try{source=require('electron').webUtils?.getPathForFile(file)||'';}catch(_){}
       source=source||file.path||'';
       return {name:file.name,path:source};
     });
-    if(inputs.some(f=>!f.path))throw new Error(tr('未取得本地 PDF 路径，请先保存文件，再从 Finder 拖入'));
+    if(!mobile&&inputs.some(f=>!f.path))throw new Error(tr('未取得本地 PDF 路径，请先保存文件，再从 Finder 拖入'));
     const category=scope==='inbox'?'':nav.category||(publicImport?'':this.stagingGroup(scope));
     if(publicImport){
       if(this.hasPendingEdit())throw new Error(tr('请先保存或取消编辑'));
@@ -287,9 +289,9 @@ module.exports=class LiteratureManager extends Plugin {
       Engine.updateTracker(await this.app.vault.read(file),TRACK_FILES[scope],null,{title:'Validation',pdfPath:'',category,status:'待整理',due:'—',next:'',notes:''});
     }
     let folder=publicImport?'papers':scope==='inbox'?'temp':scope+'/'+(category===this.stagingGroup(scope)?'_staging':category.replace(/[\\/:*?"<>|.]/g,'-').replace(/\s+/g,'-').slice(0,60)||'venue');
-    this.importing=true;let importedPaths=[];const progress=new Notice(tr('正在导入 ')+inputs.length+tr(' 篇 PDF…'),0);
+    this.importing=true;let importedPaths=[];const progress=new Notice(tr('正在导入 ')+pdfs.length+tr(' 篇 PDF…'),0);
     try{
-      const results=await InboxImport.importInboxFiles(base,inputs,{folder});
+      const results=mobile?await MobileImport.importFiles(this.app.vault,inputs,{folder}):await InboxImport.importInboxFiles(base,inputs,{folder});
       const added=results.filter(r=>r.path),skipped=results.filter(r=>r.skipped),failed=results.filter(r=>r.error);
       if(publicImport){
         const existing=results.filter(r=>r.existingPath&&this.snapshot.library.some(p=>p.path===r.existingPath));
@@ -317,6 +319,16 @@ module.exports=class LiteratureManager extends Plugin {
       if(files.some(f=>!/\.(pdf|skim|fdf|xfdf)$/i.test(f.name)))summary.push(tr('已忽略非 PDF 文件'));
       new Notice(summary.join('\n'),failed.length?15000:8000);return results;
     }finally{progress.hide();this.importing=false;if(importedPaths.length&&typeof loadPdfJs==='function')this.ensureCitationRows(this.snapshot.library.filter(r=>importedPaths.includes(r.path))).catch(e=>new Notice(e.message,8000));}
+  }
+  choosePDFs(nav,doc){
+    if(this.hasPendingEdit()||this.importing||this.recordBusy){new Notice(tr('请先保存或取消编辑，并等待当前操作结束'));return;}
+    this.mobilePicker?.remove();
+    const input=doc.createElement('input');input.type='file';input.accept='.pdf,.skim,.fdf,.xfdf';input.multiple=true;input.hidden=true;
+    this.mobilePicker=input;doc.body.appendChild(input);
+    const cleanup=()=>{input.remove();if(this.mobilePicker===input)this.mobilePicker=null;};
+    input.addEventListener('cancel',cleanup,{once:true});
+    input.addEventListener('change',()=>{const files=Array.from(input.files||[]);cleanup();if(files.length&&!this.stopped)this.importDroppedFiles(files,nav).catch(e=>new Notice(e.message,10000));},{once:true});
+    this.register?.(cleanup);input.click();
   }
   schedule(){if(this.stopped)return;clearTimeout(this.timer);this.timer=setTimeout(()=>this.refresh(),300);}
   async refresh(notify=false){

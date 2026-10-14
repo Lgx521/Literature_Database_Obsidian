@@ -1,6 +1,15 @@
 'use strict';
 // Source table values and user content are never translated in storage.
 const english = {
+  "导入 PDF": "Import PDFs",
+  "筛选": "Filters",
+  "更多操作": "More actions",
+  "详情": "Details",
+  "展开详情": "Expand details",
+  "收起详情": "Collapse details",
+  "点击 ＋ 导入 PDF": "Tap + to import PDFs",
+  "无效文件名": "Invalid filename",
+  "批注对应多个同名 PDF，请分批导入": "Annotations match multiple PDFs with the same name. Import these separately.",
   "自动整理": "Auto organized",
   "整理来源格式无效": "Invalid organization provenance",
   "整理状态无效": "Invalid organization status",

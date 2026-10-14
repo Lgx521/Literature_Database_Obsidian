@@ -12,7 +12,7 @@ class CollectionMembershipMenu {
   show(){
     if(this.closed||this.plugin.stopped||this.doc?.hidden)return;
     if(this.plugin.hasPendingEdit()){this.close();return;}
-    const menu=new Menu().setUseNativeMenu(true);this.menu=menu;
+    const menu=new Menu().setUseNativeMenu(!Platform?.isMobile);this.menu=menu;
     const groups=this.plugin.snapshot.collections||[];let sections=0;
     for(const [scope,title] of [['library',tr('分类')],['projects',tr('写作项目')]]){
       const list=groups.filter(g=>g.scope===scope);if(!list.length)continue;
@@ -85,7 +85,7 @@ class CollectionMoveMenu {
   close(){this.closed=true;clearTimeout(this.timer);this.menu?.hide();if(this.plugin.membershipMenu===this)this.plugin.membershipMenu=null;}
   show(){
     if(this.closed||this.plugin.stopped||this.doc?.hidden||this.plugin.hasPendingEdit())return;
-    const menu=new Menu().setUseNativeMenu(true);this.menu=menu;
+    const menu=new Menu().setUseNativeMenu(!Platform?.isMobile);this.menu=menu;
     const groups=(this.plugin.snapshot.collections||[]).filter(g=>g.scope===this.from.scope);
     const source=groups.find(g=>g.name===this.from.name);
     if(!source){this.close();new Notice(tr('来源集合已被修改，请重新打开菜单'));return;}
@@ -105,7 +105,7 @@ class CollectionMoveMenu {
 function ldbPaperVenueMenu(view,button){
   if(view.saving||view.editing||view.readError||view.venueDraft)return;
   const row=view.detailRow;if(!row)return;
-  const path=row.path,selected=row.venues||[],menu=new Menu().setUseNativeMenu(true);
+  const path=row.path,selected=row.venues||[],menu=new Menu().setUseNativeMenu(!Platform?.isMobile);
   const options=Engine.venueOptions([...(view.plugin.snapshot?.library||view.rows),row]);
   for(const name of options){
     const checked=selected.some(v=>v.toLocaleLowerCase()===name.toLocaleLowerCase());
@@ -181,7 +181,7 @@ class CitationExportModal extends Modal {
 function ldbSharedDeadlineChoice(plugin,scope,parent,nameInput){
   let selection=null;
   const button=ldbButton(parent,tr('独立 DDL ▾'),e=>{
-    const menu=new Menu().setUseNativeMenu(true);
+    const menu=new Menu().setUseNativeMenu(!Platform?.isMobile);
     menu.addItem(item=>item.setTitle(tr('独立 DDL')).setChecked(!selection).onClick(()=>{selection=null;button.setText(tr('独立 DDL ▾'));}));
     const choices=plugin.deadlineChoices(scope);
     if(choices.length){menu.addSeparator();menu.addItem(item=>item.setTitle(scope==='projects'?tr('使用已有投稿 Venue 的 DDL'):tr('使用已有写作项目的 DDL')).setIsLabel(true));}

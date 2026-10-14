@@ -5,6 +5,8 @@ root = Path(__file__).resolve().parents[1]
 i18n = (root / 'scripts/i18n.js').read_text()
 storage = (root / 'scripts/storage-migration.js').read_text()
 organization = (root / 'scripts/organization.js').read_text()
+sha256 = (root / 'scripts/sha256.js').read_text()
+mobile_import = (root / 'scripts/mobile-import.js').read_text()
 engine = (root / 'scripts/dashboard.js').read_text()
 view = (root / 'scripts/library-view.js').read_text()
 tail = (root / 'scripts/plugin-tail.js').read_text()
@@ -24,7 +26,8 @@ metadata = (root / 'scripts/citation-metadata.js').read_text()
     '// Generated from scripts/dashboard.js, scripts/inbox-import.js, scripts/library-view.js and scripts/plugin-tail.js. Deterministic citation lookup only on intake/export.\n'
     'const LDB_TEMPLATES = ' + json.dumps(templates, ensure_ascii=False) + ';\n'
     'const LdbI18n = (() => { const module = { exports: {} };\n' + i18n + '\nreturn module.exports; })();\n'
-    'const tr=LdbI18n.t, ldbRequire=id=>id==="./i18n"?LdbI18n:id==="./organization"?Organization:require(id);\n'
+    'const Sha256 = (() => { const module = { exports: {} };\n' + sha256 + '\nreturn module.exports; })();\n'
+    'const tr=LdbI18n.t, ldbRequire=id=>id==="./i18n"?LdbI18n:id==="./sha256"?Sha256:id==="./organization"?Organization:require(id);\n'
     'const StorageMigration = ((require) => { const module = { exports: {} };\n' + storage + '\nreturn module.exports; })(ldbRequire);\n'
     'const Organization = ((require) => { const module = { exports: {} };\n' + organization + '\nreturn module.exports; })(ldbRequire);\n'
     'const Engine = ((require) => { const module = { exports: {} };\n' + engine + '\nreturn module.exports; })(ldbRequire);\n'
@@ -33,5 +36,6 @@ metadata = (root / 'scripts/citation-metadata.js').read_text()
     'let citationEngine; function getCitations(){ if (!citationEngine) {const module={exports:{}};\n' + citations + '\ncitationEngine=module.exports;citationEngine.setTranslator(tr);} return citationEngine; }\n'
     'const CitationMetadata = ((require) => { const module = { exports: {} };\n' + metadata + '\nreturn module.exports; })(ldbRequire);\n'
     'const InboxImport = ((require) => { const module = { exports: {} };\n' + inbox + '\nreturn module.exports; })(ldbRequire);\n'
+    'const MobileImport = ((require) => { const module = { exports: {} };\n' + mobile_import + '\nreturn module.exports; })(ldbRequire);\n'
     'const TrashStore = ((require) => { const module = { exports: {} };\n' + trash + '\nreturn module.exports; })(ldbRequire);\n' + view + '\n' + collection_view + '\n' + setup + '\n' + tail)
 (root / 'styles.css').write_text((root / 'scripts/library-view.css').read_text())
