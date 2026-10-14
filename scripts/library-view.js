@@ -758,6 +758,7 @@ class LiteratureBrowser extends ItemView {
     const parent=this.groupingCollection();if(this.filters.subgroup!==null&&(!parent||(this.filters.subgroup&&!parent.subgroups?.includes(this.filters.subgroup))))this.filters.subgroup=null;
     this.headingEl.setText(this.filters.subgroup!==null?this.filters.category+' / '+(this.filters.subgroup||tr('未分组')):this.filters.bookmarked?tr('书签'):TRACK_FILES[this.scope]&&this.filters.category===this.plugin.stagingGroup(this.scope)?tr('暂存区'):(this.filters.category===Engine.UNFILED_CATEGORY?tr(this.filters.category):this.filters.category)||tr(this.filters.status)||(this.scope==='library'?tr('全部文献'):SCOPES[this.scope]));this.countEl.setText(tr`${this.rows.filter(r=>!this.filters.category||r.category===this.filters.category).length} 篇`);
     this.contentEl.toggleClass('ldb-tracking',!!TRACK_FILES[this.scope]);
+    this.contentEl.toggleClass('ldb-public',this.isPublic());
     this.contentEl.toggleClass('ldb-venue-view',!!TRACK_FILES[this.scope]&&!!this.filters.category);
     this.tagFilterMenu?.refresh();
     this.statusEl.hidden=this.tagEl.hidden=!this.isPublic();

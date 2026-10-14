@@ -1,6 +1,6 @@
 # Community releases
 
-The [Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard) was published on **2026-10-13**. The initial submission checklist covered **4.3.1**; the current release is **4.8.3**. New releases are reviewed separately and may take time to propagate to the app directory.
+The [Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard) was published on **2026-10-13**. The initial submission checklist covered **4.3.1**; the current release is **4.8.4**. New releases are reviewed separately and may take time to propagate to the app directory.
 
 ## Repository and distribution
 
@@ -10,7 +10,7 @@ The [Community listing](https://community.obsidian.md/plugins/paper-reservoir-da
 | Root `README.md`, `LICENSE`, `manifest.json` | Present; usage, installation, screenshots, data access and platform limits documented |
 | Plugin identity | `paper-reservoir-dashboard`, displayed as Literature Database, author shengzhegan; retain the installed ID for upgrade compatibility |
 | Community entry | Published as `paper-reservoir-dashboard`; retain this ID across updates |
-| Version metadata | Manifest, package and version map agree on `4.8.3`; release tag must be exactly `4.8.3`, without `v` |
+| Version metadata | Manifest, package and version map agree on `4.8.4`; release tag must be exactly `4.8.4`, without `v` |
 | Description | Short action statement, under 250 characters, ending with a period |
 | Minimum app | `1.8.7` for the public `getLanguage()` API; native menus and deferred views also use public APIs available by this version |
 | Mobile declaration | `isDesktopOnly: false`; mobile paths use browser/vault APIs and are tested with Node/Electron imports forbidden |

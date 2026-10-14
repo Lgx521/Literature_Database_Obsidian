@@ -14,7 +14,14 @@ class LdbPaneSplitter {
     this.view=view;this.body=body;this.list=list;this.detail=detail;this.doc=body.ownerDocument;this.win=this.doc?.defaultView;this.cleanups=[];
     if(!this.win?.getComputedStyle)return;
     list.id='ldb-pane-list-'+view.leaf.id;detail.id='ldb-pane-detail-'+view.leaf.id;
-    this.handle=body.createDiv({cls:'ldb-splitter',attr:{role:'separator',tabindex:'0','aria-label':tr('调整列表与详情大小'),'aria-controls':list.id+' '+detail.id}});
+    this.handle=body.createDiv({cls:'ldb-splitter',attr:{role:'separator',tabindex:'0','data-ignore-swipe':'true','aria-label':tr('调整列表与详情大小'),'aria-controls':list.id+' '+detail.id}});
+    // Obsidian's drawers recognize Touch Events independently of pointer capture.
+    // Match its own resize handles and claim only touches that start on our divider.
+    for(const type of ['touchstart','touchmove'])this.listen(this.handle,type,e=>{e.preventDefault();e.stopPropagation();},{passive:false});
+    for(const type of ['pointerenter','pointermove'])this.listen(this.handle,type,e=>{
+      if(e.pointerType==='mouse')this.handle.addClass('is-pointer-hover');else this.handle.removeClass('is-pointer-hover');
+    });
+    this.listen(this.handle,'pointerleave',()=>this.handle.removeClass('is-pointer-hover'));
     this.listen(this.handle,'pointerdown',e=>this.start(e));
     this.listen(this.doc,'pointermove',e=>this.move(e),{capture:true,passive:false});
     this.listen(this.doc,'pointerup',e=>{if(e.pointerId===this.drag?.id){this.move(e);this.finish(true);}},{capture:true});
@@ -52,10 +59,12 @@ class LdbPaneSplitter {
     if(this.drag||this.view.mobileExpanded||e.button>0||e.isPrimary===false)return;
     const m=this.metrics();if(m.total<=0)return;
     e.preventDefault();e.stopPropagation();
-    this.drag={...m,id:e.pointerId,start:m.axis==='rows'?e.clientY:e.clientX};
+    const touch=e.pointerType==='touch'||e.pointerType==='pen';
+    this.drag={...m,id:e.pointerId,touch,start:m.axis==='rows'?e.clientY:e.clientX};
     // Grab the visible position even when a detail-collapse transition is still running.
     this.preview={...this.view.paneSizes,...(m.axis==='rows'?{rows:m.first/m.total}:{width:m.total-m.first})};this.apply(this.preview);
-    this.body.addClass('is-resizing');this.handle.focus({preventScroll:true});
+    this.body.addClass('is-resizing');
+    if(touch)this.handle.removeClass('is-pointer-hover');else this.handle.focus({preventScroll:true});
     try{this.handle.setPointerCapture(e.pointerId);}catch(_){} // Document listeners also cover older WebViews.
   }
   move(e){
@@ -79,6 +88,7 @@ class LdbPaneSplitter {
     this.preview=null;this.nextFirst=undefined;
     // Restore the saved geometry before reenabling the expansion transition.
     this.sync();this.body.removeClass('is-resizing');
+    if(drag.touch){this.handle.removeClass('is-pointer-hover');if(this.doc.activeElement===this.handle)this.handle.blur();}
     try{if(this.handle.hasPointerCapture(drag.id))this.handle.releasePointerCapture(drag.id);}catch(_){}
   }
   keydown(e){

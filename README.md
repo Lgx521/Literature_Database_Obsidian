@@ -12,11 +12,13 @@ A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Bro
 
 *Real screenshots from a separate demo vault, using the English interface. Public papers are paired with example notes, projects and review tasks; no private library or confidential manuscripts are shown. Click any image to view it at full size.*
 
-**Status:** **4.8.3**. [View the Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard); new releases may take time to reach the in-app directory. Requires **Obsidian 1.8.7+**. Mobile support is enabled for iPhone/iPad with a compact touch layout and Files picker. Validated with Obsidian 1.14.4 mobile emulation and a runtime test that rejects Node/Electron imports; physical iOS/Android devices have not yet been tested. Desktop behavior is preserved. Windows/Linux GUI behavior has not been validated; Finder drag/paste requires macOS. The interface supports English and Chinese, following the Obsidian language by default. Screenshots show the 4.8.0 interface in an isolated English demo vault.
+**Status:** **4.8.4**. [View the Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard); new releases may take time to reach the in-app directory. Requires **Obsidian 1.8.7+**. Mobile support is enabled for iPhone/iPad with a compact touch layout and Files picker. Validated with Obsidian 1.14.4 mobile emulation and a runtime test that rejects Node/Electron imports; physical iOS/Android devices have not yet been tested. Desktop behavior is preserved. Windows/Linux GUI behavior has not been validated; Finder drag/paste requires macOS. The interface supports English and Chinese, following the Obsidian language by default. Screenshots show the 4.8.0 interface in an isolated English demo vault.
 
 ## Features
 
-**New in 4.8.3:** Drag the divider to resize the paper list and details with a mouse or touch. Hover or press to highlight it; sizes are remembered in the workspace, with minimum sizes for both panes. Mobile sidebar names save on Done or an outside tap, and tag creation has a visible cancel button.
+**New in 4.8.4:** Touch-drag the divider immediately without opening Obsidian's side drawers; its highlight clears when you lift your finger. Mobile paper lists show Priority when the list has at least 560px of available width, including after resizing or changing split-screen size.
+
+**4.8.3:** Drag the divider to resize the paper list and details with a mouse or touch. Hover or press to highlight it; sizes are remembered in the workspace, with minimum sizes for both panes. Mobile sidebar names save on Done or an outside tap, and tag creation has a visible cancel button.
 
 **4.8.0:** Build and select tags in an editable, two-sided mind map. Combine several tag filters with **OR** semantics, bookmark papers from the right-click menu, and use larger mobile disclosure targets. Mobile icon buttons retain their intended shape; iPad details now expand smoothly as well as phone details.
 
