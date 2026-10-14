@@ -103,11 +103,15 @@ function publicationRank(value) {
   const [year, month = '0'] = value.split('.');
   return Number(year) * 12 + Number(month);
 }
-function filterLibrary(rows, { query = '', category = '', status = '', tag = '', sort = 'filename', descending = false, organizing = '', bookmarked = false } = {}) {
+function normalizeTagFilter(value){
+  const seen=new Set();return (Array.isArray(value)?value:typeof value==='string'?[value]:[]).filter(tag=>{if(typeof tag!=='string'||!tag.startsWith('#')||/\s/.test(tag))return false;const key=tag.toLocaleLowerCase();if(seen.has(key))return false;seen.add(key);return true;});
+}
+function filterLibrary(rows, { query = '', category = '', status = '', tag = '', tags, sort = 'filename', descending = false, organizing = '', bookmarked = false } = {}) {
   const tokens = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const selectedTags=normalizeTagFilter(Array.isArray(tags)?tags:tag).map(t=>t.toLocaleLowerCase());
   const result = rows.filter(r => (!bookmarked || r.bookmarked) && (!category || (r.categories ? (category===UNFILED_CATEGORY?!r.categories.length:r.categories.includes(category)) : r.category === category)) && (!status || r.status === status)
     && (!organizing || (organizing==='pending'?Organization.pending(r):r.organizing===organizing))
-    && (!tag || r.tags.split(/\s+/).includes(tag))
+    && selectedTags.every(t=>r.tags.toLocaleLowerCase().split(/\s+/).includes(t))
     && tokens.every(t => [r.filename, r.title||'', ...(r.categories||[r.category]), r.tags, r.tldr, decodeText(r.notes || ''), r.published, r.status, r.priority, ...(r.venues||[])].join(' ').toLocaleLowerCase().includes(t)));
   return result.sort((a, b) => {
     // Unknown dates always stay at the end, in either direction.
@@ -470,4 +474,4 @@ function restoreRecord(text,scope,row){
   if(end<0)throw new Error(tr('无法恢复到分类'));const values=[...row.cells];if(library)while(values.length<header.length)values.push('');if(!library)values[2]=trackerDeadline(text,group);
   lines.splice(end+1,0,'| '+values.join(' | ')+' |'+cr);const output=lines.join('\n');library?parseLibrary(output):parseTracker(output,source);return output;
 }
-module.exports = { BOOKMARK_HEADERS, migrateLibraryBookmarks, groupLibrary, Organization, ORGANIZATION_HEADERS, migrateLibraryOrganization, addLibraryEntry, REVIEW_STATUSES, updateReviewStatus, TITLE_HEADERS, migrateLibraryTitles, trackerLayout, CITATION_HEADERS, migrateLibraryCitations, HEADERS, NOTES_HEADERS, VENUE_HEADERS, normalizeVenues, venueOptions, migrateLibraryVenues, STATUSES, PRIORITIES, UNFILED_CATEGORY, TRACKING_HEADERS, parseLibrary, deadline, deadlineParts, composeDeadline, displayDeadline, deadlineCountdown, escapeLabel, filterLibrary, updateLibraryEntry, decodeText, encodeNotes, getCategories, migrateLibraryNotes, addCategory, renameCategory, deleteCategory, reorderGroups, parseTracker, trackerGroups, trackerDeadline, setTrackerDeadline, migrateTrackerDeadlines, isStagingGroup, renameTrackerGroup, deleteTrackerGroup, addTrackerGroup, updateTracker, removeRecord, restoreRecord, sameTrackerContent };
+module.exports = { normalizeTagFilter, BOOKMARK_HEADERS, migrateLibraryBookmarks, groupLibrary, Organization, ORGANIZATION_HEADERS, migrateLibraryOrganization, addLibraryEntry, REVIEW_STATUSES, updateReviewStatus, TITLE_HEADERS, migrateLibraryTitles, trackerLayout, CITATION_HEADERS, migrateLibraryCitations, HEADERS, NOTES_HEADERS, VENUE_HEADERS, normalizeVenues, venueOptions, migrateLibraryVenues, STATUSES, PRIORITIES, UNFILED_CATEGORY, TRACKING_HEADERS, parseLibrary, deadline, deadlineParts, composeDeadline, displayDeadline, deadlineCountdown, escapeLabel, filterLibrary, updateLibraryEntry, decodeText, encodeNotes, getCategories, migrateLibraryNotes, addCategory, renameCategory, deleteCategory, reorderGroups, parseTracker, trackerGroups, trackerDeadline, setTrackerDeadline, migrateTrackerDeadlines, isStagingGroup, renameTrackerGroup, deleteTrackerGroup, addTrackerGroup, updateTracker, removeRecord, restoreRecord, sameTrackerContent };

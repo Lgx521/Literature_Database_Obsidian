@@ -20,6 +20,7 @@ sharing = (root / 'scripts/deadline-sharing.js').read_text()
 collection_view = (root / 'scripts/collection-view.js').read_text()
 tag_tree = (root / 'scripts/tag-tree.js').read_text()
 tag_view = (root / 'scripts/tag-map-view.js').read_text()
+tag_filter = (root / 'scripts/tag-filter-view.js').read_text()
 citations = (root / 'scripts/vendor/citation-engine.cjs').read_text()
 metadata = (root / 'scripts/citation-metadata.js').read_text()
 (root / 'main.js').write_text(
@@ -40,5 +41,5 @@ metadata = (root / 'scripts/citation-metadata.js').read_text()
     'const CitationMetadata = ((require) => { const module = { exports: {} };\n' + metadata + '\nreturn module.exports; })(ldbRequire);\n'
     'const InboxImport = ((require) => { const module = { exports: {} };\n' + inbox + '\nreturn module.exports; })(ldbRequire);\n'
     'const MobileImport = ((require) => { const module = { exports: {} };\n' + mobile_import + '\nreturn module.exports; })(ldbRequire);\n'
-    'const TrashStore = ((require) => { const module = { exports: {} };\n' + trash + '\nreturn module.exports; })(ldbRequire);\n' + view + '\n' + tag_view + '\n' + collection_view + '\n' + setup + '\n' + tail)
+    'const TrashStore = ((require) => { const module = { exports: {} };\n' + trash + '\nreturn module.exports; })(ldbRequire);\n' + view + '\n' + tag_view + '\n' + tag_filter + '\n' + collection_view + '\n' + setup + '\n' + tail)
 (root / 'styles.css').write_text((root / 'scripts/library-view.css').read_text())

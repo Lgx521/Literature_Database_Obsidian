@@ -92,7 +92,7 @@ const descendants=el=>el.children.flatMap(e=>[e,...descendants(e)]);
  assert.equal(view.visibleRows.length,2);assert(view.visibleRows.every(r=>r.bookmarked&&r.categories.includes('ML')));
  assert.equal(view.renderedRows.length,2);assert.equal(descendants(view.listEl).filter(e=>e.classes.has('ldb-group-heading')).length,1);
  assert.equal(view.bookmarkFilterEl.attributes['aria-pressed'],'true');assert.equal(view.clearEl.hidden,false);
- view.filters.query='One';view.filters.tag='#research/rl';view.renderList();assert.equal(view.visibleRows.length,1);
+ view.filters.query='One';view.filters.tags=['#research/rl'];view.renderList();assert.equal(view.visibleRows.length,1);
  const restored=new api.module.exports.Browser({},plugin);await restored.setState(view.getState());assert(restored.filters.bookmarkOnly);assert.equal(restored.filters.category,'ML');
  view.notesInput.value='Keep draft';view.notesInput.events.input();view.toggleBookmarkFilter();assert(view.filters.bookmarkOnly);view.clearFilters();assert.equal(view.filters.query,'One');
  view.notesCancel.events.click();view.clearFilters();assert(!view.filters.bookmarkOnly);assert.equal(view.filters.category,'ML');assert.equal(view.visibleRows.length,3);
@@ -118,9 +118,9 @@ const descendants=el=>el.children.flatMap(e=>[e,...descendants(e)]);
  await view.navigate({scope:'library',category:'ML'});assert.equal(view.visibleRows.length,3);
  await view.navigate({scope:'library',bookmarked:true});assert.equal(view.renderedRows.length,4);assert.equal(descendants(view.listEl).filter(e=>e.classes.has('ldb-group-heading')).length,3);
  // Import navigation clears hiding filters and selects all successes, focusing the first imported PDF rather than the first sorted row.
- view.filters.query='missing';view.filters.tag='#research/missing';view.filters.bookmarkOnly=true;view.filters.sort='title';view.filters.descending=true;view.listEl.scrollTop=900;
+ view.filters.query='missing';view.filters.tags=['#research/missing'];view.filters.bookmarkOnly=true;view.filters.sort='title';view.filters.descending=true;view.listEl.scrollTop=900;
  await view.navigate({scope:'library',category:'ML',revealPaths:['papers/Two.pdf','papers/One.pdf','papers/missing.pdf']});
- assert.equal(view.selectedPath,'papers/Two.pdf');assert.equal(view.detailRow.path,'papers/Two.pdf');assert.deepEqual([...view.selectedPaths].sort(),['papers/One.pdf','papers/Two.pdf']);assert.equal(view.filters.query,'');assert.equal(view.filters.tag,'');assert.equal(view.filters.bookmarkOnly,false);assert.equal(view.filters.descending,true);assert(view.rowEls.get('papers/Two.pdf').scrolled);
+ assert.equal(view.selectedPath,'papers/Two.pdf');assert.equal(view.detailRow.path,'papers/Two.pdf');assert.deepEqual([...view.selectedPaths].sort(),['papers/One.pdf','papers/Two.pdf']);assert.equal(view.filters.query,'');assert.equal(view.filters.tags.length,0);assert.equal(view.filters.bookmarkOnly,false);assert.equal(view.filters.descending,true);assert(view.rowEls.get('papers/Two.pdf').scrolled);
  // Only the list scrolls, and a metadata/title reorder keeps a previously visible selection in view.
  view.listEl.getBoundingClientRect=()=>({top:0,bottom:100});view.listEl.scrollTop=500;
  const chosen=view.rowEls.get(view.selectedPath);chosen.getBoundingClientRect=()=>({top:30,bottom:60});assert(view.selectionVisible());
