@@ -74,7 +74,9 @@ class TagMapModal extends Modal {
       const input=el.createEl('input',{type:'text',attr:{placeholder:tr(this.editor.kind==='group'?'分组名称':'标签名称'),'aria-label':tr(this.editor.kind==='group'?'分组名称':'标签名称'),autocomplete:'off'}});input.value=this.editor.value||'';this.editor.input=input;
       input.addEventListener('input',()=>{this.editor.value=input.value;input.removeAttribute('aria-invalid');});
       input.addEventListener('keydown',e=>{e.stopPropagation();if(e.isComposing||e.keyCode===229)return;if(e.key==='Enter'){e.preventDefault();this.commitEditor();}else if(e.key==='Escape'){e.preventDefault();this.cancelEditor();}});
-      this.icon(el,'check',tr('保存'),()=>this.commitEditor(),'ldb-map-save');return el;
+      this.icon(el,'check',tr('保存'),()=>this.commitEditor(),'ldb-map-save');
+      if(Platform.isMobile)this.icon(el,'x',tr('取消'),()=>this.cancelEditor(),'ldb-map-cancel');
+      return el;
     }
     const fold=this.icon(el,'chevron-down',tr('收起'),()=>{if(this.editor)return;this.collapsed.has(n.key)?this.collapsed.delete(n.key):this.collapsed.add(n.key);this.render();},'ldb-map-fold');el.ldbFold=fold;
     if(n.kind==='tag'){
