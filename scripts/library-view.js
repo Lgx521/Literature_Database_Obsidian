@@ -246,7 +246,9 @@ class LibraryNavigation extends ItemView {
     update();
     const live=new Set(this.plugin.snapshot.library.map(r=>r.path));
     for(const subgroup of [...children,'']){
-      const child=add(subgroup||tr('未分组'),subgroup?'folder':'inbox',{scope,category:parent,subgroup},group.members.filter(m=>(m.subgroup||'')===subgroup&&live.has(m.path)).length,true);child.addClass('is-subgroup');inner.appendChild(child);
+      const count=group.members.filter(m=>(m.subgroup||'')===subgroup&&live.has(m.path)).length;
+      if(!subgroup&&!count)continue;
+      const child=add(subgroup||tr('未分组'),subgroup?'folder':'inbox',{scope,category:parent,subgroup},count,true);child.addClass('is-subgroup');inner.appendChild(child);
       ldbDropTarget(child,this.plugin,{scope,category:parent,subgroup});
       if(!subgroup)continue;
       ldbGroupReorderTarget(child,this.plugin,scope,subgroup,parent);
