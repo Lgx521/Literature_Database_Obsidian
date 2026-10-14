@@ -34,9 +34,9 @@ Bookmarks are a user-only property of the canonical public paper. The optional 1
 
 - Detail micro-interactions use short, one-shot opacity/transform animations only for changed controls; skip initial rendering, navigation and unchanged refreshes. Respect reduced motion, clean up exit copies/animation frames on finish or close, and never await motion before persisting data. Bookmark writes retain unchanged detail/list DOM and never dim unrelated controls; retained button callbacks must use the current row to avoid stale edit/delete conflicts.
 
-## Subcategories (local preview)
+## Subcategories (4.7.0)
 
-Categories and writing projects support one level of user-created subcategories. A paper has at most one subcategory per parent, independent of its tags and placements in other parents. Parent lists group papers once by child order with Ungrouped last; child views are flat. Tags only filter. Counts, export and batch operations stay unique by PDF path. Bookmarks retain their existing category grouping.
+Categories and writing projects support one level of user-created subcategories. A paper has at most one subcategory per parent, independent of its tags and placements in other parents. Parent lists group papers once by child order with Ungrouped last; child views are flat. Hide the sidebar Ungrouped entry when it has no live papers, and show it again when papers return. Keep named empty children available as drop targets. Tags only filter. Counts, export and batch operations stay unique by PDF path. Bookmarks retain their existing category grouping.
 
 Definitions are ordered `子类：<encoded name>` lines before a parent's membership table in `collections.md`. The optional third column is `子类`; empty means ungrouped. Read old two-column tables losslessly and extend only the affected table on the first explicit placement write. Preserve definitions and all three cells during edits, import, move, project-note updates, rename/reorder, trash and restore. Reject unknown/duplicate subcategories or stale placement/order edits. Do not create a second membership or paper record for a child. Agents must preserve user placements; assign them only when explicitly requested, never infer placements from tags.
 

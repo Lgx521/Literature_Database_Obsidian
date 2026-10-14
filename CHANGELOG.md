@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.7.0 — 2026-10-14
+
+- Add one level of subcategories to categories and writing projects, with inline create/rename, drag ordering, per-parent paper placement and grouped lists without duplicate rows.
+- Preserve parent memberships, project notes and deadlines when moving or removing child placements; retain existing last-membership and trash safeguards.
+- Support PDF drops across entire child sections and scrolling the middle list during a drag, with the target following the pointer.
+- Select and reveal imported papers; retain visible selection after metadata changes the title order, without interrupting a user who has scrolled away.
+- Animate sidebar expansion without rebuilding controls; hide empty Ungrouped sidebar entries while preserving named empty children.
+- Order details as TL;DR, Categories, Tags, Venue and Notes. Keep tags independent of child placement and preserve existing Markdown data.
+
 ## 4.3.1 — 2026-10-13
 
 - Prepare the first installable release for Community review; mark Node/Electron functionality as desktop-only.
