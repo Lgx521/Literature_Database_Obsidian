@@ -20,8 +20,9 @@ const pdfjs={getDocument:()=>({promise:Promise.resolve({numPages:1,getMetadata:a
 const api={Plugin,TFile,ItemView:class{},Modal:class{},Notice:class{constructor(m){notices.push(m);}hide(){}},Platform:{isMobile:true,isMobileApp:true,isIosApp:true,isPhone:true,isMacOS:true,isDesktopApp:false},loadPdfJs:async()=>pdfjs,requestUrl:async()=>{throw Error('No test network');}};
 const ctx={module:{exports:{}},setTimeout,clearTimeout,console,TextEncoder,TextDecoder,URL,Blob,
  require:name=>{assert.equal(name,'obsidian','Mobile must not require Node/Electron: '+name);return api;}};
-vm.runInNewContext(fs.readFileSync('main.js','utf8')+'\nmodule.exports.testing={Engine,Collections,MobileImport,getCitations,parse:JSON.parse};',ctx);
+vm.runInNewContext(fs.readFileSync('main.js','utf8')+'\nmodule.exports.testing={Engine,Collections,TagTree,MobileImport,getCitations,parse:JSON.parse};',ctx);
 const {Engine:E,Collections:C,MobileImport:M,getCitations}=ctx.module.exports.testing;
+vault.create=async(path,text)=>{if(await adapter.exists(path))throw Error('Exists');store.set(path,text);files.set(path,new TFile(path));return files.get(path);};
 store.set('collections.md',C.add(C.add(store.get('collections.md'),'library','Mobile'),'projects','Writing'));
 const input=(name,text='%PDF synthetic')=>({name,arrayBuffer:async()=>new TextEncoder().encode(text).buffer});
 (async()=>{
@@ -34,6 +35,9 @@ const input=(name,text='%PDF synthetic')=>({name,arrayBuffer:async()=>new TextEn
  await p.citationQueue;
  assert.equal(p.snapshot.library.length,2);assert.equal(p.snapshot.library[1].path,'papers/import-2/2605.12345v1.pdf');
  await p.mutate('library.md',text=>E.updateLibraryEntry(text,r,{title:'Verified Synthetic Paper',notes:'Mobile notes\n第二行',status:'在读',organizing:'人工完成',tags:'#human'},{kind:'human',name:'user'}));
+ const T=ctx.module.exports.testing.TagTree;let catalog=T.addGroup({groups:[]},'Mobile tags');catalog=T.addTag(catalog,'Mobile tags',null,'unused').model;
+ const firstCatalog=await T.save(p,null,catalog);catalog=T.addTag(catalog,'Mobile tags','#research/unused','child').model;await T.save(p,firstCatalog,catalog);
+ assert((await T.read(vault)).model.groups[0].tags.includes('#research/unused/child'));assert(!p.snapshot.library[0].tags.includes('unused'),'Catalog creation must not assign tags');
  r=p.snapshot.library[0];assert.equal(r.organizing,'人工完成');assert.equal(E.Organization.source(r,'#human',true).kind,'human');assert.equal(E.decodeText(r.notes),'Mobile notes\n第二行');
  await p.mutate('library.md',text=>E.updateLibraryEntry(text,r,{bookmarked:true},{kind:'human',name:'user'}));
  r=p.snapshot.library[0];assert.equal(r.bookmarked,true);assert.equal(E.groupLibrary(E.filterLibrary(p.snapshot.library,{bookmarked:true}),p.snapshot.categories).length,1);

@@ -128,6 +128,18 @@ const descendants=el=>el.children.flatMap(e=>[e,...descendants(e)]);
  chosen.getBoundingClientRect=()=>({top:20,bottom:50});view.revealSelection();assert.equal(view.listEl.scrollTop,600);
  const beforeSelection=view.selectedPath;view.notesDirty=true;assert.equal(await view.navigate({scope:'library',revealPaths:['papers/One.pdf']}),false);assert.equal(view.selectedPath,beforeSelection);view.notesDirty=false;
  delete view.listEl.getBoundingClientRect;await view.navigate({scope:'library',category:'ML'});assert.equal(view.listEl.scrollTop,0,'Changing collections must not inherit a hidden scroll position');
+ // Tag-map assignments update only tag chips, retain Notes/selection/control DOM, and reject stale rows.
+ view.select('papers/One.pdf');view.notesInput.value='Keep this unsaved draft';view.notesInput.events.input();
+ const stableTags={input:view.notesInput,button:view.bookmarkButton,title:descendants(view.detailEl).find(e=>e.tag==='h2'),row:view.selectedPath,cells:E.parseLibrary(stored)[0].cells.slice()};
+ assert.equal(await view.saveMapTag('#research/new-tag',true),true);
+ assert.equal(view.notesInput,stableTags.input);assert.equal(view.notesInput.value,'Keep this unsaved draft');assert(view.notesDirty);
+ assert.equal(view.bookmarkButton,stableTags.button);assert.equal(descendants(view.detailEl).find(e=>e.tag==='h2'),stableTags.title);assert.equal(view.selectedPath,stableTags.row);
+ const added=E.parseLibrary(stored)[0];assert.equal(E.Organization.source(added,'#research/new-tag',true).kind,'human');
+ for(let i=0;i<added.cells.length;i++)if(![2,12].includes(i))assert.equal(added.cells[i],stableTags.cells[i]);
+ assert.equal(await view.saveMapTag('#research/new-tag',false),true);assert(!view.detailRow.tags.includes('#research/new-tag'));
+ fail=true;assert.equal(await view.saveMapTag('#research/failed',true),false);fail=false;assert(!view.detailRow.tags.includes('#research/failed'));
+ stored=E.updateLibraryEntry(stored,E.parseLibrary(stored)[0],{notes:'Another window edited notes'});
+ assert.equal(await view.saveMapTag('#research/stale',true),false);assert(!E.parseLibrary(stored)[0].tags.includes('#research/stale'));assert.equal(E.parseLibrary(stored)[0].notes,'Another window edited notes');assert.equal(view.notesInput.value,'Keep this unsaved draft');
  view.scope='inbox';view.renderDetail();assert.equal(view.bookmarkButton,null);
  console.log('PASS: lazy lossless bookmark schema, user-only edits, conflicts, intake/trash/restore, multi-category grouping, unique selection/actions, keyboard ranges, persistence, badge and details toggle, Notes drafts and failed saves.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

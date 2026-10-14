@@ -16,7 +16,7 @@ module.exports=class LiteratureManager extends Plugin {
     this.ribbon=this.addRibbonIcon('library',tr('打开文献管理器'),()=>this.openLibrary());
     this.registerObsidianProtocolHandler('literature-database',params=>this.openLibrary(params.category?{scope:'library',category:params.category}:undefined));
     const relevant=p=>['library.md','reviews.md','submissions.md','collections.md'].includes(p)||p.startsWith('temp/');
-    const changed=(file,old)=>{if(this.migrating)return;if(relevant(file.path)||(old&&relevant(old)))this.schedule();};
+    const changed=(file,old)=>{if(file.path===TagTree.FILE||old===TagTree.FILE){this.tagMap?.catalogChanged();return;}if(this.migrating)return;if(relevant(file.path)||(old&&relevant(old)))this.schedule();};
     for(const event of ['modify','create','delete','rename'])this.registerEvent(this.app.vault.on(event,changed));
     this.registerEvent(this.app.workspace.on('file-open',file=>{if(file&&this.ready&&this.settings.redirectSourceFiles)this.redirectLegacy(file.path);}));
     this.app.workspace.onLayoutReady(async()=>{
@@ -533,5 +533,5 @@ module.exports=class LiteratureManager extends Plugin {
       else await this.app.workspace.getLeaf('tab').openFile(file);
     }catch(e){new Notice(e.message,8000);}
   }
-  onunload(){this.stopped=true;this.membershipMenu?.close();this.removalModal?.close();clearTimeout(this.timer);for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))leaf.view.stopCountdowns?.();this.endPaperDrag();this.endGroupDrag();}
+  onunload(){this.stopped=true;this.tagMap?.close(true);this.membershipMenu?.close();this.removalModal?.close();clearTimeout(this.timer);for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))leaf.view.stopCountdowns?.();this.endPaperDrag();this.endGroupDrag();}
 };

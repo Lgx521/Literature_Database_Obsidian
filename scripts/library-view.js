@@ -1,7 +1,7 @@
 // Zotero-style workspace. Markdown is the only canonical data store.
 const LIBRARY_VIEW='literature-database-browser', NAV_VIEW='literature-database-navigation';
 const LIBRARY_SOURCE='library.md', COLLECTION_SOURCE='collections.md';
-const {ItemView, Platform, setIcon, Modal, Menu}=require('obsidian');
+const {ItemView, Platform, setIcon, Modal, Menu, Scope}=require('obsidian');
 const libraryText=Engine.decodeText;
 const SCOPES=Object.fromEntries(Object.entries({library:'文献库',inbox:'收件箱',reviews:'审稿',submissions:'投稿',projects:'写作项目'}).map(([key,value])=>[key,()=>tr(value)]));
 for(const key of Object.keys(SCOPES)){const label=SCOPES[key];Object.defineProperty(SCOPES,key,{get:label});}
@@ -567,7 +567,7 @@ class LiteratureBrowser extends ItemView {
     }
     await super.setState(state,result);
   }
-  dirty(){return this.editing||this.notesDirty||!!this.venueDraft||this.saving||this.deleting||!!this.plugin.removalModal;}
+  dirty(){return !!this.tagMap||this.editing||this.notesDirty||!!this.venueDraft||this.saving||this.deleting||!!this.plugin.removalModal;}
   remember(){this.app.workspace.requestSaveLayout();}
   button(...args){return ldbButton(...args);}
   async navigate(nav){
@@ -933,17 +933,18 @@ class LiteratureBrowser extends ItemView {
     this.quickError=this.detailEl.createDiv({cls:'ldb-form-error',attr:{role:'alert'}});this.quickError.hidden=true;
     this.detailEl.createEl('h3',{text:this.isPublic()?'TL;DR':tr('下一步'),cls:'ldb-section-label'});this.detailEl.createEl('p',{text:libraryText(row.tldr),cls:'ldb-tldr',attr:{title:this.isPublic()?this.sourceLabel(row,'tldr'):''}});
     if(this.isPublic()&&this.plugin.snapshot.collections){
-      this.detailEl.createEl('h3',{text:tr('分类'),cls:'ldb-section-label'});
+      const collectionHeading=this.detailEl.createDiv('ldb-section-heading');collectionHeading.createEl('h3',{text:tr('分类'),cls:'ldb-section-label'});
+      const collectionAdd=this.button(collectionHeading,'',e=>{const rect=e.currentTarget.getBoundingClientRect();ldbOpenCollectionMenu(this.plugin,[this.detailRow],{x:rect.left,y:rect.bottom},this.contentEl.ownerDocument);},'ldb-section-add');setIcon(collectionAdd,'plus');collectionAdd.setAttribute('aria-label',tr('加入分类／项目…'));collectionAdd.title=tr('加入分类／项目…');
       const groups=this.detailEl.createDiv('ldb-memberships');
       for(const group of this.plugin.snapshot.collections.filter(g=>g.members.some(m=>m.path===row.path))){
         const child=group.members.find(m=>m.path===row.path).subgroup||'',label=group.name+(child?' / '+child:''),chip=this.button(groups,label,e=>{const rect=e.currentTarget.getBoundingClientRect();ldbChildMenu(this.plugin,[this.detailRow],{scope:group.scope,name:group.name},{x:rect.left,y:rect.bottom},this.contentEl.ownerDocument);},'ldb-tag');
         chip.setAttribute('data-ldb-motion','chip:category:'+group.scope+':'+group.name);chip.title=tr('设置子类…');
       }
-      this.button(groups,tr('＋ 集合'),e=>{const rect=e.currentTarget.getBoundingClientRect();ldbOpenCollectionMenu(this.plugin,[this.detailRow],{x:rect.left,y:rect.bottom},this.contentEl.ownerDocument);},'ldb-edit-button');
     }
     if(this.isPublic()){
-      this.detailEl.createEl('h3',{text:tr('标签'),cls:'ldb-section-label'});const tags=this.detailEl.createDiv('ldb-tags');
-      for(const tag of row.tags.split(/\s+/).filter(t=>t.startsWith('#'))){const source=Organization.source(row,tag,true);const chip=this.button(tags,tag.replace(/^#research\//,''),()=>{if(this.dirty()){new Notice(tr('请先保存或取消 Notes'));return;}this.filters.tag=tag;this.syncControls();this.renderList(true);},'ldb-tag'+(source.kind==='human'?' ldb-tag-human':''));chip.title=this.sourceLabel(row,tag,true);chip.setAttribute('data-ldb-motion','chip:tag:'+tag);}
+      const tagHeading=this.detailEl.createDiv('ldb-section-heading');tagHeading.createEl('h3',{text:tr('标签'),cls:'ldb-section-label'});
+      this.tagAdd=this.button(tagHeading,'',()=>this.openTagMap(),'ldb-section-add');setIcon(this.tagAdd,'plus');this.tagAdd.setAttribute('aria-label',tr('打开标签思维导图'));this.tagAdd.title=tr('打开标签思维导图');
+      this.tagsEl=this.detailEl.createDiv('ldb-tags');this.renderTags();
       this.detailEl.createEl('h3',{text:'Venue',cls:'ldb-section-label'});
       const venues=this.detailEl.createDiv('ldb-paper-venues');this.venueTags=venues.createDiv('ldb-venue-tags');
       this.venueMenuButton=this.button(venues,tr('添加 Venue…'),e=>ldbPaperVenueMenu(this,e.currentTarget),'ldb-venue-picker');
@@ -969,6 +970,26 @@ class LiteratureBrowser extends ItemView {
       this.button(section,note||tr('添加项目备注…'),()=>new ProjectNoteModal(this.plugin,this.filters.category,this.detailRow,note).open(),'ldb-project-note');
     }
     this.queueDetailMotion();
+  }
+  renderTags(){
+    if(!this.tagsEl||!this.detailRow)return;this.tagsEl.empty();
+    for(const tag of this.detailRow.tags.split(/\s+/).filter(t=>t.startsWith('#'))){const source=Organization.source(this.detailRow,tag,true),chip=this.button(this.tagsEl,TagTree.label(tag),()=>{if(this.dirty()){new Notice(tr('请先保存或取消 Notes'));return;}this.filters.tag=tag;this.syncControls();this.renderList(true);},'ldb-tag'+(source.kind==='human'?' ldb-tag-human':''));chip.title=this.sourceLabel(this.detailRow,tag,true);chip.setAttribute('data-ldb-motion','chip:tag:'+tag);}
+  }
+  openTagMap(){
+    if(this.tagMap||this.plugin.tagMap)return;
+    if(!this.isPublic()||!this.detailRow||this.editing||this.saving||this.deleting||this.readError||this.plugin.recordBusy||this.plugin.importing){new Notice(tr('请等待当前操作完成'));return;}
+    const modal=new TagMapModal(this);this.tagMap=this.plugin.tagMap=modal;this.lockFilters(true);modal.open();
+  }
+  async saveMapTag(tag,checked){
+    const row=this.detailRow;if(!row||!this.isPublic()||this.saving||this.editing||this.readError||!TagTree.validTag(tag))return false;
+    const tags=String(row.tags||'').split(/\s+/).filter(Boolean),exists=tags.some(t=>TagTree.fold(t)===TagTree.fold(tag));if(exists===checked)return true;
+    const nextTags=checked?[...tags,tag]:tags.filter(t=>TagTree.fold(t)!==TagTree.fold(tag));this.saving=true;this.quickError.hidden=true;
+    try{
+      let updated;await this.plugin.mutate(LIBRARY_SOURCE,text=>{const next=Engine.updateLibraryEntry(text,row,{tags:nextTags.join(' ')},{kind:'human',name:'user'});updated=Engine.parseLibrary(next).find(r=>r.path===row.path);return next;});
+      if(this.closed)return true;this.detailRow=this.notesBase=updated;this.prepareDetailMotion();this.renderTags();this.queueDetailMotion();
+    }catch(error){if(!this.closed){this.quickError.setText(error.message);this.quickError.hidden=false;}return false;}
+    finally{this.saving=false;if(!this.closed)this.remember();}
+    return true;
   }
   markNotesDirty(row){
     this.notesBase=row;this.notesDirty=this.notesInput.value!==(this.isPublic()?libraryText(row.notes):row.notes);
@@ -1108,7 +1129,7 @@ class LiteratureBrowser extends ItemView {
     }catch(e){this.saving=false;this.saveEl.disabled=this.cancelEl.disabled=false;this.formError.setText(e.message);}
   }
   async openPDF(row){if(row)await this.plugin.openPDF(row.pdfPath||row.path);}
-  async onClose(){this.closed=true;this.listDropController?.destroy();this.detailMotion?.destroy();}
+  async onClose(){this.closed=true;this.tagMap?.close(true);this.listDropController?.destroy();this.detailMotion?.destroy();}
 }
 
 class LanguageModal extends Modal {
