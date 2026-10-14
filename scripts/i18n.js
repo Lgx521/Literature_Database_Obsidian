@@ -2,6 +2,7 @@
 // Source table values and user content are never translated in storage.
 const english = {
   "书签": "Bookmarks",
+  "仅书签": "Bookmarked only",
   "添加书签": "Add bookmark",
   "取消书签": "Remove bookmark",
   "已加书签": "Bookmarked",

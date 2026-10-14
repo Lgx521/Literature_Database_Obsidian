@@ -27,8 +27,15 @@
 .ldb-search svg { width: 15px; height: 15px; }
 .ldb-search input[type="search"] { border: 0; box-shadow: none; background: transparent; width: 100%; height: 30px; padding: 4px 6px 4px 0; }
 .ldb-filterbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--background-modifier-border); flex: 0 0 auto; }
-.ldb-filterbar select { max-width: 220px; height: 27px; padding-top: 2px; padding-bottom: 2px; }
-.ldb-clear { height: 25px; color: var(--text-muted); box-shadow: none; background: transparent; }
+.ldb-filter-select { position: relative; display: inline-grid; flex: 0 1 auto; min-width: 0; max-width: min(220px, 100%); height: 27px; font-size: 12px; }
+.ldb-filter-label { visibility: hidden; padding: 0 10px; white-space: nowrap; overflow: hidden; font: inherit; }
+.ldb-filterbar .ldb-filter-select select { position: absolute; inset: 0; width: 100%; min-width: 0; max-width: none; height: 100%; min-height: 0; margin: 0; padding: 0 10px; font: inherit; appearance: none; -webkit-appearance: none; background-image: none; border: 0; cursor: pointer; text-overflow: ellipsis; }
+.ldb-filterbar .ldb-bookmark-filter { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 5px; height: 27px; min-height: 0; padding: 0 10px; white-space: nowrap; }
+.ldb-bookmark-filter > span:first-child { display: flex; }
+.ldb-bookmark-filter svg { width: 13px; height: 13px; }
+.ldb-filterbar .ldb-bookmark-filter.is-active { color: var(--text-accent); background: var(--background-modifier-active-hover); }
+.ldb-bookmark-filter.is-active svg { fill: currentColor; }
+.ldb-clear { height: 27px; color: var(--text-muted); box-shadow: none; background: transparent; }
 .ldb-error { padding: 8px 16px; background: var(--background-modifier-error); color: var(--text-error); flex: 0 0 auto; }
 .ldb-body { display: grid; grid-template-columns: minmax(0, 1fr) clamp(280px, 29%, 380px); flex: 1 1 0; min-height: 0; overflow: hidden; }
 .ldb-list-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
@@ -119,13 +126,13 @@
   .ldb-columns, .ldb-row { grid-template-columns: minmax(0, 1fr) 62px 50px; column-gap: 5px; padding: 0 9px; }
   .ldb-column-priority, .ldb-row .ldb-priority { display: none !important; }
   .ldb-details { padding: 14px; }
-  .ldb-filterbar select { max-width: 180px; }
+  .ldb-filter-select { max-width: min(180px, 100%); }
 }
 @container (max-width: 580px) {
   .ldb-toolbar { padding: 9px; gap: 8px; flex-wrap: wrap; }
   .ldb-search { order: 3; flex-basis: 100%; }
   .ldb-filterbar { padding: 7px 9px; gap: 6px; }
-  .ldb-filterbar select { max-width: 150px; }
+  .ldb-filter-select { max-width: min(150px, 100%); }
   .ldb-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(140px, 1fr) minmax(160px, 1fr); }
   .ldb-details { border-left: 0; border-top: 1px solid var(--background-modifier-border); }
   .ldb-footer > span:last-child { display: none; }
@@ -255,7 +262,8 @@
 .ldb-mobile .ldb-mobile-icon.is-active { color: var(--text-accent); background: var(--background-modifier-active-hover); }
 .ldb-mobile:not(.ldb-filters-open) .ldb-filterbar { display: none; }
 .ldb-mobile .ldb-filterbar { padding: 0 8px 8px; gap: 6px; background: var(--background-primary); border: 0; }
-.ldb-mobile .ldb-filterbar select { flex: 1 1 120px; min-width: 0; max-width: 100%; height: 34px; font-size: 13px; }
+.ldb-mobile .ldb-filter-select { flex: 0 1 auto; max-width: 100%; height: 34px; font-size: 13px; }
+.ldb-mobile .ldb-filterbar .ldb-bookmark-filter { height: 34px; font-size: 13px; }
 .ldb-mobile .ldb-clear { height: 34px; }
 .ldb-mobile .ldb-body { gap: 0; padding: 0; grid-template-columns: minmax(0, 1fr) minmax(290px, 42%); }
 .ldb-mobile .ldb-list-pane, .ldb-browser.ldb-mobile .ldb-details {

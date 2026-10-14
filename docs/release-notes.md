@@ -1,9 +1,8 @@
-Add bookmarks, subtle interaction feedback, and stable in-place bookmark updates.
+Filter bookmarked papers in the current collection and make the filter bar more compact.
 
-- Add **Bookmarks** between Inbox and Reading. Mark or unmark a paper in the details pane; a small red bookmark overlaps its PDF icon.
-- Group bookmarked papers by research category in sidebar order. Papers with multiple categories appear in every category; counts, exports and batch actions remain deduplicated. Papers without a research category appear under Unfiled.
-- Preserve bookmarks through trash and restore. Store the user-controlled marker in an optional 14th Markdown column, extending older tables losslessly on the first bookmark change. Agents preserve this field.
-- Add short pop/fade feedback for tags, venues, memberships and detail controls. Respect reduced motion and avoid replaying animations on navigation or unchanged refreshes.
-- Fix flashing when toggling a bookmark: keep unchanged list/detail controls mounted, preserve focus, scroll and Notes drafts, and avoid disabling unrelated controls. Retained actions use the latest paper data.
+- Add **Bookmarked only** beside the reading, organization and tag filters. Keep the current category or writing project, title, sort order and sidebar selection.
+- Combine bookmark filtering with search and the other filters. Clear filters restores the current collection; the separate **Bookmarks** view keeps its category grouping.
+- Size native dropdowns to their selected label instead of their longest option. Keep consistent control heights, compact padding and wrapping on smaller screens.
+- Preserve the local bookmark filter in saved workspace state, reset it when navigating to another collection, and protect unsaved Notes while filtering.
 
-Requires Obsidian 1.8.7+. Validated with 30 synthetic regression suites on macOS and app checks in a separate demo vault, including mobile emulation, reduced motion, failed saves and unsaved Notes. Existing PDF filenames, annotations, bibliography and notes are preserved. Reload the plugin on other devices after the runtime files finish syncing.
+Requires Obsidian 1.8.7+. Validated with 30 synthetic regression suites, desktop app inspection and synthetic narrow-screen layout checks. No metadata schema change or migration is required; PDF filenames, bookmarks, notes and annotations are unchanged.
