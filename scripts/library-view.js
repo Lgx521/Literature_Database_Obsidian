@@ -198,7 +198,22 @@ class LibraryNavigation extends ItemView {
     // Only update visible countdown text; never reload metadata or redraw an editor.
     if(pending)this.countdownTimer=setTimeout(()=>this.updateCountdowns(),60000);
   }
-  async onClose(){this.closed=true;this.stopCountdowns();this.countdowns=[];}
+  async onClose(){this.closed=true;this.mobileRenameCleanup?.();this.renaming=null;this.stopCountdowns();this.countdowns=[];}
+  mobileRenameCommit(input,save){
+    if(!Platform?.isMobile)return save;
+    this.mobileRenameCleanup?.();
+    const doc=input.ownerDocument;let active=true,composing=false,pending=false,timer;
+    input.setAttribute('enterkeyhint','done');
+    const commit=()=>{if(!active)return;if(composing||timer!==undefined){pending=true;return;}pending=false;save();};
+    // WebKit does not always blur an input when a non-focusable surface is tapped.
+    const outside=e=>{if(e.button>0||input.contains(e.target)||!input.isConnected)return;input.blur();commit();};
+    const start=()=>{clearTimeout(timer);timer=undefined;composing=true;};
+    const end=()=>{composing=false;timer=setTimeout(()=>{timer=undefined;if(pending)commit();},0);};
+    doc.addEventListener('pointerdown',outside,true);
+    input.addEventListener('compositionstart',start);input.addEventListener('compositionend',end);
+    this.mobileRenameCleanup=()=>{active=false;clearTimeout(timer);doc.removeEventListener('pointerdown',outside,true);input.removeEventListener('compositionstart',start);input.removeEventListener('compositionend',end);this.mobileRenameCleanup=null;};
+    return commit;
+  }
   groupMenu(button,scope,name){
     const open=e=>{
       e.preventDefault();e.stopPropagation();if(this.renaming)return;
@@ -269,36 +284,38 @@ class LibraryNavigation extends ItemView {
     const input=editor.createEl('input',{type:'text',cls:'ldb-nav-rename-input',attr:{'aria-label':tr(child===null?'新建子类':'重命名子类'),placeholder:tr('子类名称')}});input.value=child||'';
     if(child===null)button.after(editor);else button.replaceWith(editor);
     let saving=false,finished=false;
-    const finish=()=>{if(finished)return;finished=true;this.renaming=null;this.collapsed.delete(JSON.stringify([scope,parent]));this.render();};
-    const save=async()=>{if(saving||finished)return;const to=input.value.trim();if(to===child||(child===null&&!to)){finish();return;}saving=true;input.readOnly=true;
+    const finish=()=>{if(finished)return;finished=true;this.mobileRenameCleanup?.();this.renaming=null;this.collapsed.delete(JSON.stringify([scope,parent]));this.render();};
+    const save=async()=>{if(saving||finished)return;const to=input.value.trim();if(to===child||(!to&&(child===null||Platform?.isMobile))){finish();return;}saving=true;input.readOnly=true;
       try{await this.plugin.editChild(child===null?'add':'rename',scope,parent,child,to,expected);finish();}
       catch(error){saving=false;input.readOnly=false;input.setAttribute('aria-invalid','true');input.title=error.message;new Notice(error.message,8000);input.focus();}
     };
-    input.addEventListener('keydown',e=>{e.stopPropagation();if(e.isComposing||e.keyCode===229)return;if(e.key==='Enter'){e.preventDefault();save();}else if(e.key==='Escape'&&!saving){e.preventDefault();finish();}});
-    input.addEventListener('blur',save);input.addEventListener('input',()=>input.removeAttribute('aria-invalid'));input.focus();input.select();
+    const commit=this.mobileRenameCommit(input,save);
+    input.addEventListener('keydown',e=>{e.stopPropagation();if(e.isComposing||e.keyCode===229)return;if(e.key==='Enter'){e.preventDefault();commit();}else if(e.key==='Escape'&&!saving){e.preventDefault();finish();}});
+    input.addEventListener('blur',commit);input.addEventListener('input',()=>input.removeAttribute('aria-invalid'));input.focus();input.select();
   }
   beginRename(button,scope,name){
-    if(this.plugin.hasPendingEdit()||this.plugin.importing){new Notice(tr('请先保存或取消编辑，并等待当前操作结束'));return;}
+    if(this.renaming||this.plugin.hasPendingEdit()||this.plugin.importing){new Notice(tr('请先保存或取消编辑，并等待当前操作结束'));return;}
     if(!button.isConnected){this.render();new Notice(tr('列表已更新，请重新右键重命名'));return;}
     this.renaming={scope,name};
     const editor=button.ownerDocument.createElement('div');editor.className='ldb-nav-item is-child ldb-nav-renaming';
     setIcon(editor.createSpan('ldb-nav-icon'),'folder');
     const input=editor.createEl('input',{type:'text',cls:'ldb-nav-rename-input',attr:{'aria-label':scope==='library'?tr('重命名分类'):scope==='projects'?tr('重命名项目'):tr('重命名 Venue')}});input.value=name;
     button.replaceWith(editor);let saving=false,finished=false;
-    const finish=()=>{if(finished)return;finished=true;this.renaming=null;this.render();};
+    const finish=()=>{if(finished)return;finished=true;this.mobileRenameCleanup?.();this.renaming=null;this.render();};
     const save=async()=>{
       if(saving||finished)return;
-      const to=input.value.trim();if(to===name){finish();return;}
+      const to=input.value.trim();if(to===name||(Platform?.isMobile&&!to)){finish();return;}
       saving=true;input.readOnly=true;
       try{await this.plugin.renameGroup(scope,name,to);finish();}
       catch(error){input.readOnly=false;saving=false;input.setAttribute('aria-invalid','true');input.title=error.message;new Notice(error.message,8000);input.focus();}
     };
+    const commit=this.mobileRenameCommit(input,save);
     input.addEventListener('keydown',e=>{
       e.stopPropagation();if(e.isComposing||e.keyCode===229)return;
-      if(e.key==='Enter'){e.preventDefault();save();}
+      if(e.key==='Enter'){e.preventDefault();commit();}
       else if(e.key==='Escape'&&!saving){e.preventDefault();finish();}
     });
-    input.addEventListener('blur',save);
+    input.addEventListener('blur',commit);
     input.addEventListener('input',()=>{input.removeAttribute('aria-invalid');input.title='';});
     input.focus();input.select();
   }
