@@ -12,11 +12,13 @@ A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Bro
 
 *Real screenshots from a separate demo vault, using the English interface. Public papers are paired with example notes, projects and review tasks; no private library or confidential manuscripts are shown. Click any image to view it at full size.*
 
-**Status:** **4.8.0**. [View the Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard); new releases may take time to reach the in-app directory. Requires **Obsidian 1.8.7+**. Mobile support is enabled for iPhone/iPad with a compact touch layout and Files picker. Validated with Obsidian 1.14.4 mobile emulation and a runtime test that rejects Node/Electron imports; physical iOS/Android devices have not yet been tested. Desktop behavior is preserved. Windows/Linux GUI behavior has not been validated; Finder drag/paste requires macOS. The interface supports English and Chinese, following the Obsidian language by default. Screenshots show the 4.8.0 interface in an isolated English demo vault.
+**Status:** **4.8.3**. [View the Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard); new releases may take time to reach the in-app directory. Requires **Obsidian 1.8.7+**. Mobile support is enabled for iPhone/iPad with a compact touch layout and Files picker. Validated with Obsidian 1.14.4 mobile emulation and a runtime test that rejects Node/Electron imports; physical iOS/Android devices have not yet been tested. Desktop behavior is preserved. Windows/Linux GUI behavior has not been validated; Finder drag/paste requires macOS. The interface supports English and Chinese, following the Obsidian language by default. Screenshots show the 4.8.0 interface in an isolated English demo vault.
 
 ## Features
 
-**New in 4.8.0:** Build and select tags in an editable, two-sided mind map. Combine several tag filters with **OR** semantics, bookmark papers from the right-click menu, and use larger mobile disclosure targets. Mobile icon buttons retain their intended shape; iPad details now expand smoothly as well as phone details.
+**New in 4.8.3:** Drag the divider to resize the paper list and details with a mouse or touch. Hover or press to highlight it; sizes are remembered in the workspace, with minimum sizes for both panes. Mobile sidebar names save on Done or an outside tap, and tag creation has a visible cancel button.
+
+**4.8.0:** Build and select tags in an editable, two-sided mind map. Combine several tag filters with **OR** semantics, bookmark papers from the right-click menu, and use larger mobile disclosure targets. Mobile icon buttons retain their intended shape; iPad details now expand smoothly as well as phone details.
 
 **4.7.0:** Create one level of subcategories inside categories and writing projects. Each paper appears once per parent, independently of its tags. Drag papers or PDFs into a child section, scroll the middle list while dragging, and see newly imported papers selected and brought into view. Sidebar expansion animates gently; empty **Ungrouped** entries stay hidden.
 
@@ -33,6 +35,7 @@ A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Bro
 ### A compact workspace for reading
 
 - **One row per paper.** Browse categories on the left, scan paper titles in the middle, and read the confirmed title, TL;DR, tags, venues and notes on the right.
+- **Adjust your workspace.** Drag the list/detail divider sideways in columns or vertically in a stacked layout. The divider also supports arrow keys, Shift for larger steps, and Home/End. Expanding and collapsing details preserves your chosen size and unsaved Notes.
 - **Edit in place.** Change reading status, organization status and priority directly in the details pane. Save notes while staying on the same paper.
 - **Find papers quickly.** Search titles, filenames, tags, TL;DR and notes; filter by reading status, organization status or several tags, and sort the list. Selected tags match **any** chosen tag, without duplicating papers.
 - **Keep your PDF reader.** **Open ↗** uses the system's default application. Skim is optional; the plugin does not embed a second desktop PDF viewer.
@@ -41,7 +44,7 @@ A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Bro
 
 ![Two-sided tag mind map with inline branch creation and per-paper checkboxes](docs/screenshots/tag-map.jpg)
 
-Click the circular **+** beside **Tags** in the details pane. Each branch has its own **+**: type a group, tag or child tag in place, then press Enter. Creating a tag adds it to the vocabulary; check its box to assign it to the selected paper. Parent and child tags are independent, and the common `research/` prefix stays hidden in the interface.
+Click the circular **+** beside **Tags** in the details pane. Each branch has its own **+**: type a group, tag or child tag in place, then press Enter or tap the checkmark. On mobile, tap the cancel button beside the input to discard an unfinished branch without closing the map. Creating a tag adds it to the vocabulary; check its box to assign it to the selected paper. Parent and child tags are independent, and the common `research/` prefix stays hidden in the interface.
 
 Pan, zoom, search or fold branches to navigate a growing vocabulary. Groups spread to both sides of the root and keep their side while the map is open. Human-added tags retain the accent color, while AI/unknown tags remain neutral. Assignments preserve the selected paper and unsaved Notes. The optional `tags.md` stores only vocabulary and visual groups; each paper's tags remain in `library.md`.
 
