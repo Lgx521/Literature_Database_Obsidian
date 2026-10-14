@@ -3,6 +3,7 @@
 const english = {
   "书签": "Bookmarks",
   "仅书签": "Bookmarked only",
+  "未标标签": "Untagged",
   "添加书签": "Add bookmark",
   "取消书签": "Remove bookmark",
   "已加书签": "Bookmarked",

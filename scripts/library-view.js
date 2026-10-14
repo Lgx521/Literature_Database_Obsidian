@@ -581,6 +581,10 @@ class LiteratureBrowser extends ItemView {
       this.bookmarkFilterEl.setAttribute('aria-pressed',String(this.filters.bookmarkOnly));
     }
   }
+  groupingCollection(){
+    if(!this.isPublic()||this.filters.bookmarked||!this.filters.category||this.filters.category===Engine.UNFILED_CATEGORY)return null;
+    return this.plugin.snapshot?.collections?.find(g=>g.scope===this.scope&&g.name===this.filters.category)||null;
+  }
   toggleBookmarkFilter(){
     if(this.dirty()||!this.isPublic()||this.filters.bookmarked)return;
     this.filters.bookmarkOnly=!this.filters.bookmarkOnly;this.renderList(true);
@@ -667,9 +671,10 @@ class LiteratureBrowser extends ItemView {
     this.selectedPaths=new Set([...this.selectedPaths].filter(path=>this.visibleRows.some(r=>r.path===path)));if(!this.selectedPaths.size&&this.selectedPath)this.selectedPaths.add(this.selectedPath);
     this.countEl.setText(tr`${this.visibleRows.length} 篇`);this.clearEl.hidden=!['query','status','tag','organizing','bookmarkOnly'].some(k=>this.filters[k]);this.syncFilterControls();
     for(const b of this.sortButtons){const on=b.dataset.sort===this.filters.sort;b.setText(b.dataset.label+(on?(this.filters.descending?' ↓':' ↑'):''));}
-    const groups=this.filters.bookmarked?Engine.groupLibrary(this.visibleRows,this.plugin.snapshot?.categories):[{name:'',rows:this.visibleRows}];
+    const tagGrouped=!!this.groupingCollection(),grouped=this.filters.bookmarked||tagGrouped;
+    const groups=this.filters.bookmarked?Engine.groupLibrary(this.visibleRows,this.plugin.snapshot?.categories):tagGrouped?Engine.groupLibraryByTags(this.visibleRows):[{name:'',rows:this.visibleRows}];
     // A bookmark write must not rebuild the unchanged list or its focus/scroll state.
-    const listKey=JSON.stringify([LdbI18n.getLanguage(),this.scope,this.filters.bookmarked,groups.map(g=>[g.name,g.rows.map(r=>[r.path,this.detailTitle(r),r.published,r.status,r.priority])])]);
+    const listKey=JSON.stringify([LdbI18n.getLanguage(),this.scope,this.filters.bookmarked,tagGrouped,groups.map(g=>[g.name,g.rows.map(r=>[r.path,this.detailTitle(r),r.published,r.status,r.priority])])]);
     if(listKey===this.listRenderKey&&this.listEl.querySelector){
       const current=new Map(this.visibleRows.map(row=>[row.path,row]));
       for(const item of this.renderedRows){
@@ -682,10 +687,11 @@ class LiteratureBrowser extends ItemView {
     this.listRenderKey=listKey;this.listEl.empty();this.rowEls=new Map();this.renderedRows=[];
     for(const group of groups){
       let container=this.listEl;
-      if(this.filters.bookmarked){
-        container=this.listEl.createDiv({cls:'ldb-bookmark-group',attr:{role:'group','aria-label':group.name===Engine.UNFILED_CATEGORY?tr(group.name):group.name}});
+      if(grouped){
+        const label=group.kind==='tag'?Engine.tagLabel(group.name):group.kind==='other'||group.name===Engine.UNFILED_CATEGORY?tr(group.name):group.name;
+        container=this.listEl.createDiv({cls:'ldb-bookmark-group',attr:{role:'group','aria-label':label}});
         const heading=container.createDiv({cls:'ldb-group-heading',attr:{role:'presentation'}});
-        heading.createSpan({text:group.name===Engine.UNFILED_CATEGORY?tr(group.name):group.name});
+        heading.createSpan({text:label});
         heading.createSpan({cls:'ldb-group-count',text:String(group.rows.length)});
       }
       for(const r of group.rows){
@@ -817,6 +823,12 @@ class LiteratureBrowser extends ItemView {
     }
     this.quickError=this.detailEl.createDiv({cls:'ldb-form-error',attr:{role:'alert'}});this.quickError.hidden=true;
     this.detailEl.createEl('h3',{text:this.isPublic()?'TL;DR':tr('下一步'),cls:'ldb-section-label'});this.detailEl.createEl('p',{text:libraryText(row.tldr),cls:'ldb-tldr',attr:{title:this.isPublic()?this.sourceLabel(row,'tldr'):''}});
+    if(this.isPublic()&&this.plugin.snapshot.collections){
+      this.detailEl.createEl('h3',{text:tr('分类'),cls:'ldb-section-label'});
+      const groups=this.detailEl.createDiv('ldb-memberships');
+      for(const category of row.categories||[])this.button(groups,category,()=>this.plugin.openLibrary({scope:'library',category}),'ldb-tag').setAttribute('data-ldb-motion','chip:category:'+category);
+      this.button(groups,tr('＋ 集合'),e=>{const rect=e.currentTarget.getBoundingClientRect();ldbOpenCollectionMenu(this.plugin,[this.detailRow],{x:rect.left,y:rect.bottom},this.contentEl.ownerDocument);},'ldb-edit-button');
+    }
     if(this.isPublic()){
       this.detailEl.createEl('h3',{text:tr('标签'),cls:'ldb-section-label'});const tags=this.detailEl.createDiv('ldb-tags');
       for(const tag of row.tags.split(/\s+/).filter(t=>t.startsWith('#'))){const source=Organization.source(row,tag,true);const chip=this.button(tags,tag.replace(/^#research\//,''),()=>{if(this.dirty()){new Notice(tr('请先保存或取消 Notes'));return;}this.filters.tag=tag;this.syncControls();this.renderList(true);},'ldb-tag'+(source.kind==='human'?' ldb-tag-human':''));chip.title=this.sourceLabel(row,tag,true);chip.setAttribute('data-ldb-motion','chip:tag:'+tag);}
@@ -833,23 +845,18 @@ class LiteratureBrowser extends ItemView {
         else if(e.key==='Escape'&&!this.saving){e.preventDefault();this.venueInput.value=this.venueDraft='';this.venueInput.hidden=true;this.quickError.hidden=true;this.syncQuickFields();this.lockFilters(this.notesDirty);this.remember();}
       });
     }
-    if(this.isPublic()&&this.plugin.snapshot.collections){
-      const groups=this.detailEl.createDiv('ldb-memberships');
-      for(const category of row.categories||[])this.button(groups,category,()=>this.plugin.openLibrary({scope:'library',category}),'ldb-tag').setAttribute('data-ldb-motion','chip:category:'+category);
-      this.button(groups,tr('＋ 集合'),e=>{const rect=e.currentTarget.getBoundingClientRect();ldbOpenCollectionMenu(this.plugin,[this.detailRow],{x:rect.left,y:rect.bottom},this.contentEl.ownerDocument);},'ldb-edit-button');
-      if(this.scope==='projects'&&this.filters.category){
-        const project=this.plugin.snapshot.collections.find(g=>g.scope==='projects'&&g.name===this.filters.category),note=project?.members?.find(m=>m.path===row.path)?.notes||'';
-        this.detailEl.createEl('h3',{text:tr('项目备注'),cls:'ldb-section-label'});
-        this.button(this.detailEl,note||tr('添加项目备注…'),()=>new ProjectNoteModal(this.plugin,this.filters.category,this.detailRow,note).open(),'ldb-project-note');
-      }
-
-    }
     this.detailEl.createEl('h3',{text:'Notes',cls:'ldb-section-label'});
     this.notesInput=this.detailEl.createEl('textarea',{cls:'ldb-notes-input',attr:{rows:'7',placeholder:tr('添加笔记…'),'aria-label':tr('个人 Notes')}});this.notesInput.value=this.isPublic()?libraryText(row.notes):row.notes;
     this.notesBase=row;this.notesInput.addEventListener('input',()=>this.markNotesDirty(this.detailRow));
     this.notesError=this.detailEl.createDiv('ldb-form-error');const actions=this.detailEl.createDiv('ldb-actions');
     this.notesSave=this.button(actions,tr('保存 Notes'),()=>this.saveNotes(),'mod-cta');this.notesSave.disabled=true;
-    this.notesCancel=this.button(actions,tr('撤销修改'),()=>{this.notesDirty=false;this.notesInput.value=this.isPublic()?libraryText(this.notesBase.notes):this.notesBase.notes;this.notesSave.disabled=true;this.notesCancel.hidden=true;this.lockFilters(!!this.venueDraft);this.renderList();});this.notesCancel.hidden=true;this.queueDetailMotion();
+    this.notesCancel=this.button(actions,tr('撤销修改'),()=>{this.notesDirty=false;this.notesInput.value=this.isPublic()?libraryText(this.notesBase.notes):this.notesBase.notes;this.notesSave.disabled=true;this.notesCancel.hidden=true;this.lockFilters(!!this.venueDraft);this.renderList();});this.notesCancel.hidden=true;
+    if(project){
+      const note=project.members.find(m=>m.path===row.path)?.notes||'',section=this.detailEl.createDiv('ldb-project-notes');
+      section.createDiv({text:tr('项目备注'),cls:'ldb-eyebrow'});
+      this.button(section,note||tr('添加项目备注…'),()=>new ProjectNoteModal(this.plugin,this.filters.category,this.detailRow,note).open(),'ldb-project-note');
+    }
+    this.queueDetailMotion();
   }
   markNotesDirty(row){
     this.notesBase=row;this.notesDirty=this.notesInput.value!==(this.isPublic()?libraryText(row.notes):row.notes);

@@ -197,8 +197,9 @@
 
 /* Remove only this custom view's duplicate native navigation header. */
 .workspace-leaf-content[data-type="literature-database-browser"] > .view-header { display: none; }
-.ldb-memberships { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 18px; }
+.ldb-memberships { display: flex; flex-wrap: wrap; gap: 5px; }
 .ldb-memberships .ldb-tag { font-size: 11px; height: 25px; padding: 2px 6px; background: var(--background-secondary); box-shadow: none; color: var(--text-muted); }
+.ldb-project-notes { margin-top: 16px; }
 .ldb-project-note { display: block; height: auto; width: 100%; padding: 6px; text-align: left; white-space: pre-wrap; background: transparent; box-shadow: none; line-height: 1.6; overflow-wrap: anywhere; }
 .ldb-project-note:hover { background: var(--background-modifier-hover); }
 .ldb-citation-actions { margin: 16px 0 0; }
