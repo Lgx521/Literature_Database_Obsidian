@@ -315,7 +315,14 @@
 .ldb-mobile.ldb-detail-expanded .ldb-body { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(0,1fr); }
 .ldb-mobile.ldb-detail-expanded .ldb-list-pane { display: none; }
 .ldb-mobile.ldb-detail-expanded .ldb-details { border: 0; }
-.ldb-mobile-navigation .ldb-nav-item { min-height: 40px; font-size: 14px; }
+.ldb-mobile-navigation .ldb-nav-item { min-height: 44px; font-size: 14px; }
+.ldb-mobile-navigation .ldb-tree-toggle {
+  flex: 0 0 44px; width: 44px; height: 44px; margin: -5px 0 -5px -15px;
+  touch-action: manipulation;
+}
+.ldb-mobile-navigation .ldb-tree-toggle svg { width: 16px; height: 16px; }
+.ldb-mobile-navigation .ldb-tree-toggle:active { background: var(--background-modifier-hover); border-radius: 4px; }
+.ldb-mobile-navigation .ldb-nav-item.is-subgroup { padding-left: 62px; }
 .ldb-mobile-navigation .ldb-nav-section { margin-top: 12px; }
 .ldb-mobile-navigation .ldb-nav-heading { padding-bottom: 8px; }
 .ldb-mobile-navigation .ldb-language-button { width: 36px; height: 36px; }
