@@ -46,7 +46,7 @@ Intake reveals and selects successful PDF paths (tracker rows resolve by PDF pat
 
 Sidebar child expansion uses a short grid-height/opacity transition and rotates the existing chevron. Retain child DOM and unrelated controls; do not rerender or navigate on fold. Collapsed children are inert and hidden from accessibility, with focus returned to the toggle if needed. Preserve collapsed workspace state, guard inline rename/group drag, and respect reduced motion.
 
-## Tag map (local preview)
+## Tag map (4.8.0)
 
 `tags.md` is an optional vocabulary and visual-group catalog, not a second paper database. It contains only `## Group: <name>` headings and `- #canonical/tag` lines between `<!-- literature-tags:start -->` and `<!-- literature-tags:end -->`. Opening the map does not create it. The first explicit vocabulary edit or paper checkbox action saves it through the vault API; existing edits use the normal backup and exact-text concurrency guard. Preserve surrounding prose and reject malformed files, collisions, duplicate names, and families split across groups.
 
@@ -55,3 +55,5 @@ Groups are visual only. Hide the shared `research/` prefix in the UI but preserv
 Tag filters store a `tags` array in workspace view state, with OR/union semantics (any selected exact tag, case-insensitive). Migrate legacy single `tag` state on read. Keep the searchable checkbox popover open across toggles, preserve its focus/scroll, and retain selected tags absent from the latest vocabulary so users can clear them. Filtering must never write library.md or tags.md. Notes/edit guards, clear-all, mobile filter indicators, navigation and import reveal resets must include the whole array.
 
 The tag map balances full groups left/right around its root, retaining each group’s side during the open session. Folding, inline creation, search and paper checkboxes must work on both sides without changing canonical tags or metadata. Context-menu bookmarks are public-paper actions; mixed selections add bookmarks to all, fully marked selections remove them. Batch writes validate every captured row before a single guarded mutation; preserve other metadata and keep existing controls mounted.
+
+Mobile fixed-size icon controls must override Obsidian text-button padding within plugin scope; keep SVG aspect ratios intact. Preserve the native tablet drawer. Both tablet column expansion and phone row expansion retain the existing list/detail DOM, Notes, selection and inert state; respect reduced motion and rapid reversals.

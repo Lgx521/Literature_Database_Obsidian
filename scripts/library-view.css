@@ -284,11 +284,14 @@
 .ldb-mobile .ldb-filter-select { flex: 0 1 auto; max-width: 100%; height: 34px; font-size: 13px; }
 .ldb-mobile .ldb-filterbar .ldb-bookmark-filter { height: 34px; font-size: 13px; }
 .ldb-mobile .ldb-clear { height: 34px; }
-.ldb-mobile .ldb-body { gap: 0; padding: 0; grid-template-columns: minmax(0, 1fr) minmax(290px, 42%); }
+.ldb-mobile .ldb-body {
+  gap: 0; padding: 0; grid-template-columns: minmax(0, 58%) minmax(0, 42%);
+  grid-template-rows: minmax(0, 1fr); transition: grid-template-columns 240ms cubic-bezier(.2,.8,.2,1);
+}
 .ldb-mobile .ldb-list-pane, .ldb-browser.ldb-mobile .ldb-details {
   border: 0; border-radius: 0; background: var(--background-primary); box-shadow: none;
 }
-.ldb-mobile .ldb-list-pane { overflow: hidden; }
+.ldb-mobile .ldb-list-pane { overflow: hidden; transition: opacity 160ms ease, visibility 0s; }
 .ldb-browser.ldb-mobile .ldb-details { border-left: 3px solid var(--background-modifier-border); padding: 0 14px calc(14px + var(--view-bottom-spacing, 0px)); scroll-padding-top: 44px; }
 .ldb-browser.ldb-mobile button { border-radius: 5px; }
 .ldb-browser.ldb-mobile .ldb-detail-top :is(.ldb-edit-button,.ldb-bookmark-button,.ldb-delete-button) { background: transparent; box-shadow: none; }
@@ -312,9 +315,20 @@
 .ldb-mobile .ldb-notes-input { min-height: 112px; }
 .ldb-mobile .ldb-actions button { min-height: 36px; height: auto; }
 .ldb-mobile .ldb-memberships .ldb-tag, .ldb-mobile .ldb-venue-picker { min-height: 32px; height: auto; }
-.ldb-mobile.ldb-detail-expanded .ldb-body { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(0,1fr); }
-.ldb-mobile.ldb-detail-expanded .ldb-list-pane { display: none; }
+.ldb-mobile.ldb-detail-expanded .ldb-body { grid-template-columns: minmax(0,0%) minmax(0,100%); }
+.ldb-mobile.ldb-detail-expanded .ldb-list-pane {
+  opacity: 0; visibility: hidden; pointer-events: none; transition-delay: 0s, 240ms;
+}
 .ldb-mobile.ldb-detail-expanded .ldb-details { border: 0; }
+/* Mobile text-button padding must not distort fixed-size icons or column labels. */
+.ldb-browser.ldb-mobile :is(.ldb-bookmark-button,.ldb-delete-button) {
+  flex: 0 0 36px; width: 36px; height: 36px; min-width: 0; padding: 0;
+}
+.ldb-browser.ldb-mobile .ldb-columns button { padding: 0; }
+.ldb-mobile-navigation button.ldb-language-button { padding: 0; flex-shrink: 0; }
+.ldb-mobile-navigation button.ldb-nav-add { flex: 0 0 32px; width: 32px; height: 32px; min-width: 0; padding: 0; }
+.ldb-browser.ldb-mobile :is(.ldb-mobile-icon,.ldb-bookmark-button,.ldb-delete-button,.ldb-section-add) svg,
+.ldb-mobile-navigation .ldb-language-button svg { flex-shrink: 0; }
 .ldb-mobile-navigation .ldb-nav-item { min-height: 44px; font-size: 14px; }
 .ldb-mobile-navigation .ldb-tree-toggle {
   flex: 0 0 44px; width: 44px; height: 44px; margin: -5px 0 -5px -15px;
@@ -333,13 +347,8 @@
     grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(120px,45%) minmax(160px,55%);
     transition: grid-template-rows 240ms cubic-bezier(.2,.8,.2,1);
   }
-  .ldb-mobile .ldb-list-pane { transition: opacity 160ms ease, visibility 0s; }
   /* Keep both tracks and the existing DOM so expansion can animate without losing drafts. */
-  .ldb-mobile.ldb-detail-expanded .ldb-body { grid-template-rows: minmax(0px,0%) minmax(160px,100%); }
-  .ldb-mobile.ldb-detail-expanded .ldb-list-pane {
-    display: flex; opacity: 0; visibility: hidden; pointer-events: none;
-    transition-delay: 0s, 240ms;
-  }
+  .ldb-mobile.ldb-detail-expanded .ldb-body { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(0px,0%) minmax(160px,100%); }
   .ldb-browser.ldb-mobile:not(.ldb-detail-expanded) .ldb-details { border-left: 0; border-top: 3px solid var(--background-modifier-border); }
   .ldb-mobile .ldb-columns, .ldb-mobile .ldb-row { grid-template-columns: minmax(0,1fr) 54px 48px; }
   .ldb-mobile .ldb-venue-view .ldb-columns, .ldb-mobile .ldb-venue-view .ldb-row,
@@ -413,6 +422,9 @@
 .is-mobile .ldb-tag-map-modal .modal-title { text-align: left; font-size: var(--font-ui-medium); }
 .is-mobile .ldb-tag-map-modal .modal-content { padding: 0; margin-top: 8px; }
 .is-mobile .ldb-tag-map-modal .ldb-map-node { min-height: 38px; }
+.is-mobile .ldb-tag-map-modal button.ldb-map-icon { padding: 0; box-sizing: border-box; flex-shrink: 0; }
+.is-mobile .ldb-tag-map-modal .ldb-map-icon svg { flex-shrink: 0; }
+.is-mobile .ldb-tag-map-modal button.ldb-map-node-label { padding: 0; min-height: 0; }
 .is-mobile .ldb-tag-map-modal .ldb-map-add { opacity: 1; pointer-events: auto; }
 
 /* Multi-tag filtering stays compact and does not change paper assignments. */
@@ -433,3 +445,5 @@
 .ldb-tag-filter-empty { padding: 12px 8px; font-size: var(--font-ui-small); color: var(--text-muted); }
 .ldb-mobile .ldb-filterbar .ldb-tag-filter { height: 34px; font-size: 13px; }
 .is-mobile .ldb-tag-filter-option { min-height: 40px; }
+.is-mobile .ldb-tag-filter-search button { padding: 4px; min-width: 0; }
+.is-mobile .ldb-tag-filter-search button svg { flex-shrink: 0; }

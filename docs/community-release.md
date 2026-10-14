@@ -1,6 +1,6 @@
 # Community releases
 
-The [Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard) was published on **2026-10-13**. The initial submission checklist covered **4.3.1**; the current release is **4.7.0**. New releases are reviewed separately and may take time to propagate to the app directory.
+The [Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard) was published on **2026-10-13**. The initial submission checklist covered **4.3.1**; the current release is **4.8.0**. New releases are reviewed separately and may take time to propagate to the app directory.
 
 ## Repository and distribution
 
@@ -10,7 +10,7 @@ The [Community listing](https://community.obsidian.md/plugins/paper-reservoir-da
 | Root `README.md`, `LICENSE`, `manifest.json` | Present; usage, installation, screenshots, data access and platform limits documented |
 | Plugin identity | `paper-reservoir-dashboard`, displayed as Literature Database, author shengzhegan; retain the installed ID for upgrade compatibility |
 | Community entry | Published as `paper-reservoir-dashboard`; retain this ID across updates |
-| Version metadata | Manifest, package and version map agree on `4.7.0`; release tag must be exactly `4.7.0`, without `v` |
+| Version metadata | Manifest, package and version map agree on `4.8.0`; release tag must be exactly `4.8.0`, without `v` |
 | Description | Short action statement, under 250 characters, ending with a period |
 | Minimum app | `1.8.7` for the public `getLanguage()` API; native menus and deferred views also use public APIs available by this version |
 | Mobile declaration | `isDesktopOnly: false`; mobile paths use browser/vault APIs and are tested with Node/Electron imports forbidden |
@@ -35,7 +35,7 @@ The first release is [4.3.1](https://github.com/Lgx521/Literature_Database_Obsid
 
 ## Validation and limits
 
-- **33 synthetic regression suites pass on macOS**, including first-run defaults, initialization races, existing-file preservation, legacy migration, concurrent source edits, citation evidence, deletion scope, trash, deadlines and inline controls.
+- **37 synthetic regression suites pass on macOS**, including first-run defaults, initialization races, existing-file preservation, legacy migration, concurrent source edits, citation evidence, deletion scope, trash, deadlines and inline controls.
 - macOS application smoke checks use a separate temporary vault: plugin enable/disable, settings, explicit creation and library opening. No personal vault is used for testing.
 - The locked dependency audit reports **0 known vulnerabilities** as of the check date. This is not a guarantee that the software is vulnerability-free.
 - Release CI tests macOS and Linux, compares the rebuilt dependency bundle and validates version/asset consistency before publishing. Linux skips the two macOS Finder/clipboard suites; this does not establish Linux GUI compatibility.

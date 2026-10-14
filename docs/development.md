@@ -1,6 +1,6 @@
 # Development
 
-This repository contains the plugin source and synthetic tests, with no personal library data. The first version-controlled baseline was 4.2.3; the current release is 4.7.0.
+This repository contains the plugin source and synthetic tests, with no personal library data. The first version-controlled baseline was 4.2.3; the current release is 4.8.0.
 
 ## Build and test
 
@@ -61,3 +61,10 @@ Run `npm run release:check` after building. It validates the manifest and distri
 4.4.0 adds `整理状态` and `整理来源` as columns 12–13. Migration is lazy and preserves old cells and hand-written prose. The source checkout's actor-aware helper computes SHA-256 field/tag fingerprints; external changes invalidate attribution. Unknown history stays unknown. Tests cover manual completion locks, forbidden agent citation edits, protected human fields, original names, nested collisions, paired import rollback and restoration. See `templates/empty-vault/AGENTS.md` for the complete agent contract.
 
 Mobile changes are isolated behind `Platform.isMobile` and `.ldb-mobile` CSS. Keep desktop layout/interactions frozen unless explicitly requested. `scripts/sha256.js` preserves the existing provenance fingerprints without Node; `scripts/mobile-import.js` reads user-selected browser Files through the vault API. `test-mobile.cjs` rejects every external require except obsidian and covers edits, automatic metadata, citation exports, import failures/collisions, PDF open and trash/restore. Validate mobile layouts with Obsidian's official emulator; record physical-device validation separately.
+
+
+## Mobile layout and screenshot checks
+
+The tag-map and fixed-size icon controls explicitly override Obsidian's mobile text-button padding; do not apply a global button reset. Keep SVG aspect ratios intact. The native mobile sidebar remains owned by Obsidian. Tablet detail expansion animates two grid columns; narrow screens animate two rows. Keep both tracks and the same DOM, make the hidden list inert, preserve Notes/selection and support reduced motion and rapid reversals.
+
+For documentation, create an isolated English demo vault with the built version, public paper metadata and explicitly fictional task data. Use Obsidian CLI `dev:screenshot` to capture the real application without Computer Use overlays. Wait for layout/animations to settle and dismiss tooltips before capture. Review each image for private content and stale UI. Record version, data sources and capture method in [screenshot provenance](screenshots/README.md); never commit the demo vault or PDFs.

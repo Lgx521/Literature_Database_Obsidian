@@ -1,12 +1,13 @@
-Organize categories and writing projects with subcategories, and keep newly imported papers easy to find.
+Build your tag vocabulary visually and filter papers with several tags at once.
 
-- Create one level of subcategories with inline naming, drag ordering and separate placements in each parent. Parent lists group papers once by subcategory; tags remain independent filters.
-- Move papers between children of the same parent or add them to a child in another collection. Removing a subcategory returns its papers to Ungrouped, preserving PDFs, annotations, memberships and project notes. Existing parent-level trash safeguards remain in place.
-- Import PDFs directly into child sections. The middle list supports edge, wheel and trackpad scrolling during a drag, with the purple destination following the pointer. Empty named children remain usable drop targets.
-- Select successfully imported papers and bring the first one into view, clearing filters that would hide the result. Metadata-driven title sorting keeps an already visible selection in view without pulling back a user who has scrolled away.
-- Animate sidebar expansion/collapse without recreating unrelated controls. Hide Ungrouped in the sidebar when it has no live papers; show it when papers return. Respect reduced motion and protect active inline edits.
-- Order paper details as TL;DR, Categories, Tags, Venue and Notes, with project notes in the Notes area.
+- Open the two-sided tag map from the circular **+** beside Tags. Create groups, tags and child tags inline; check a box to assign a tag to the current paper. Search, fold, pan and zoom without losing Notes or changing the selected paper.
+- Store an optional tag vocabulary in `tags.md`, with backups and conflict checks. Paper assignments and human/AI provenance stay in the canonical library row; opening the map does not create files.
+- Select multiple tag filters with **OR** semantics. Keep the searchable checkbox menu open while choosing, clear selections, and combine tags with the existing filters.
+- Add or remove bookmarks from the paper context menu, including multi-selection, with one guarded batch write and no unrelated control flicker.
+- Use larger 44×44 mobile disclosure targets. Fix stretched tag-map, bookmark, delete and sidebar icon buttons caused by mobile text-button padding.
+- Animate iPad detail expansion in the side-by-side layout, retain phone transitions and preserve unsaved Notes during rapid reversals. Keep Obsidian's native mobile sidebar and respect reduced motion.
+- Update all README screenshots and add the tag map, captured through the Obsidian CLI in an isolated English demo vault with public papers and fictional review tasks.
 
-Requires Obsidian 1.8.7+. Existing libraries remain readable; the optional subcategory column is added only to a collection table when placement is explicitly changed. Existing papers are not automatically classified. PDF filenames, citations and personal notes are preserved; review/submission organization is unchanged.
+Requires Obsidian 1.8.7+. Existing libraries remain readable. PDF filenames, citations, private manuscripts and personal notes are preserved. No scheduled agent, telemetry or full-library metadata scan is added.
 
-Validated with 33 synthetic regression suites on macOS and desktop application checks using synthetic data. Release CI also runs on Linux (skipping the two macOS-specific suites) and verifies the locked dependency build. Physical mobile devices and Windows/Linux GUI behavior are not part of this validation.
+Validated with 37 synthetic regression suites on macOS and desktop, tablet and phone emulator checks using a separate demo vault. Release CI also runs on Linux (skipping the two macOS-specific suites) and verifies the locked dependency build. Physical mobile devices and Windows/Linux GUI behavior are not part of this validation.

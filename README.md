@@ -12,11 +12,13 @@ A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Bro
 
 *Real screenshots from a separate demo vault, using the English interface. Public papers are paired with example notes, projects and review tasks; no private library or confidential manuscripts are shown. Click any image to view it at full size.*
 
-**Status:** **4.7.0**. [View the Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard); new releases may take time to reach the in-app directory. Requires **Obsidian 1.8.7+**. Mobile support is enabled for iPhone/iPad with a compact touch layout and Files picker. Validated with Obsidian 1.14.4 mobile emulation and a runtime test that rejects Node/Electron imports; physical iOS/Android devices have not yet been tested. Desktop behavior is preserved. Windows/Linux GUI behavior has not been validated; Finder drag/paste requires macOS. The interface supports English and Chinese, following the Obsidian language by default. Screenshots below show the 4.3.0 demo UI; the screenshots predate the title/provenance improvements in 4.4.0.
+**Status:** **4.8.0**. [View the Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard); new releases may take time to reach the in-app directory. Requires **Obsidian 1.8.7+**. Mobile support is enabled for iPhone/iPad with a compact touch layout and Files picker. Validated with Obsidian 1.14.4 mobile emulation and a runtime test that rejects Node/Electron imports; physical iOS/Android devices have not yet been tested. Desktop behavior is preserved. Windows/Linux GUI behavior has not been validated; Finder drag/paste requires macOS. The interface supports English and Chinese, following the Obsidian language by default. Screenshots show the 4.8.0 interface in an isolated English demo vault.
 
 ## Features
 
-**New in 4.7.0:** Create one level of subcategories inside categories and writing projects. Each paper appears once per parent, independently of its tags. Drag papers or PDFs into a child section, scroll the middle list while dragging, and see newly imported papers selected and brought into view. Sidebar expansion animates gently; empty **Ungrouped** entries stay hidden.
+**New in 4.8.0:** Build and select tags in an editable, two-sided mind map. Combine several tag filters with **OR** semantics, bookmark papers from the right-click menu, and use larger mobile disclosure targets. Mobile icon buttons retain their intended shape; iPad details now expand smoothly as well as phone details.
+
+**4.7.0:** Create one level of subcategories inside categories and writing projects. Each paper appears once per parent, independently of its tags. Drag papers or PDFs into a child section, scroll the middle list while dragging, and see newly imported papers selected and brought into view. Sidebar expansion animates gently; empty **Ungrouped** entries stay hidden.
 
 **4.6.1:** Filter bookmarked papers within the current category or writing project with **Bookmarked only**. Combine it with search, reading status, organization status and tags. Filter controls fit their selected labels and keep a consistent height.
 
@@ -32,8 +34,18 @@ A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Bro
 
 - **One row per paper.** Browse categories on the left, scan paper titles in the middle, and read the confirmed title, TL;DR, tags, venues and notes on the right.
 - **Edit in place.** Change reading status, organization status and priority directly in the details pane. Save notes while staying on the same paper.
-- **Find papers quickly.** Search titles, filenames, tags, TL;DR and notes; filter by reading status, organization status or tag, and sort the list.
+- **Find papers quickly.** Search titles, filenames, tags, TL;DR and notes; filter by reading status, organization status or several tags, and sort the list. Selected tags match **any** chosen tag, without duplicating papers.
 - **Keep your PDF reader.** **Open ↗** uses the system's default application. Skim is optional; the plugin does not embed a second desktop PDF viewer.
+
+### Build your tag vocabulary visually
+
+![Two-sided tag mind map with inline branch creation and per-paper checkboxes](docs/screenshots/tag-map.jpg)
+
+Click the circular **+** beside **Tags** in the details pane. Each branch has its own **+**: type a group, tag or child tag in place, then press Enter. Creating a tag adds it to the vocabulary; check its box to assign it to the selected paper. Parent and child tags are independent, and the common `research/` prefix stays hidden in the interface.
+
+Pan, zoom, search or fold branches to navigate a growing vocabulary. Groups spread to both sides of the root and keep their side while the map is open. Human-added tags retain the accent color, while AI/unknown tags remain neutral. Assignments preserve the selected paper and unsaved Notes. The optional `tags.md` stores only vocabulary and visual groups; each paper's tags remain in `library.md`.
+
+Use **All tags** above the list to select multiple tags, with search and clear controls. The filter matches any selected exact tag (OR); choosing a parent does not implicitly include its children. Right-click one or several public papers to add or remove bookmarks.
 
 ### Gather references for each writing project
 
@@ -64,7 +76,7 @@ Citation recognition uses PDF evidence and verified Crossref/arXiv lookups. Form
 
 ### Track reviews and submissions by venue
 
-![ICLR2027 demo review tracker with To review, Reviewing and Completed in the native status menu](docs/screenshots/review-tracker.jpg)
+![ICLR2027 demo review tracker with a shared deadline and an inline review status control](docs/screenshots/review-tracker.jpg)
 
 Keep review tasks and your own submissions in separate trackers. Drop PDFs into a venue or its unassigned area, drag tasks between venues, and change review status directly in the right pane: **To review → Reviewing → Completed**. Each venue has one deadline, a time-zone selector and a countdown. Deleting a venue returns its papers to the unassigned area.
 

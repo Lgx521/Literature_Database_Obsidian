@@ -1,5 +1,15 @@
 # Changelog
 
+## 4.8.0 — 2026-10-14
+
+- Add a two-sided editable tag map with inline group/tag/child creation, independent checkboxes, search, folding, pan and zoom. Keep paper assignments and provenance in the canonical library row.
+- Store optional vocabulary and visual groups in tags.md, with backups and conflict guards; opening the map does not create a file.
+- Support multiple exact tag filters with OR semantics, a stable searchable checkbox menu and migration from legacy single-tag view state.
+- Add single and batch bookmark actions to paper context menus, preserving Notes and unrelated controls.
+- Enlarge mobile category/project disclosure targets to 44×44 without changing desktop targets.
+- Prevent mobile text-button padding from stretching tag-map and other icon controls; add smooth tablet detail expansion, preserve phone transitions and respect reduced motion. Retain the native Obsidian mobile sidebar.
+- Refresh README screenshots from an isolated English demo vault using the Obsidian CLI.
+
 ## 4.7.0 — 2026-10-14
 
 - Add one level of subcategories to categories and writing projects, with inline create/rename, drag ordering, per-parent paper placement and grouped lists without duplicate rows.
