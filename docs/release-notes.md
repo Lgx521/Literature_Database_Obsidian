@@ -1,8 +1,7 @@
-Remove the extra top gap on phones and tablets, keeping the detail expand/collapse control.
+Fix the phone toolbar overlapping the notch/status bar, and animate the stacked detail panel.
 
-- Set the mobile library view’s top margin to zero. The plugin no longer adds a status-bar safe-area inset or space for the hidden native header; Obsidian and the OS handle their own chrome.
-- Preserve the compact mobile toolbar, expandable details and flat 3px list/detail divider. Desktop layout and all library data remain unchanged.
+- Restore only the system-reported safe-area inset on phones. Version 4.5.1 incorrectly set it to zero; the phone workspace extends behind the status bar. Do not restore the hidden native header’s additional spacing. iPad top spacing is unchanged.
+- Keep the detail expand/collapse button. Animate the stacked list/detail split over 240ms with a short list fade, preserving the current paper, scroll container and unsaved Notes. Rapid repeated taps can reverse the transition. Respect reduced motion and keep the collapsed list out of keyboard/assistive focus.
+- Preserve the flat 3px divider and desktop UI. No paper, annotation, metadata or settings migration.
 
-Requires Obsidian 1.8.7+. Layout and expand/collapse are checked with Obsidian’s official mobile emulator at phone and tablet widths; physical devices are not available for verification. All 29 regression suites pass.
-
-After syncing the three plugin runtime files, reload the plugin on each mobile device so it loads the new JavaScript and CSS. Do not install empty templates over an existing vault.
+Requires Obsidian 1.8.7+. Validation uses the official mobile emulator and synthetic regression tests; physical iPhone/iPad verification still requires the receiving device. Reload the plugin on the phone after all three runtime files have synced.

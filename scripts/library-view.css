@@ -218,10 +218,14 @@
 .workspace-leaf-content[data-type="literature-database-browser"] > .ldb-browser.ldb-mobile {
   padding: 0; min-height: 0; background: var(--background-primary); --ldb-line: 38px;
 }
-/* Obsidian/the OS owns safe areas. Do not reserve a second inset inside this view. */
+/* Tablets already have outer chrome. Phones draw this view underneath the status bar. */
 .is-mobile .workspace-leaf-content[data-type="literature-database-browser"] > .view-content.ldb-browser,
 .workspace-leaf-content[data-type="literature-database-browser"] > .view-content.ldb-browser.ldb-mobile {
   margin-top: 0;
+}
+.is-phone .workspace-leaf-content[data-type="literature-database-browser"] > .view-content.ldb-browser {
+  /* Only the real inset, never --view-top-spacing (which also includes the hidden header). */
+  margin-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
 }
 .ldb-browser.ldb-mobile .ldb-toolbar {
   display: flex; flex-wrap: wrap; gap: 0 4px; padding: 2px 8px 8px;
@@ -281,11 +285,24 @@
 .ldb-mobile-navigation .ldb-nav-more { display: flex; align-items: center; justify-content: center; min-width: 32px; min-height: 32px; margin: -4px -4px -4px 0; color: var(--text-muted); }
 .ldb-mobile-navigation .ldb-nav-more svg { width: 16px; height: 16px; }
 @container (max-width: 700px) {
-  .ldb-mobile .ldb-body { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(120px,.9fr) minmax(160px,1.1fr); }
+  .ldb-mobile .ldb-body {
+    grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(120px,45%) minmax(160px,55%);
+    transition: grid-template-rows 240ms cubic-bezier(.2,.8,.2,1);
+  }
+  .ldb-mobile .ldb-list-pane { transition: opacity 160ms ease, visibility 0s; }
+  /* Keep both tracks and the existing DOM so expansion can animate without losing drafts. */
+  .ldb-mobile.ldb-detail-expanded .ldb-body { grid-template-rows: minmax(0px,0%) minmax(160px,100%); }
+  .ldb-mobile.ldb-detail-expanded .ldb-list-pane {
+    display: flex; opacity: 0; visibility: hidden; pointer-events: none;
+    transition-delay: 0s, 240ms;
+  }
   .ldb-browser.ldb-mobile:not(.ldb-detail-expanded) .ldb-details { border-left: 0; border-top: 3px solid var(--background-modifier-border); }
   .ldb-mobile .ldb-columns, .ldb-mobile .ldb-row { grid-template-columns: minmax(0,1fr) 54px 48px; }
   .ldb-mobile .ldb-venue-view .ldb-columns, .ldb-mobile .ldb-venue-view .ldb-row,
   .ldb-mobile.ldb-venue-view .ldb-columns, .ldb-mobile.ldb-venue-view .ldb-row { grid-template-columns: minmax(0,1fr) 56px; }
   .ldb-mobile .ldb-column-priority, .ldb-mobile .ldb-row .ldb-priority { display: none !important; }
   .ldb-mobile .ldb-details h3.ldb-section-label { margin-top: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ldb-mobile .ldb-body, .ldb-mobile .ldb-list-pane { transition: none; }
 }

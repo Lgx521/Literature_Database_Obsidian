@@ -433,7 +433,7 @@ class LiteratureBrowser extends ItemView {
   button(...args){return ldbButton(...args);}
   async navigate(nav){
     if(this.dirty()){new Notice(tr('请先保存或取消右侧编辑；草稿已保留'));return false;}
-    if(Platform?.isMobile){this.mobileExpanded=false;this.contentEl.removeClass('ldb-detail-expanded');}
+    if(Platform?.isMobile)this.setMobileExpanded(false);
     this.scope=nav.scope||'library';
     Object.assign(this.filters,{query:'',tag:'',organizing:'',category:nav.category||'',status:nav.status||'',sort:this.isPublic()?'title':'published',descending:this.scope==='inbox'});
     this.selectedPath='';this.selectedPaths.clear();await this.reload();return true;
@@ -512,6 +512,11 @@ class LiteratureBrowser extends ItemView {
   makeSelect(parent,label,options){const s=parent.createEl('select',{attr:{'aria-label':label,title:label}});for(const [value,text]of options)s.createEl('option',{value,text});return s;}
   syncControls(){if(!this.searchEl)return;this.searchEl.value=this.filters.query;this.statusEl.value=this.filters.status;this.tagEl.value=this.filters.tag;if(this.organizingEl)this.organizingEl.value=this.filters.organizing;this.syncMobileControls();}
   mobileIcon(parent,icon,label,action){const b=this.button(parent,'',action,'ldb-mobile-icon');setIcon(b,icon);b.setAttribute('aria-label',label);b.title=label;return b;}
+  setMobileExpanded(expanded){
+    this.mobileExpanded=expanded;this.contentEl.toggleClass('ldb-detail-expanded',expanded);
+    // The animated-away list must not retain keyboard or assistive-technology focus.
+    if(this.listEl?.parentElement)this.listEl.parentElement.inert=expanded;
+  }
   syncMobileControls(){
     if(!this.mobileFilterEl)return;
     const filtered=['status','organizing','tag'].some(k=>this.filters[k]);
@@ -653,14 +658,16 @@ class LiteratureBrowser extends ItemView {
   renderDetail(override){
     this.detailEl.empty();const row=override||this.rows.find(r=>r.path===this.selectedPath);
     this.detailRow=row;this.quickFields=[];this.venueInput=null;this.venueMenuButton=null;this.venueRemoveButtons=[];
-    if(!row){if(Platform?.isMobile){this.mobileExpanded=false;this.contentEl.removeClass('ldb-detail-expanded');}this.detailEl.createDiv({cls:'ldb-empty',text:tr('选择一篇论文查看详情')});return;}
+    if(!row){if(Platform?.isMobile)this.setMobileExpanded(false);this.detailEl.createDiv({cls:'ldb-empty',text:tr('选择一篇论文查看详情')});return;}
     const top=this.detailEl.createDiv('ldb-detail-top');
     if(Platform?.isMobile){
       top.createSpan({cls:'ldb-mobile-detail-label',text:tr('详情')});
-      this.mobileIcon(top,this.mobileExpanded?'minimize-2':'maximize-2',tr(this.mobileExpanded?'收起详情':'展开详情'),e=>{
-        this.mobileExpanded=!this.mobileExpanded;this.contentEl.toggleClass('ldb-detail-expanded',this.mobileExpanded);
+      const expand=this.mobileIcon(top,this.mobileExpanded?'minimize-2':'maximize-2',tr(this.mobileExpanded?'收起详情':'展开详情'),e=>{
+        this.setMobileExpanded(!this.mobileExpanded);
         const label=tr(this.mobileExpanded?'收起详情':'展开详情');setIcon(e.currentTarget,this.mobileExpanded?'minimize-2':'maximize-2');e.currentTarget.title=label;e.currentTarget.setAttribute('aria-label',label);
+        e.currentTarget.setAttribute('aria-expanded',String(this.mobileExpanded));
       });
+      expand.setAttribute('aria-expanded',String(!!this.mobileExpanded));
     }
     if(this.scope!=='inbox')this.button(top,tr('编辑'),()=>this.dirty()?new Notice(tr('请先保存或取消 Notes')):this.startEditing(row),'ldb-edit-button');
     const remove=this.button(top,'',()=>this.requestDelete(row),'ldb-delete-button');setIcon(remove,'trash-2');remove.setAttribute('aria-label',tr('移至回收站'));remove.title=tr('移至回收站');
