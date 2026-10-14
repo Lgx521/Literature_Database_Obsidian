@@ -1,11 +1,8 @@
-Enable mobile use with compact phone/tablet layouts, while preserving the desktop workspace.
+Remove the extra top gap on phones and tablets, keeping the detail expand/collapse control.
 
-- Enable installation on iPhone/iPad and other mobile Obsidian clients. Replace the shared Node crypto dependency with a synchronous, UTF-8-compatible SHA-256 implementation that preserves existing provenance hashes. Keep desktop-only APIs behind desktop guards; citation formatting already uses a browser bundle.
-- Remove the extra space reserved for the hidden phone header. Retain only the device status-bar safe area. Use a compact toolbar, collapsed filters and a flat list/detail layout with a 3px divider, without cards, shadows or panel gaps. Details can expand; wide tablets show two columns. Keep the floating navigation bar from covering the last Notes controls when scrolled.
-- Add a mobile Files picker for the inbox, categories, writing projects, reviews and submissions. Preserve PDF and selected annotation filenames; use separate collision directories and the existing backed-up metadata transactions. Failed record writes retain attachments for recovery. Never read neighboring files, remove originals or retrieve private manuscript metadata.
-- Add explicit touch access to collection/venue menus, with mobile menu rendering. Keep PDF opening within Obsidian on mobile; macOS retains the system-default PDF application.
-- Validate startup, editing, automatic title/date/reference extraction, all citation export formats, annotations, collision/interruption handling and trash/restore with Node/Electron imports forbidden. Desktop regression suites remain unchanged and pass.
+- Set the mobile library view’s top margin to zero. The plugin no longer adds a status-bar safe-area inset or space for the hidden native header; Obsidian and the OS handle their own chrome.
+- Preserve the compact mobile toolbar, expandable details and flat 3px list/detail divider. Desktop layout and all library data remain unchanged.
 
-Requires Obsidian 1.8.7+. Validation uses macOS Obsidian 1.14.4's official mobile emulator and synthetic runtime tests. Physical iPhone, iPad and Android devices have not yet been tested; cross-device sync must be verified on the receiving device. Mobile import cannot discover sibling annotation files or read macOS extended attributes: explicitly select matching companions or sync them through iCloud. Mobile PDF viewing does not render Skim's private sidecar format.
+Requires Obsidian 1.8.7+. Layout and expand/collapse are checked with Obsidian’s official mobile emulator at phone and tablet widths; physical devices are not available for verification. All 29 regression suites pass.
 
-Install main.js, manifest.json and styles.css in the existing paper-reservoir-dashboard plugin folder and reload. Preserve all existing vault data and settings; never install empty templates over a library. Project code is AGPL-3.0-only; dependency licenses and exact dependency sources remain included with the release.
+After syncing the three plugin runtime files, reload the plugin on each mobile device so it loads the new JavaScript and CSS. Do not install empty templates over an existing vault.

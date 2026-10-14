@@ -218,9 +218,10 @@
 .workspace-leaf-content[data-type="literature-database-browser"] > .ldb-browser.ldb-mobile {
   padding: 0; min-height: 0; background: var(--background-primary); --ldb-line: 38px;
 }
-/* The native header is hidden for this view. Keep only the real status-bar inset. */
-.is-phone .workspace-leaf-content[data-type="literature-database-browser"] > .view-content.ldb-browser {
-  margin-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+/* Obsidian/the OS owns safe areas. Do not reserve a second inset inside this view. */
+.is-mobile .workspace-leaf-content[data-type="literature-database-browser"] > .view-content.ldb-browser,
+.workspace-leaf-content[data-type="literature-database-browser"] > .view-content.ldb-browser.ldb-mobile {
+  margin-top: 0;
 }
 .ldb-browser.ldb-mobile .ldb-toolbar {
   display: flex; flex-wrap: wrap; gap: 0 4px; padding: 2px 8px 8px;
