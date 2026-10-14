@@ -232,14 +232,21 @@ class LibraryNavigation extends ItemView {
     const group=this.plugin.snapshot?.collections?.find(g=>g.scope===scope&&g.name===parent);if(!group)return;
     const key=JSON.stringify([scope,parent]),children=group.subgroups||[];
     if(!children.length)return;
-    const expanded=!this.collapsed.has(key),toggle=button.createSpan({cls:'ldb-tree-toggle',attr:{role:'button',tabindex:'0','aria-label':tr(expanded?'收起子类':'展开子类'),'aria-expanded':String(expanded)}});
-    setIcon(toggle,expanded?'chevron-down':'chevron-right');button.prepend(toggle);
-    const flip=e=>{e.preventDefault();e.stopPropagation();expanded?this.collapsed.add(key):this.collapsed.delete(key);this.app.workspace.requestSaveLayout();this.render();};
+    const toggle=button.createSpan({cls:'ldb-tree-toggle',attr:{role:'button',tabindex:'0'}});
+    setIcon(toggle,'chevron-right');button.prepend(toggle);
+    const region=this.contentEl.createDiv('ldb-nav-children'),inner=region.createDiv('ldb-nav-children-inner');
+    const update=()=>{
+      const expanded=!this.collapsed.has(key);
+      if(!expanded&&inner.contains(button.ownerDocument.activeElement))toggle.focus({preventScroll:true});
+      toggle.toggleClass('is-expanded',expanded);toggle.setAttribute('aria-expanded',String(expanded));toggle.setAttribute('aria-label',tr(expanded?'收起子类':'展开子类'));
+      region.toggleClass('is-collapsed',!expanded);region.setAttribute('aria-hidden',String(!expanded));region.inert=!expanded;
+    };
+    const flip=e=>{e.preventDefault();e.stopPropagation();if(this.renaming||this.plugin.groupDrag)return;this.collapsed.has(key)?this.collapsed.delete(key):this.collapsed.add(key);update();this.app.workspace.requestSaveLayout();};
     toggle.addEventListener('click',flip);toggle.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')flip(e);});
-    if(!expanded)return;
+    update();
     const live=new Set(this.plugin.snapshot.library.map(r=>r.path));
     for(const subgroup of [...children,'']){
-      const child=add(subgroup||tr('未分组'),subgroup?'folder':'inbox',{scope,category:parent,subgroup},group.members.filter(m=>(m.subgroup||'')===subgroup&&live.has(m.path)).length,true);child.addClass('is-subgroup');
+      const child=add(subgroup||tr('未分组'),subgroup?'folder':'inbox',{scope,category:parent,subgroup},group.members.filter(m=>(m.subgroup||'')===subgroup&&live.has(m.path)).length,true);child.addClass('is-subgroup');inner.appendChild(child);
       ldbDropTarget(child,this.plugin,{scope,category:parent,subgroup});
       if(!subgroup)continue;
       ldbGroupReorderTarget(child,this.plugin,scope,subgroup,parent);

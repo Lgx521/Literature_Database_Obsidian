@@ -157,8 +157,15 @@
 .ldb-navigation .ldb-nav-item.is-child { padding-left: 15px; }
 .ldb-navigation .ldb-nav-item.is-subgroup { padding-left: 36px; }
 .ldb-tree-toggle { display: flex; flex: 0 0 14px; align-items: center; justify-content: center; color: var(--text-muted); margin-left: -10px; }
-.ldb-tree-toggle svg { width: 13px; height: 13px; }
+.ldb-tree-toggle svg { width: 13px; height: 13px; transition: transform 180ms ease; }
+.ldb-tree-toggle.is-expanded svg { transform: rotate(90deg); }
 .ldb-tree-toggle:hover { color: var(--text-normal); }
+.ldb-nav-children { display: grid; grid-template-rows: 1fr; flex: 0 0 auto; opacity: 1; transition: grid-template-rows 180ms ease, opacity 140ms ease; }
+.ldb-nav-children.is-collapsed { grid-template-rows: 0fr; opacity: 0; }
+.ldb-nav-children-inner { display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .ldb-nav-children, .ldb-tree-toggle svg { transition: none; }
+}
 .ldb-list.ldb-child-groups { display: flex; flex-direction: column; }
 .ldb-child-groups > .ldb-bookmark-group { flex: 0 0 auto; }
 .ldb-child-groups > .ldb-bookmark-group:last-child { flex: 1 0 auto; }
