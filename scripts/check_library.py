@@ -57,18 +57,25 @@ def check(root):
         if md.name == 'collections.md':
             if text.count('<!-- collections:end -->') != 1:
                 errors.append('集合: 完整性标记缺失或重复')
-            groups, members, current = set(), set(), ''
+            groups, members, current, subgroups = set(), set(), '', set()
             for line in text.splitlines():
                 if line.startswith('## '):
                     current = line[3:].strip()
                     if not re.fullmatch(r'(分类|项目)：.+', current) or current.lower() in groups:
                         errors.append('集合: 标题无效或重复: ' + current)
-                    groups.add(current.lower()); members = set()
+                    groups.add(current.lower()); members = set(); subgroups = set()
+                if re.match(r'^子类[：:]', line):
+                    child = html.unescape(re.sub(r'^子类[：:]\s*', '', line).strip())
+                    if not child or child == '未分组' or child.lower() in {n.lower() for n in subgroups}:
+                        errors.append('集合: 子类无效或重复: ' + child)
+                    subgroups.add(child)
                 if re.match(r'^\|\s*\[', line):
                     row = [c.strip() for c in re.split(r'(?<!\\)\|', line)[1:-1]]
                     matches = re.findall(r'\]\(([^)]+)\)', row[0])
-                    if len(row) != 2 or len(matches) != 1:
+                    if len(row) not in (2, 3) or len(matches) != 1:
                         errors.append('集合: 关系表行无效'); continue
+                    if len(row) == 3 and row[2] and html.unescape(row[2]) not in subgroups:
+                        errors.append('集合: 文献引用了不存在的子类: ' + row[2])
                     target = (root / unquote(matches[0])).resolve()
                     if target in members:
                         errors.append('集合: 同一集合重复引用: ' + current)

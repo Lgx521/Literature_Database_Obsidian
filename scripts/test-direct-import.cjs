@@ -21,6 +21,10 @@ ctx.module.exports.importer.importInboxFiles=async(base,inputs,{folder})=>{
  assert([...store.keys()].some(p=>p.startsWith('.maintenance-backups/library-import-')));assert([...store.keys()].some(p=>p.startsWith('.maintenance-backups/collections-import-')));
  await plugin.importDroppedFiles([{...input,path:'/synthetic-vault/'+r.path}],{scope:'projects',category:'Project'});
  assert.equal(plugin.snapshot.library.length,1);r=plugin.snapshot.library[0];assert.deepEqual([...r.projects],['Project']);assert.deepEqual([...r.categories],['Category']);
+ await plugin.editChild('add','library','Category',null,'Methods',C.childState(plugin.snapshot.collections.find(g=>g.name==='Category')));
+ await plugin.importDroppedFiles([{...input,path:'/synthetic-vault/'+r.path}],{scope:'library',category:'Category',subgroup:'Methods'});
+ assert.equal(plugin.snapshot.collections.find(g=>g.name==='Category').members[0].subgroup,'Methods');assert.equal(plugin.snapshot.library.length,1);
+ const beforeInvalid=copyCount;await assert.rejects(plugin.importDroppedFiles([input],{scope:'library',category:'Category',subgroup:'Missing'}),/子类/);assert.equal(copyCount,beforeInvalid);
  const count=copyCount;await assert.rejects(plugin.importDroppedFiles([input],{scope:'library',category:'Missing'}));await assert.rejects(plugin.importDroppedFiles([input],{scope:'library'}));assert.equal(copyCount,count);
  const before=store.get('library.md'),collections=store.get('collections.md');fail=true;
  await assert.rejects(plugin.importDroppedFiles([{name:'Retained.pdf',path:'/external/Retained.pdf'}],{scope:'projects',category:'Project'}),/附件保留/);fail=false;

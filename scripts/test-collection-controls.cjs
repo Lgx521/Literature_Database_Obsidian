@@ -13,8 +13,8 @@ class Menu{
  showAtPosition(p,doc){this.position=p;this.doc=doc;this.shown=true;}hide(){this.shown=false;}
 }
 const notices=[],ctx={module:{exports:{}},setTimeout,clearTimeout,require:n=>n==='obsidian'?{Plugin:class{},ItemView:class{},Modal,Menu,Notice:class{constructor(t){notices.push(t);}}}:require(n)};
-vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../main.js'),'utf8')+'\nmodule.exports.Controls={CollectionMembershipMenu,CollectionMoveMenu,ldbPaperVenueMenu,ldbSharedDeadlineChoice,CategoryModal,VenueModal,ldbOpenCollectionMenu};',ctx);
-const {CollectionMembershipMenu,CollectionMoveMenu,ldbPaperVenueMenu,ldbSharedDeadlineChoice,CategoryModal,VenueModal,ldbOpenCollectionMenu}=ctx.module.exports.Controls;
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../main.js'),'utf8')+'\nmodule.exports.Controls={CollectionMembershipMenu,CollectionMoveMenu,ldbPaperVenueMenu,ldbSharedDeadlineChoice,CategoryModal,VenueModal,ldbOpenCollectionMenu,ldbChildMenu};',ctx);
+const {CollectionMembershipMenu,CollectionMoveMenu,ldbPaperVenueMenu,ldbSharedDeadlineChoice,CategoryModal,VenueModal,ldbOpenCollectionMenu,ldbChildMenu}=ctx.module.exports.Controls;
 const children=e=>e.children.flatMap(x=>[x,...children(x)]),get=(modal,label)=>children(modal.contentEl).find(e=>e.attributes['aria-label']===label),button=(modal,label)=>children(modal.contentEl).find(e=>e.tag==='button'&&e.textContent===label);
 (async()=>{
  let text=C.add(C.add(C.add(C.empty(),'library','A'),'library','B'),'projects','Work');
@@ -37,6 +37,13 @@ const children=e=>e.children.flatMap(x=>[x,...children(x)]),get=(modal,label)=>c
  const mover=new CollectionMoveMenu(plugin,rows,{scope:'library',name:'B'},position,doc);mover.show();
  assert(mover.menu.native);assert(mover.menu.items.find(i=>i.title==='B').checked);assert(mover.menu.items.find(i=>i.title==='B').disabled);assert(!mover.menu.items.some(i=>i.title==='Work'));
  await mover.menu.items.find(i=>i.title==='A').action();assert(mover.closed);assert.equal(C.parse(text).groups.find(g=>g.name==='A').members.length,2);assert.equal(C.parse(text).groups.find(g=>g.name==='B').members.length,0);
+ // Child menus change the placement, not parent membership. Stale choices cannot overwrite another edit.
+ text=C.addChild(text,'library','A','Methods');text=C.addChild(text,'library','A','Experiments');plugin.snapshot.collections=C.parse(text).groups;
+ plugin.changeMembership=async(rows,target,from,move,expected)=>{assert(expected.placements);const actual=C.placementState(C.parse(text).groups,rows.map(r=>r.path),target);if(JSON.stringify(actual)!==JSON.stringify(expected.placements))throw Error('Stale placement');text=C.change(text,rows.map(r=>r.path),target);plugin.snapshot.collections=C.parse(text).groups;};
+ let childMenu=ldbChildMenu(plugin,rows,{scope:'library',name:'A'},position,doc);assert(childMenu.native);assert(childMenu.items.find(i=>i.title==='未分组').checked);
+ await childMenu.items.find(i=>i.title==='Methods').action();assert(C.parse(text).groups.find(g=>g.name==='A').members.every(m=>m.subgroup==='Methods'));
+ childMenu=ldbChildMenu(plugin,rows,{scope:'library',name:'A'},position,doc);text=C.change(text,[rows[0].path],{scope:'library',name:'A',subgroup:'Experiments'});plugin.snapshot.collections=C.parse(text).groups;
+ await childMenu.items.find(i=>i.title==='未分组').action();assert(notices.includes('Stale placement'));assert.equal(C.parse(text).groups.find(g=>g.name==='A').members[0].subgroup,'Experiments');
  // Publication Venue: native checkmarks plus explicit new-name input, without preset metadata.
  const view={detailRow:{path:'papers/One.pdf',venues:['arXiv']},plugin:{snapshot:{library:[{venues:['arXiv','CoRL 2027']}]}},contentEl:{ownerDocument:doc},venueInput:new Element(),async saveQuickField(key,value){assert.equal(key,'venues');this.detailRow.venues=value;return true;}};
  const anchor=new Element();let menu=ldbPaperVenueMenu(view,anchor);assert(menu.native);assert(menu.items.find(i=>i.title==='arXiv').checked);assert(!menu.items.find(i=>i.title==='CoRL 2027').checked);

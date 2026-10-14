@@ -135,21 +135,6 @@ function groupLibrary(rows, categoryOrder=[]){
   return order.filter(name=>groups.has(name)).map(name=>({name,rows:groups.get(name)}));
 }
 
-function tagLabel(tag){return tag.replace(/^#research\//,'').replace(/^#/,'');}
-function hasGroupTag(row,tag){return (row.tags||'').split(/\s+/).some(t=>t===tag||t.startsWith(tag+'/'));}
-function rootGroupTags(rows){
-  const tags=new Set();
-  for(const row of rows)for(const tag of (row.tags||'').split(/\s+/).filter(t=>t.startsWith('#')&&t.length>1)){
-    const parts=tag.split('/');tags.add(parts.slice(0,parts[0]==='#research'?2:1).join('/'));
-  }
-  return [...tags].sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),'en',{numeric:true})||a.localeCompare(b));
-}
-function groupLibraryByTags(rows){
-  const groups=rootGroupTags(rows).map(tag=>({name:tag,kind:'tag',rows:[]})),other={name:'未标标签',kind:'other',rows:[]};
-  for(const row of rows){let matched=false;for(const group of groups)if(hasGroupTag(row,group.name)){group.rows.push(row);matched=true;}if(!matched)other.rows.push(row);}
-  return [...groups,other].filter(group=>group.rows.length);
-}
-
 function decodeText(value) {
   return String(value).replace(/<br\s*\/?\s*>/gi, '\n').replace(/\\\|/g, '|')
     .replace(/&#(x[0-9a-f]+|\d+);/gi, (m,n) => { const c=n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n); return c<=0x10ffff?String.fromCodePoint(c):m; })
@@ -485,4 +470,4 @@ function restoreRecord(text,scope,row){
   if(end<0)throw new Error(tr('无法恢复到分类'));const values=[...row.cells];if(library)while(values.length<header.length)values.push('');if(!library)values[2]=trackerDeadline(text,group);
   lines.splice(end+1,0,'| '+values.join(' | ')+' |'+cr);const output=lines.join('\n');library?parseLibrary(output):parseTracker(output,source);return output;
 }
-module.exports = { tagLabel, rootGroupTags, groupLibraryByTags, BOOKMARK_HEADERS, migrateLibraryBookmarks, groupLibrary, Organization, ORGANIZATION_HEADERS, migrateLibraryOrganization, addLibraryEntry, REVIEW_STATUSES, updateReviewStatus, TITLE_HEADERS, migrateLibraryTitles, trackerLayout, CITATION_HEADERS, migrateLibraryCitations, HEADERS, NOTES_HEADERS, VENUE_HEADERS, normalizeVenues, venueOptions, migrateLibraryVenues, STATUSES, PRIORITIES, UNFILED_CATEGORY, TRACKING_HEADERS, parseLibrary, deadline, deadlineParts, composeDeadline, displayDeadline, deadlineCountdown, escapeLabel, filterLibrary, updateLibraryEntry, decodeText, encodeNotes, getCategories, migrateLibraryNotes, addCategory, renameCategory, deleteCategory, reorderGroups, parseTracker, trackerGroups, trackerDeadline, setTrackerDeadline, migrateTrackerDeadlines, isStagingGroup, renameTrackerGroup, deleteTrackerGroup, addTrackerGroup, updateTracker, removeRecord, restoreRecord, sameTrackerContent };
+module.exports = { BOOKMARK_HEADERS, migrateLibraryBookmarks, groupLibrary, Organization, ORGANIZATION_HEADERS, migrateLibraryOrganization, addLibraryEntry, REVIEW_STATUSES, updateReviewStatus, TITLE_HEADERS, migrateLibraryTitles, trackerLayout, CITATION_HEADERS, migrateLibraryCitations, HEADERS, NOTES_HEADERS, VENUE_HEADERS, normalizeVenues, venueOptions, migrateLibraryVenues, STATUSES, PRIORITIES, UNFILED_CATEGORY, TRACKING_HEADERS, parseLibrary, deadline, deadlineParts, composeDeadline, displayDeadline, deadlineCountdown, escapeLabel, filterLibrary, updateLibraryEntry, decodeText, encodeNotes, getCategories, migrateLibraryNotes, addCategory, renameCategory, deleteCategory, reorderGroups, parseTracker, trackerGroups, trackerDeadline, setTrackerDeadline, migrateTrackerDeadlines, isStagingGroup, renameTrackerGroup, deleteTrackerGroup, addTrackerGroup, updateTracker, removeRecord, restoreRecord, sameTrackerContent };

@@ -124,9 +124,11 @@ module.exports=class LiteratureManager extends Plugin {
     if(!['library','projects'].includes(scope)&&!TRACK_FILES[scope])throw new Error(tr('无效分类类型'));
     return this.recordAction(async()=>{
       to=to.trim();
+      const childViews=this.app.workspace.getLeavesOfType(LIBRARY_VIEW).map(l=>l.view).filter(v=>v.scope===scope&&v.filters?.category===from).map(view=>({view,subgroup:view.filters.subgroup}));
       if(this.snapshot.collections&&['library','projects'].includes(scope))await this.mutate(COLLECTION_SOURCE,text=>Collections.rename(text,scope,from,to));
       else await this.mutate(scope==='library'?LIBRARY_SOURCE:TRACK_FILES[scope],text=>scope==='library'?Engine.renameCategory(text,from,to):Engine.renameTrackerGroup(text,TRACK_FILES[scope],from,to));
       await this.remapGroup(scope,from,to);
+      for(const {view,subgroup} of childViews)if(subgroup!==undefined&&subgroup!==null){view.filters.subgroup=subgroup;await view.reload();view.remember();}
     });
   }
   async deleteLibraryCategory(name){
@@ -137,12 +139,12 @@ module.exports=class LiteratureManager extends Plugin {
     });
   }
   groupNames(scope){return scope==='library'?this.snapshot?.categories?.filter(n=>n!==Engine.UNFILED_CATEGORY):scope==='projects'?this.snapshot?.groups.projects:TRACK_FILES[scope]?this.snapshot?.groups[scope]:null;}
-  beginGroupDrag(event,scope,name){
-    const names=this.groupNames(scope),editing=this.app.workspace.getLeavesOfType(NAV_VIEW).some(leaf=>leaf.view?.renaming);
+  beginGroupDrag(event,scope,name,parent){
+    const names=parent?this.snapshot?.collections?.find(g=>g.scope===scope&&g.name===parent)?.subgroups:this.groupNames(scope),editing=this.app.workspace.getLeavesOfType(NAV_VIEW).some(leaf=>leaf.view?.renaming);
     if(this.hasPendingEdit()||this.importing||this.lastError||editing){new Notice(tr('请先保存或取消编辑，并等待当前操作结束'));return false;}
-    if(!event.dataTransfer||!names?.includes(name)||(scope!=='library'&&Engine.isStagingGroup(name)))return false;
+    if(!event.dataTransfer||!names?.includes(name)||(!parent&&scope!=='library'&&Engine.isStagingGroup(name)))return false;
     this.endPaperDrag();const token=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
-    this.groupDrag={token,scope,name,names:[...names]};event.dataTransfer.setData(GROUP_DRAG,token);event.dataTransfer.effectAllowed='move';return true;
+    this.groupDrag={token,scope,name,names:[...names],...(parent?{parent}:{})};event.dataTransfer.setData(GROUP_DRAG,token);event.dataTransfer.effectAllowed='move';return true;
   }
   clearGroupDropIndicators(){
     for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))for(const el of leaf.view?.contentEl?.querySelectorAll('.is-order-before, .is-order-after')||[])el.classList.remove('is-order-before','is-order-after');
@@ -153,10 +155,12 @@ module.exports=class LiteratureManager extends Plugin {
     for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))for(const el of leaf.view?.contentEl?.querySelectorAll('.is-group-dragging')||[])el.classList.remove('is-group-dragging');
     if(!this.stopped)this.renderNavigation();
   }
-  async moveDraggedGroup(token,scope,target,after){
+  async moveDraggedGroup(token,scope,target,after,parent){
     const drag=this.groupDrag;this.endGroupDrag();
     if(!drag||drag.token!==token)throw new Error(tr('排序拖拽已失效，请重新拖动'));
     if(drag.scope!==scope)throw new Error(tr('请在分类、审稿或投稿各自的区域内排序'));
+    if((drag.parent||null)!==(parent||null))throw new Error(tr('请在同一父级内排序'));
+    if(parent)return this.recordAction(()=>this.mutate(COLLECTION_SOURCE,text=>Collections.reorderChild(text,scope,parent,drag.name,target,after,drag.names)));
     return this.recordAction(()=>this.snapshot.collections&&['library','projects'].includes(scope)?this.mutate(COLLECTION_SOURCE,text=>Collections.reorder(text,scope,drag.name,target,after,drag.names)):this.mutate(scope==='library'?LIBRARY_SOURCE:TRACK_FILES[scope],text=>Engine.reorderGroups(text,scope,drag.name,target,after,drag.names)));
   }
   async deleteVenue(scope,name){
@@ -234,7 +238,7 @@ module.exports=class LiteratureManager extends Plugin {
     if(this.hasPendingEdit()||this.lastError){new Notice(tr('请先保存或取消编辑，并等待源数据同步完整'));return false;}
     if(!['library','projects','reviews','submissions'].includes(scope)||!event.dataTransfer||!this.snapshot?.[scope==='projects'?'library':scope].some(r=>r.path===row.path))return false;
     const token=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
-    this.dragState={token,scope,row:{...row,cells:[...row.cells]},rows:selected.map(r=>({...r,cells:[...r.cells]})),from:sourceCategory?{scope,name:sourceCategory}:null};
+    this.dragState={token,scope,row:{...row,cells:[...row.cells]},rows:selected.map(r=>({...r,cells:[...r.cells]})),from:sourceCategory?{scope,name:sourceCategory}:null,memberships:this.snapshot.collections?Collections.removalPlan(this.snapshot.collections,selected.map(r=>r.path)).memberships:null};
     event.dataTransfer.setData(PAPER_DRAG,token);event.dataTransfer.effectAllowed=this.snapshot.collections&&['library','projects'].includes(scope)?'copyMove':'move';return true;
   }
   endPaperDrag(){
@@ -242,11 +246,12 @@ module.exports=class LiteratureManager extends Plugin {
     for(const type of [NAV_VIEW,LIBRARY_VIEW])for(const leaf of this.app.workspace.getLeavesOfType(type))
       for(const el of leaf.view?.contentEl?.querySelectorAll('.is-drop-target, .is-dragging')||[])el.classList.remove('is-drop-target','is-dragging');
   }
-  async moveDraggedPaper(token,category,scope='library',move=false){
+  async moveDraggedPaper(token,category,scope='library',move=false,subgroup){
     const drag=this.dragState;this.endPaperDrag();
     if(!drag||drag.token!==token)throw new Error(tr('拖拽已失效，请从当前列表重新拖动'));
     if(this.snapshot.collections&&['library','projects'].includes(drag.scope)&&['library','projects'].includes(scope)){
-      await this.changeMembership(drag.rows||[drag.row],{scope,name:category},move?drag.from:null,move);new Notice(move?tr('已移动到 ')+category:tr('已加入 ')+category);return;
+      if(subgroup!==undefined&&!(drag.from?.scope===scope&&drag.from?.name===category))move=false;
+      await this.changeMembership(drag.rows||[drag.row],{scope,name:category,...(subgroup!==undefined?{subgroup}:{})},move?drag.from:null,move,drag.memberships?{allMemberships:drag.memberships}:null);new Notice(move?tr('已移动到 ')+category:tr('已加入 ')+category);return;
     }
     if(drag.scope!==scope)throw new Error(tr('请在同一类型内移动，审稿和投稿不混入文献库'));
     if(this.hasPendingEdit())throw new Error(tr('请先保存或取消右侧编辑，草稿已保留'));
@@ -279,11 +284,13 @@ module.exports=class LiteratureManager extends Plugin {
       return {name:file.name,path:source};
     });
     if(!mobile&&inputs.some(f=>!f.path))throw new Error(tr('未取得本地 PDF 路径，请先保存文件，再从 Finder 拖入'));
-    const category=scope==='inbox'?'':nav.category||(publicImport?'':this.stagingGroup(scope));
+    const category=scope==='inbox'?'':nav.category||(publicImport?'':this.stagingGroup(scope)),target={scope,name:category,...(typeof nav.subgroup==='string'?{subgroup:nav.subgroup}:{})};
     if(publicImport){
       if(this.hasPendingEdit())throw new Error(tr('请先保存或取消编辑'));
       if(!category||category===Engine.UNFILED_CATEGORY||!this.snapshot?.collections?.some(g=>g.scope===scope&&g.name===category))throw new Error(tr('请拖到已创建的分类或项目'));
+      if(target.subgroup&&!this.snapshot.collections.find(g=>g.scope===scope&&g.name===category).subgroups?.includes(target.subgroup))throw new Error(tr('子类已改变，请重新选择'));
     }
+    const placementsBefore=publicImport?new Map(this.snapshot.collections.find(g=>g.scope===scope&&g.name===category).members.map(m=>[m.path,{notes:m.notes,subgroup:m.subgroup||''}])):null;
     if(!publicImport&&scope!=='inbox'){
       const file=this.app.vault.getAbstractFileByPath(TRACK_FILES[scope]);if(!file)throw new Error(tr('源表尚未同步'));
       Engine.updateTracker(await this.app.vault.read(file),TRACK_FILES[scope],null,{title:'Validation',pdfPath:'',category,status:'待整理',due:'—',next:'',notes:''});
@@ -297,12 +304,16 @@ module.exports=class LiteratureManager extends Plugin {
         const existing=results.filter(r=>r.existingPath&&this.snapshot.library.some(p=>p.path===r.existingPath));
         importedPaths=[...new Set([...added.map(r=>r.path),...existing.map(r=>r.existingPath)])];
         if(importedPaths.length)try{await this.mutateDeadlineSources(texts=>{
+          if(target.subgroup!==undefined&&existing.length){
+            const groups=Collections.parse(texts[COLLECTION_SOURCE]).groups,paths=existing.map(r=>r.existingPath);
+            if(JSON.stringify(Collections.placementState(groups,paths,target))!==JSON.stringify(paths.map(path=>placementsBefore.get(path)||null)))throw new Error(tr('子类或归属已被修改，请重试'));
+          }
           let library=texts[LIBRARY_SOURCE];
           for(const path of importedPaths){
             if(!added.some(r=>r.path===path)&&!Engine.parseLibrary(library).some(r=>r.path===path))throw new Error(tr('文献已被其他窗口移除，请重试'));
             library=Engine.addLibraryEntry(library,path);
           }
-          return {[LIBRARY_SOURCE]:library,[COLLECTION_SOURCE]:Collections.change(texts[COLLECTION_SOURCE],importedPaths,{scope,name:category})};
+          return {[LIBRARY_SOURCE]:library,[COLLECTION_SOURCE]:Collections.change(texts[COLLECTION_SOURCE],importedPaths,target)};
         },[LIBRARY_SOURCE,COLLECTION_SOURCE],'import');}catch(error){importedPaths=[];throw new Error(tr('附件保留在 ')+folder+tr('；记录写入失败：')+error.message);}
       }else if(scope!=='inbox'&&added.length){
         try{await this.mutate(TRACK_FILES[scope],text=>{
@@ -310,7 +321,7 @@ module.exports=class LiteratureManager extends Plugin {
         });}catch(error){throw new Error(tr('附件保留在 ')+folder+tr('；记录写入失败：')+error.message);}
       }
       await this.refresh();
-      if((added.length||importedPaths.length)&&!this.hasPendingEdit())await this.openLibrary({scope,category,status:''});
+      if((added.length||importedPaths.length)&&!this.hasPendingEdit())await this.openLibrary({scope,category,status:'',...(typeof nav.subgroup==='string'?{subgroup:nav.subgroup}:{})});
       const summary=[tr`已导入 ${added.length} 篇 PDF`];
       const attached=added.reduce((n,r)=>n+r.attachments,0);if(attached)summary.push(tr`保留 ${attached} 个批注附件`);
       if(added.some(r=>r.collision))summary.push(tr('重名文件放入独立子目录，文件名和原件保持不变'));
@@ -407,6 +418,20 @@ module.exports=class LiteratureManager extends Plugin {
   async deleteProject(name){
     return this.recordAction(async()=>{await this.mutate(COLLECTION_SOURCE,text=>Collections.remove(text,'projects',name));await this.remapGroup('projects',name,'');});
   }
+  async editChild(action,scope,parent,child,value,expected){
+    if(!['library','projects'].includes(scope))throw new Error(tr('无效集合类型'));
+    return this.recordAction(async()=>{
+      const views=this.app.workspace.getLeavesOfType(LIBRARY_VIEW).map(l=>l.view).filter(v=>v.scope===scope&&v.filters?.category===parent&&v.filters.subgroup===child);
+      await this.mutate(COLLECTION_SOURCE,text=>{
+        if(action==='add')return Collections.addChild(text,scope,parent,value,expected);
+        if(action==='rename')return Collections.renameChild(text,scope,parent,child,value,expected);
+        if(action==='remove')return Collections.removeChild(text,scope,parent,child,expected);
+        throw new Error(tr('无效子类操作'));
+      });
+      if(action!=='add')for(const view of views){view.filters.subgroup=action==='rename'?value:'';await view.reload();view.remember();}
+      this.renderNavigation();
+    });
+  }
   async changeMembership(rows,target,from=null,move=false,expected=null){
     return this.recordAction(async()=>{
       if(!rows.length)throw new Error(tr('请选择文献'));
@@ -421,7 +446,8 @@ module.exports=class LiteratureManager extends Plugin {
           if(!plan.sourceValid)throw new Error(tr('来源集合已改变，请刷新后重试'));
           if(!plan.canRemove)throw new Error(tr('无法移除唯一归属；请重新操作并选择是否移至回收站'));
         }
-        if(expected?.target){
+        if(expected?.placements&&JSON.stringify(Collections.placementState(groups,rows.map(r=>r.path),expected.target))!==JSON.stringify(expected.placements))throw new Error(tr('子类或归属已被修改，请重试'));
+        if(expected?.target&&expected.members){
           const group=groups.find(g=>g.scope===expected.target.scope&&g.name===expected.target.name);
           const actual=group&&rows.map(row=>{const m=group.members.find(m=>m.path===row.path);return m?m.notes:null;});
           if(!group||JSON.stringify(actual)!==JSON.stringify(expected.members))throw new Error(tr('集合归属或项目备注已被修改，请重新打开勾选菜单'));

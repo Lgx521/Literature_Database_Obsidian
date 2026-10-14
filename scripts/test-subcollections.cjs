@@ -1,0 +1,42 @@
+const assert=require('node:assert/strict'),C=require('./collections'),E=require('./dashboard');
+for(const newline of ['\n','\r\n']){
+ let text=C.add(C.add(C.add(C.empty(),'library','A'),'library','B'),'projects','Work');
+ text=C.change(text,['papers/One.pdf','papers/Two.pdf'],{scope:'library',name:'A'});
+ text=C.change(text,['papers/One.pdf'],{scope:'projects',name:'Work'});
+ text=C.setNote(text,'Work','papers/One.pdf','Keep | [project]\n<notes>','');
+ text=text.replace('## 分类：A','## 分类：A\nKeep prose').replace(C.END,C.END+'\nKeep footer').replaceAll('\n',newline);
+ const group=(name='A')=>C.parse(text).groups.find(g=>g.name===name),original=text;
+ assert.equal(group().childColumn,false);assert.deepEqual(group().subgroups,[]);assert(group().members.every(m=>m.subgroup===''));
+ text=C.addChild(text,'library','A','Methods',C.childState(group()));text=C.addChild(text,'library','A','Experiments',C.childState(group()));
+ assert.equal(group().childColumn,false,'Defining children does not migrate member rows prematurely');
+ const before=group().members.map(m=>[m.path,m.notes]);
+ text=C.change(text,['papers/One.pdf'],{scope:'library',name:'A',subgroup:'Methods'});
+ assert.equal(group().childColumn,true);assert.equal(group().members[0].subgroup,'Methods');assert.deepEqual(group().members.map(m=>[m.path,m.notes]),before);
+ text=C.change(text,['papers/One.pdf'],{scope:'library',name:'A',subgroup:'Experiments'},{from:{scope:'library',name:'A'},move:true});
+ assert.equal(group().members.length,2);assert.equal(group().members[0].subgroup,'Experiments');
+ text=C.change(text,['papers/One.pdf'],{scope:'library',name:'A'});assert.equal(group().members[0].subgroup,'Experiments','Adding existing parent preserves child');
+ assert.throws(()=>C.change(text,['papers/One.pdf'],{scope:'library',name:'A',subgroup:'missing'}),/子类/);
+ const stale=C.childState(group());text=C.renameChild(text,'library','A','Experiments','Evaluation',stale);
+ assert.equal(group().members[0].subgroup,'Evaluation');assert.throws(()=>C.removeChild(text,'library','A','Methods',stale),/被修改/);
+ text=C.reorderChild(text,'library','A','Evaluation','Methods',false,['Methods','Evaluation']);assert.deepEqual(group().subgroups,['Evaluation','Methods']);
+ assert.throws(()=>C.reorderChild(text,'library','A','Methods','Evaluation',false,['Methods','Evaluation']),/顺序/);
+ assert.throws(()=>C.addChild(text,'library','A','methods'),/重复/);assert.throws(()=>C.addChild(text,'library','A','未分组'),/系统/);
+ text=C.addChild(text,'projects','Work','Related work');text=C.change(text,['papers/One.pdf'],{scope:'projects',name:'Work',subgroup:'Related work'});
+ assert.equal(group('Work').members[0].notes,'Keep | [project]\n<notes>');
+ text=C.setNote(text,'Work','papers/One.pdf','New notes','Keep | [project]\n<notes>');assert.equal(group('Work').members[0].subgroup,'Related work');
+ text=C.setDeadline(text,'Work','2027-01-01 23:59 -12:00','—');assert.equal(group('Work').subgroups[0],'Related work');
+ text=C.removeChild(text,'library','A','Evaluation',C.childState(group()));assert.equal(group().members[0].subgroup,'');assert.equal(group().members.length,2);assert.equal(group('Work').members[0].subgroup,'Related work');
+ const memberships=C.removalPlan(C.parse(text).groups,['papers/One.pdf']).memberships[0].groups;assert.equal(memberships.length,2,'Children are not additional memberships');
+ const rows=[{path:'papers/One.pdf',tags:'#one #two'},{path:'papers/Two.pdf',tags:'#one'}];
+ text=C.change(text,['papers/One.pdf'],{scope:'library',name:'A',subgroup:'Methods'});
+ const grouped=C.groupRows(rows,group());assert.deepEqual(grouped.map(g=>[g.name,g.rows.length]),[['Methods',1],['未分组',1]]);assert.equal(grouped.flatMap(g=>g.rows).length,2);
+ assert(text.includes('Keep prose'));assert(text.endsWith('Keep footer'+newline));if(newline==='\r\n')assert(!text.replaceAll('\r\n','').includes('\n'));
+ assert.throws(()=>C.parse(text.replace('子类：Methods','子类：Methods'+newline+'子类：Methods')),/重复/);
+ assert.throws(()=>C.parse(text.replace(' | Methods |',' | Missing |')),/不存在/);
+ const parentRenamed=C.rename(text,'library','A','Renamed');assert.equal(C.parse(parentRenamed).groups[0].members[0].subgroup,'Methods');
+ // Notes transfer into an existing project member must keep its destination subclass.
+ text=C.add(text,'projects','Other');text=C.change(text,['papers/One.pdf'],{scope:'projects',name:'Other'});text=C.setNote(text,'Other','papers/One.pdf','New notes','');
+ text=C.change(text,['papers/One.pdf'],{scope:'projects',name:'Work'},{from:{scope:'projects',name:'Other'},move:true});assert.equal(group('Work').members[0].subgroup,'Related work');
+ const noParent=C.remove(text,'library','A');assert(C.parse(noParent).groups.find(g=>g.name==='Work').members.length===1);assert(original.includes('Keep footer'));
+}
+console.log('PASS: optional child schema, lazy lossless migration, one placement per parent, independent project notes, CRUD/order conflicts, parent/delete safety, unique grouping, malformed definitions and CRLF.');

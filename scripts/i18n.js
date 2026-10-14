@@ -1,9 +1,27 @@
 'use strict';
 // Source table values and user content are never translated in storage.
 const english = {
+  "子类": "Subcategory",
+  "未分组": "Ungrouped",
+  "未分组为系统视图": "Ungrouped is a system view",
+  "子类名称重复": "A subcategory with this name already exists",
+  "文献引用了不存在的子类": "A paper references a missing subcategory",
+  "子类已改变，请重新选择": "Subcategories changed. Choose again.",
+  "子类或归属已被修改，请重试": "Subcategories or membership changed. Try again.",
+  "子类顺序已被修改，请重新拖动": "Subcategory order changed. Drag again.",
+  "新建子类": "New subcategory",
+  "重命名子类": "Rename subcategory",
+  "子类名称": "Subcategory name",
+  "展开子类": "Expand subcategories",
+  "收起子类": "Collapse subcategories",
+  "删除子类，文献移回未分组": "Delete subcategory; keep papers ungrouped",
+  "设置子类…": "Set subcategory\u2026",
+  "移出子类": "Remove from subcategory",
+  "请在同一父级内排序": "Reorder within the same parent",
+  "无效子类操作": "Invalid subcategory operation",
+
   "书签": "Bookmarks",
   "仅书签": "Bookmarked only",
-  "未标标签": "Untagged",
   "添加书签": "Add bookmark",
   "取消书签": "Remove bookmark",
   "已加书签": "Bookmarked",

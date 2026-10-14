@@ -1,4 +1,17 @@
 // Native membership selection; metadata and PDFs remain in the master library.
+function ldbChildMenu(plugin,rows,target,position,doc){
+  if(plugin.hasPendingEdit()){new Notice(tr('请先保存或取消右侧编辑'));return;}
+  const group=plugin.snapshot.collections?.find(g=>g.scope===target.scope&&g.name===target.name);if(!group)return;
+  const expected={target,placements:Collections.placementState(plugin.snapshot.collections,rows.map(r=>r.path),target)},menu=new Menu().setUseNativeMenu(!Platform?.isMobile);
+  menu.addItem(item=>item.setTitle(group.name).setIsLabel(true));
+  for(const subgroup of [...(group.subgroups||[]),'']){
+    const checked=expected.placements.every(m=>m&&(m.subgroup||'')===subgroup);
+    menu.addItem(item=>item.setTitle(subgroup||tr('未分组')).setChecked(checked).onClick(async()=>{
+      try{await plugin.changeMembership(rows,{...target,subgroup},null,false,expected);}catch(e){new Notice(e.message,8000);}
+    }));
+  }
+  menu.showAtPosition(position,doc);return menu;
+}
 function ldbOpenCollectionMenu(plugin,rows,position,doc){
   if(plugin.hasPendingEdit()){new Notice(tr('请先保存或取消右侧编辑'));return;}
   plugin.membershipMenu?.close();
@@ -21,7 +34,7 @@ class CollectionMembershipMenu {
       for(const group of list){
         const members=this.rows.map(row=>{const m=group.members.find(m=>m.path===row.path);return m?m.notes:null;});
         const count=members.filter(m=>m!==null).length,checked=count===this.rows.length;
-        const target={scope,name:group.name},expected={target,members};
+        const target={scope,name:group.name},expected={target,members,placements:Collections.placementState(groups,this.rows.map(r=>r.path),{scope,name:group.name})};
         menu.addItem(item=>item.setTitle(group.name+(count&&!checked?tr('（部分）'):'')).setChecked(checked).onClick(async()=>{
           if(this.busy||this.closed)return;
           this.busy=true;menu.hide();
@@ -89,7 +102,7 @@ class CollectionMoveMenu {
     const groups=(this.plugin.snapshot.collections||[]).filter(g=>g.scope===this.from.scope);
     const source=groups.find(g=>g.name===this.from.name);
     if(!source){this.close();new Notice(tr('来源集合已被修改，请重新打开菜单'));return;}
-    const expected={target:this.from,members:this.rows.map(row=>source.members.find(m=>m.path===row.path)?.notes??null)};
+    const expected={target:this.from,members:this.rows.map(row=>source.members.find(m=>m.path===row.path)?.notes??null),placements:Collections.placementState(groups,this.rows.map(r=>r.path),this.from)};
     for(const group of groups){
       const current=group.name===this.from.name;
       menu.addItem(item=>item.setTitle(group.name).setChecked(current).setDisabled(current).onClick(async()=>{
