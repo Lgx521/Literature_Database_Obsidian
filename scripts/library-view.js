@@ -8,11 +8,14 @@ for(const key of Object.keys(SCOPES)){const label=SCOPES[key];Object.definePrope
 const TRACK_FILES={reviews:'reviews.md',submissions:'submissions.md'};
 const PAPER_DRAG='application/x-literature-database-row';
 const GROUP_DRAG='application/x-literature-database-group';
-function ldbDropTarget(element,plugin,target=null,enabled=()=>true){
+function ldbDropTarget(element,plugin,target=null,enabled=()=>true,feedback={}){
   const types=e=>Array.from(e.dataTransfer?.types||[]);
-  const destination=()=>typeof target==='function'?target():typeof target==='string'?{scope:'library',category:target}:target||{scope:'inbox'};
+  const destination=e=>typeof target==='function'?target(e):typeof target==='string'?{scope:'library',category:target}:target||{scope:'inbox'};
+  let highlighted=null;
+  const clear=()=>{highlighted?.removeClass('is-drop-target');highlighted=null;};
+  const highlight=(e,effect)=>{const next=effect?(feedback.element?.(e)||element):null;if(next!==highlighted){clear();highlighted=next;highlighted?.toggleClass('is-drop-target',true);}};
   const mode=e=>{
-    const nav=destination();if(!enabled()||!nav)return null;
+    const nav=destination(e);if(!enabled()||!nav||plugin.importing||plugin.recordBusy)return null;
     if(types(e).includes(PAPER_DRAG)){
       const drag=plugin.dragState;if(!drag||!nav.category||plugin.hasPendingEdit())return null;
       if(plugin.snapshot?.collections&&['library','projects'].includes(drag.scope)&&['library','projects'].includes(nav.scope)){
@@ -27,19 +30,45 @@ function ldbDropTarget(element,plugin,target=null,enabled=()=>true){
   const over=e=>{
     if(!enabled()||!types(e).some(t=>t==='Files'||t===PAPER_DRAG))return;
     e.preventDefault();e.stopPropagation();const effect=mode(e);
-    e.dataTransfer.dropEffect=effect||'none';element.toggleClass('is-drop-target',!!effect);
+    e.dataTransfer.dropEffect=effect||'none';highlight(e,effect);feedback.over?.(e,effect);
   };
   element.addEventListener('dragenter',over);element.addEventListener('dragover',over);
-  element.addEventListener('dragleave',e=>{if(!element.contains(e.relatedTarget))element.removeClass('is-drop-target');});
+  element.addEventListener('dragleave',e=>{if(!element.contains(e.relatedTarget)){clear();feedback.end?.();}});
   element.addEventListener('drop',async e=>{
     if(!enabled()||!types(e).some(t=>t==='Files'||t===PAPER_DRAG))return;
-    e.preventDefault();e.stopPropagation();element.removeClass('is-drop-target');const nav=destination(),effect=mode(e);
+    e.preventDefault();e.stopPropagation();const nav=destination(e),effect=mode(e);clear();feedback.end?.();
     try{
       if(effect&&types(e).includes(PAPER_DRAG))await plugin.moveDraggedPaper(e.dataTransfer.getData(PAPER_DRAG),nav.category,nav.scope,effect==='move',nav.subgroup??undefined);
       else if(effect==='copy')await plugin.importDroppedFiles(Array.from(e.dataTransfer.files),nav);
       else new Notice(tr('PDF 请拖到收件箱、具体分类或项目、审稿或投稿'));
     }catch(error){new Notice(error.message,8000);}
   });
+  return {clear,highlight,mode};
+}
+// One drop target owns the middle pane: the group under the pointer, not just its heading.
+function ldbListDropTarget(pane,view){
+  const list=view.listEl,win=list.ownerDocument.defaultView,doc=list.ownerDocument;
+  let pointer=null,effect=null,frame=0,previousTime=0;
+  const groupAt=e=>{
+    if(!view.isPublic()||view.filters.subgroup!==null||!view.groupingCollection())return null;
+    const bounds=list.getBoundingClientRect();if(e.clientY<bounds.top||e.clientY>=bounds.bottom||e.clientX<bounds.left||e.clientX>=bounds.right)return null;
+    return Array.from(list.querySelectorAll('[data-drop-subgroup]')).find(el=>{const r=el.getBoundingClientRect();return e.clientY>=r.top&&e.clientY<r.bottom;})||null;
+  };
+  const destination=e=>{const group=groupAt(e);return {scope:view.scope,category:view.filters.category,subgroup:group?group.dataset.dropSubgroup:view.filters.subgroup,...(group?{stayInParent:true}:{})};};
+  const stopFrame=()=>{if(frame)win.cancelAnimationFrame(frame);frame=0;previousTime=0;};
+  const end=()=>{pointer=null;effect=null;stopFrame();api.clear();list.removeClass('is-paper-drag-over');};
+  const speed=()=>{if(!pointer)return 0;const r=list.getBoundingClientRect(),edge=Math.min(48,r.height/4);if(pointer.clientX<r.left||pointer.clientX>=r.right||pointer.clientY<r.top||pointer.clientY>=r.bottom)return 0;return pointer.clientY<r.top+edge?-14*(1-(pointer.clientY-r.top)/edge):pointer.clientY>r.bottom-edge?14*(1-(r.bottom-pointer.clientY)/edge):0;};
+  const refresh=()=>{if(!pointer)return;if(view.closed||view.dirty()||view.plugin.importing||view.plugin.recordBusy){end();return;}api.highlight(pointer,effect);};
+  const tick=time=>{frame=0;if(!pointer)return;const delta=speed()*Math.min(2,previousTime?(time-previousTime)/16.67:1);previousTime=time;const before=list.scrollTop;list.scrollTop+=delta;refresh();if(pointer&&delta&&list.scrollTop!==before)frame=win.requestAnimationFrame(tick);else previousTime=0;};
+  const api=ldbDropTarget(pane,view.plugin,destination,()=>view.scope!=='library'||!!view.filters.category,{
+    element:e=>groupAt(e)||pane,end,
+    over(e,allowed){if(!allowed){end();return;}pointer={clientX:e.clientX,clientY:e.clientY};effect=allowed;list.addClass('is-paper-drag-over');if(speed()){if(!frame)frame=win.requestAnimationFrame(tick);}else stopFrame();}
+  });
+  const wheel=e=>{if(!pointer)return;e.preventDefault();list.scrollTop+=e.deltaY*(e.deltaMode===1?20:e.deltaMode===2?list.clientHeight:1);refresh();};
+  const key=e=>{if(e.key==='Escape')end();},hidden=()=>{if(doc.hidden)end();};
+  pane.addEventListener('wheel',wheel,{passive:false});list.addEventListener('scroll',refresh);
+  doc.addEventListener('drop',end,true);doc.addEventListener('dragend',end,true);doc.addEventListener('keydown',key,true);doc.addEventListener('visibilitychange',hidden);win.addEventListener('blur',end);
+  return {end,destroy(){end();pane.removeEventListener('wheel',wheel);list.removeEventListener('scroll',refresh);doc.removeEventListener('drop',end,true);doc.removeEventListener('dragend',end,true);doc.removeEventListener('keydown',key,true);doc.removeEventListener('visibilitychange',hidden);win.removeEventListener('blur',end);}};
 }
 function ldbGroupReorderTarget(element,plugin,scope,name,parent){
   element.draggable=true;element.addClass('ldb-sortable-group');
@@ -535,9 +564,14 @@ class LiteratureBrowser extends ItemView {
   async navigate(nav){
     if(this.dirty()){new Notice(tr('请先保存或取消右侧编辑；草稿已保留'));return false;}
     if(Platform?.isMobile)this.setMobileExpanded(false);
+    const keepSort=nav.revealPaths?.length&&this.scope===(nav.scope||'library')?{sort:this.filters.sort,descending:this.filters.descending}:{};
     this.scope=nav.scope||'library';
-    Object.assign(this.filters,{bookmarked:this.scope==='library'&&nav.bookmarked===true,bookmarkOnly:false,query:'',tag:'',organizing:'',category:nav.category||'',subgroup:typeof nav.subgroup==='string'?nav.subgroup:null,status:nav.status||'',sort:this.isPublic()?'title':'published',descending:this.scope==='inbox'});
-    this.selectedPath='';this.activeRowId=this.selectionAnchorId='';this.selectedPaths.clear();await this.reload();return true;
+    Object.assign(this.filters,{bookmarked:this.scope==='library'&&nav.bookmarked===true,bookmarkOnly:false,query:'',tag:'',organizing:'',category:nav.category||'',subgroup:typeof nav.subgroup==='string'?nav.subgroup:null,status:nav.status||'',sort:this.isPublic()?'title':'published',descending:this.scope==='inbox'},keepSort);
+    this.selectedPath='';this.activeRowId=this.selectionAnchorId='';this.selectedPaths.clear();this.listDropController?.end();
+    if(this.listEl&&!nav.revealPaths?.length)this.listEl.scrollTop=0;
+    this.pendingRevealPaths=nav.revealPaths||[];
+    try{await this.reload();if(this.pendingRevealPaths.length){this.revealSelection(true);this.listEl?.focus?.({preventScroll:true});}}finally{this.pendingRevealPaths=null;}
+    return true;
   }
   async onOpen(){
     this.closed=false;this.detailRenderKey=this.listRenderKey=null;const root=this.contentEl;root.empty();root.addClass('ldb-browser');root.lang=LdbI18n.getLanguage();
@@ -569,12 +603,12 @@ class LiteratureBrowser extends ItemView {
     this.clearEl=this.button(filterbar,tr('清除筛选'),()=>this.clearFilters(),'ldb-clear');
     this.errorEl=root.createDiv('ldb-error');this.errorEl.hidden=true;
     const body=root.createDiv('ldb-body'),list=body.createDiv('ldb-list-pane');this.headerEl=list.createDiv('ldb-columns');this.sortButtons=[];
-    ldbDropTarget(list,this.plugin,()=>({scope:this.scope,category:this.filters.category,subgroup:this.filters.subgroup}),()=>this.scope!=='library'||!!this.filters.category);
     for(const [key,label] of [['title',tr('篇名')],['published',tr('发表')],['status',tr('阅读')],['priority',tr('优先')]]){
       const b=this.button(this.headerEl,label,()=>{this.filters.descending=this.filters.sort===key?!this.filters.descending:key==='published';this.filters.sort=key;this.renderList();},'ldb-column-'+key);
       b.dataset.sort=key;b.dataset.label=label;this.sortButtons.push(b);
     }
     this.listEl=list.createDiv({cls:'ldb-list',attr:{role:'listbox',tabindex:'0','aria-label':tr('论文列表'),'aria-multiselectable':'true'}});
+    this.listDropController?.destroy();this.listDropController=ldbListDropTarget(list,this);
     this.listEl.addEventListener('click',e=>{const t=e.target.closest('[data-paper-path]');if(t)this.select(t.dataset.paperPath,e);});
     this.listEl.addEventListener('dblclick',e=>{const t=e.target.closest('[data-paper-path]');if(t&&!this.dirty())this.openPDF(this.rows.find(r=>r.path===t.dataset.paperPath));});
     this.listEl.addEventListener('keydown',e=>this.listKeydown(e));
@@ -707,7 +741,7 @@ class LiteratureBrowser extends ItemView {
   }
   primaryAction(){if(this.dirty()){new Notice(tr('请先保存或取消编辑'));return;}if(this.isPublic())new CategoryModal(this.plugin,this.scope).open();else if(this.scope==='inbox')new AgentHandoffModal(this.plugin).open();else new VenueModal(this.plugin,this.scope).open();}
   renderList(reset=false){
-    if(!this.listEl)return;const scroll=reset?0:this.listEl.scrollTop;
+    if(!this.listEl)return;const scroll=reset?0:this.listEl.scrollTop,keepVisible=!reset&&!this.dirty()&&this.selectionVisible();
     if(this.isPublic())this.visibleRows=Engine.filterLibrary(this.rows,{...this.filters,bookmarked:this.filters.bookmarked||this.filters.bookmarkOnly,category:this.scope==='projects'?'':this.filters.category});
     else{
       const tokens=this.filters.query.toLowerCase().split(/\s+/).filter(Boolean);
@@ -718,12 +752,14 @@ class LiteratureBrowser extends ItemView {
     }
     const collection=this.groupingCollection();
     if(collection&&this.filters.subgroup!==null){const paths=new Set(collection.members.filter(m=>(m.subgroup||'')===this.filters.subgroup).map(m=>m.path));this.visibleRows=this.visibleRows.filter(r=>paths.has(r.path));}
+    if(this.pendingRevealPaths?.length){const reveal=this.pendingRevealPaths.flatMap(path=>this.visibleRows.filter(r=>(r.pdfPath||r.path)===path));if(reveal.length){this.selectedPath=reveal[0].path;this.selectedPaths=new Set(reveal.map(r=>r.path));}}
     if(!this.dirty()&&!this.visibleRows.some(r=>r.path===this.selectedPath))this.selectedPath=this.visibleRows[0]?.path||'';
     this.selectedPaths=new Set([...this.selectedPaths].filter(path=>this.visibleRows.some(r=>r.path===path)));if(!this.selectedPaths.size&&this.selectedPath)this.selectedPaths.add(this.selectedPath);
     this.countEl.setText(tr`${this.visibleRows.length} 篇`);this.clearEl.hidden=!['query','status','tag','organizing','bookmarkOnly'].some(k=>this.filters[k]);this.syncFilterControls();
     for(const b of this.sortButtons){const on=b.dataset.sort===this.filters.sort;b.setText(b.dataset.label+(on?(this.filters.descending?' ↓':' ↑'):''));}
     const childGrouped=!!collection&&this.filters.subgroup===null,grouped=this.filters.bookmarked||childGrouped;
-    const groups=this.filters.bookmarked?Engine.groupLibrary(this.visibleRows,this.plugin.snapshot?.categories):childGrouped?Collections.groupRows(this.visibleRows,collection):[{name:'',rows:this.visibleRows}];
+    const groups=this.filters.bookmarked?Engine.groupLibrary(this.visibleRows,this.plugin.snapshot?.categories):childGrouped?Collections.groupRows(this.visibleRows,collection,{includeEmpty:true}):[{name:'',rows:this.visibleRows}];
+    this.listEl.toggleClass('ldb-child-groups',childGrouped);
     // A bookmark write must not rebuild the unchanged list or its focus/scroll state.
     const listKey=JSON.stringify([LdbI18n.getLanguage(),this.scope,this.filters.bookmarked,childGrouped,groups.map(g=>[g.name,g.rows.map(r=>[r.path,this.detailTitle(r),r.published,r.status,r.priority])])]);
     if(listKey===this.listRenderKey&&this.listEl.querySelector){
@@ -733,9 +769,9 @@ class LiteratureBrowser extends ItemView {
         if(this.isPublic()&&item.row.bookmarked&&!badge){const marker=icon.createSpan({cls:'ldb-bookmark-badge',attr:{'aria-label':tr('已加书签')}});setIcon(marker,'bookmark');this.detailMotion?.animate(marker,'in');}
         else if(!item.row.bookmarked&&badge)badge.remove();
       }
-      this.syncMobileControls();this.updateSelection();if(!this.dirty())this.renderDetail();this.remember();return;
+      if(reset)this.listEl.scrollTop=0;this.syncMobileControls();this.updateSelection();if(!this.dirty())this.renderDetail();this.remember();return;
     }
-    this.listRenderKey=listKey;this.listEl.empty();this.rowEls=new Map();this.renderedRows=[];
+    this.listDropController?.end();this.listRenderKey=listKey;this.listEl.empty();this.rowEls=new Map();this.renderedRows=[];
     for(const group of groups){
       let container=this.listEl;
       if(grouped){
@@ -744,7 +780,7 @@ class LiteratureBrowser extends ItemView {
         const heading=container.createDiv({cls:'ldb-group-heading',attr:{role:'presentation'}});
         heading.createSpan({text:label});
         heading.createSpan({cls:'ldb-group-count',text:String(group.rows.length)});
-        if(childGrouped)ldbDropTarget(heading,this.plugin,{scope:this.scope,category:this.filters.category,subgroup:group.subgroup});
+        if(childGrouped)container.dataset.dropSubgroup=group.subgroup;
       }
       for(const r of group.rows){
         const i=this.renderedRows.length;
@@ -758,9 +794,17 @@ class LiteratureBrowser extends ItemView {
         this.renderedRows.push({row:r,el:row});
       }
     }
-    if(!this.visibleRows.length)this.listEl.createDiv({cls:'ldb-empty',text:this.scope==='inbox'||TRACK_FILES[this.scope]?tr(Platform?.isMobile?'点击 ＋ 导入 PDF':'拖入 PDF'):tr('暂无文献')});
+    if(!this.visibleRows.length&&!childGrouped)this.listEl.createDiv({cls:'ldb-empty',text:this.scope==='inbox'||TRACK_FILES[this.scope]?tr(Platform?.isMobile?'点击 ＋ 导入 PDF':'拖入 PDF'):tr('暂无文献')});
     this.syncMobileControls();
-    this.listEl.scrollTop=scroll;this.updateSelection();if(!this.dirty()){this.renderDetail();}this.remember();
+    this.listEl.scrollTop=scroll;this.updateSelection();if(keepVisible)this.revealSelection();if(!this.dirty()){this.renderDetail();}this.remember();
+  }
+  selectionElement(){return this.renderedRows?.find(r=>r.el?.id===this.activeRowId&&r.row.path===this.selectedPath)?.el||this.rowEls?.get(this.selectedPath);}
+  selectionVisible(){const row=this.selectionElement();if(!row?.getBoundingClientRect||!this.listEl?.getBoundingClientRect)return false;const r=row.getBoundingClientRect(),b=this.listEl.getBoundingClientRect();return r.bottom>b.top&&r.top<b.bottom;}
+  revealSelection(center=false){
+    const row=this.selectionElement();if(!row)return;
+    if(!row.getBoundingClientRect||!this.listEl?.getBoundingClientRect){row.scrollIntoView?.({block:'nearest'});return;}
+    const r=row.getBoundingClientRect(),b=this.listEl.getBoundingClientRect();if(r.top>=b.top&&r.bottom<=b.bottom)return;
+    this.listEl.scrollTop+=center?(r.top+r.bottom-b.top-b.bottom)/2:r.top<b.top?r.top-b.top:r.bottom-b.bottom;
   }
   selectionRows(){return this.renderedRows?.length?this.renderedRows:this.visibleRows.map(row=>({row,el:this.rowEls?.get(row.path)}));}
   select(path,event={},element=null){
@@ -801,7 +845,7 @@ class LiteratureBrowser extends ItemView {
     if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();if(this.isPublic()&&this.filters.subgroup)this.moveOutOfChild(this.selectedRows());else if(this.isPublic()&&this.filters.category&&this.filters.category!==Engine.UNFILED_CATEGORY)this.removeMembership(this.selectedRows(),true);else this.requestDelete(rows[i]?.row);return;}
     if(e.key==='Enter'){e.preventDefault();this.openPDF(rows[i]?.row);return;}
     if(e.key==='ArrowDown')i=Math.min(rows.length-1,i+1);else if(e.key==='ArrowUp')i=Math.max(0,i-1);else if(e.key==='Home')i=0;else if(e.key==='End')i=rows.length-1;else return;
-    e.preventDefault();this.select(rows[i].row.path,e,rows[i].el);rows[i].el?.scrollIntoView({block:'nearest'});
+    e.preventDefault();this.select(rows[i].row.path,e,rows[i].el);this.revealSelection();
   }
   async moveOutOfChild(rows){
     if(this.dirty())return;const target={scope:this.scope,name:this.filters.category,subgroup:''},expected={target,placements:Collections.placementState(this.plugin.snapshot.collections,rows.map(r=>r.path),target)};
@@ -1055,7 +1099,7 @@ class LiteratureBrowser extends ItemView {
     }catch(e){this.saving=false;this.saveEl.disabled=this.cancelEl.disabled=false;this.formError.setText(e.message);}
   }
   async openPDF(row){if(row)await this.plugin.openPDF(row.pdfPath||row.path);}
-  async onClose(){this.closed=true;this.detailMotion?.destroy();}
+  async onClose(){this.closed=true;this.listDropController?.destroy();this.detailMotion?.destroy();}
 }
 
 class LanguageModal extends Modal {

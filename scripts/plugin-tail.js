@@ -108,6 +108,13 @@ module.exports=class LiteratureManager extends Plugin {
     if(nav&&leaf.view instanceof LiteratureBrowser)await leaf.view.navigate(nav);
     if(Platform.isMobile)this.app.workspace.leftSplit?.collapse();else await this.showNavigation();
     await this.app.workspace.revealLeaf(leaf);
+    if(nav?.revealPaths?.length&&leaf.view instanceof LiteratureBrowser){
+      const view=leaf.view;view.contentEl.ownerDocument.defaultView.requestAnimationFrame(()=>{
+        if(view.closed||view.dirty())return;
+        const row=view.rows.find(r=>r.path===view.selectedPath);if(!row||!nav.revealPaths.includes(row.pdfPath||row.path))return;
+        view.revealSelection(true);view.listEl?.focus({preventScroll:true});
+      });
+    }
   }
   renderNavigation(){for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))if(leaf.view instanceof LibraryNavigation)leaf.view.render();}
   stagingGroup(scope){const groups=this.snapshot?.groups[scope]||[];return groups.includes('暂存区')?'暂存区':groups.includes('待确定 venue')?'待确定 venue':'暂存区';}
@@ -321,7 +328,8 @@ module.exports=class LiteratureManager extends Plugin {
         });}catch(error){throw new Error(tr('附件保留在 ')+folder+tr('；记录写入失败：')+error.message);}
       }
       await this.refresh();
-      if((added.length||importedPaths.length)&&!this.hasPendingEdit())await this.openLibrary({scope,category,status:'',...(typeof nav.subgroup==='string'?{subgroup:nav.subgroup}:{})});
+      const revealPaths=publicImport?importedPaths:added.map(r=>r.path);
+      if(revealPaths.length&&!this.hasPendingEdit())await this.openLibrary({scope,category,status:'',revealPaths,...(!nav.stayInParent&&typeof nav.subgroup==='string'?{subgroup:nav.subgroup}:{})});
       const summary=[tr`已导入 ${added.length} 篇 PDF`];
       const attached=added.reduce((n,r)=>n+r.attachments,0);if(attached)summary.push(tr`保留 ${attached} 个批注附件`);
       if(added.some(r=>r.collision))summary.push(tr('重名文件放入独立子目录，文件名和原件保持不变'));

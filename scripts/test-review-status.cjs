@@ -3,11 +3,12 @@ const E=require('./dashboard');
 const table=E.TRACKING_HEADERS;
 const section=name=>'## '+name+'\r\n截止时间：2026-11-01 23:59 -12:00\r\n\r\n| '+table.join(' | ')+' |\r\n| '+table.map(()=> '---').join(' | ')+' |\r\n| [Same.pdf](reviews/Venue/Same.pdf) | 待审 | 2026-11-01 23:59 -12:00 | Next step | Original &#124; notes<br>中文笔记 |\r\n';
 const original=section('Venue A')+'\r\n'+section('Venue B')+'\r\n<!-- tracking:end -->\r\nUSER FOOTER';
+const testDocument={addEventListener(){},removeEventListener(){},defaultView:{addEventListener(){},removeEventListener(){}}};
 class Element{
-  constructor(options={}){this.children=[];this.events={};this.dataset={};this.scrollTop=0;this.value=options.value||'';this.textContent=options.text||'';this.attributes=options.attr||{};this.hidden=false;}
+  constructor(options={}){this.children=[];this.events={};this.dataset={};this.scrollTop=0;this.value=options.value||'';this.textContent=options.text||'';this.attributes=options.attr||{};this.hidden=false;this.ownerDocument=testDocument;}
   get selectedOptions(){return this.children.filter(e=>e.tag==='option'&&e.value===this.value);}
   createEl(tag,o){const e=new Element(o);e.tag=tag;this.children.push(e);return e;}createDiv(o){return this.createEl('div',o);}createSpan(o){return this.createEl('span',o);}
-  addEventListener(n,f){this.events[n]=f;}toggleClass(){}removeAttribute(k){delete this.attributes[k];}addClass(name){(this.classes??=new Set()).add(name);}setAttribute(k,v){this.attributes[k]=v;}setText(t){this.textContent=t;}empty(){this.children=[];}
+  addEventListener(n,f){this.events[n]=f;}removeEventListener(){}removeClass(){}toggleClass(){}removeAttribute(k){delete this.attributes[k];}addClass(name){(this.classes??=new Set()).add(name);}setAttribute(k,v){this.attributes[k]=v;}setText(t){this.textContent=t;}empty(){this.children=[];}
 }
 class ItemView{constructor(leaf){this.leaf=leaf;this.contentEl=new Element();this.app={workspace:{requestSaveLayout(){}}};}registerDomEvent(){}}
 const notices=[];

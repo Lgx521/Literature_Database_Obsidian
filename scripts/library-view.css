@@ -159,7 +159,13 @@
 .ldb-tree-toggle { display: flex; flex: 0 0 14px; align-items: center; justify-content: center; color: var(--text-muted); margin-left: -10px; }
 .ldb-tree-toggle svg { width: 13px; height: 13px; }
 .ldb-tree-toggle:hover { color: var(--text-normal); }
-.ldb-group-heading.is-drop-target { background: var(--background-modifier-active-hover); outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
+.ldb-list.ldb-child-groups { display: flex; flex-direction: column; }
+.ldb-child-groups > .ldb-bookmark-group { flex: 0 0 auto; }
+.ldb-child-groups > .ldb-bookmark-group:last-child { flex: 1 0 auto; }
+.ldb-bookmark-group.is-drop-target { outline: 2px solid var(--interactive-accent); outline-offset: -2px; background: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-primary)); }
+.ldb-list.is-paper-drag-over .ldb-row.is-selected { background: var(--background-primary); box-shadow: none; }
+.ldb-list.is-paper-drag-over .is-drop-target .ldb-row, .ldb-list .is-drop-target .ldb-group-heading { background: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-primary)); }
+.ldb-list .is-drop-target .ldb-group-heading { color: var(--interactive-accent); }
 .ldb-role-heading { display: flex; align-items: center; margin-top: 4px; }
 .ldb-role-heading .ldb-nav-item { flex: 1; width: auto; }
 .ldb-role-heading .ldb-nav-add { flex: 0 0 24px; background: transparent; box-shadow: none; padding: 0; height: 24px; font-size: 18px; color: var(--text-muted); }

@@ -117,6 +117,17 @@ const descendants=el=>el.children.flatMap(e=>[e,...descendants(e)]);
  await view.navigate({scope:'library',category:'ML',subgroup:''});assert.equal(view.visibleRows.length,2);
  await view.navigate({scope:'library',category:'ML'});assert.equal(view.visibleRows.length,3);
  await view.navigate({scope:'library',bookmarked:true});assert.equal(view.renderedRows.length,4);assert.equal(descendants(view.listEl).filter(e=>e.classes.has('ldb-group-heading')).length,3);
+ // Import navigation clears hiding filters and selects all successes, focusing the first imported PDF rather than the first sorted row.
+ view.filters.query='missing';view.filters.tag='#research/missing';view.filters.bookmarkOnly=true;view.filters.sort='title';view.filters.descending=true;view.listEl.scrollTop=900;
+ await view.navigate({scope:'library',category:'ML',revealPaths:['papers/Two.pdf','papers/One.pdf','papers/missing.pdf']});
+ assert.equal(view.selectedPath,'papers/Two.pdf');assert.equal(view.detailRow.path,'papers/Two.pdf');assert.deepEqual([...view.selectedPaths].sort(),['papers/One.pdf','papers/Two.pdf']);assert.equal(view.filters.query,'');assert.equal(view.filters.tag,'');assert.equal(view.filters.bookmarkOnly,false);assert.equal(view.filters.descending,true);assert(view.rowEls.get('papers/Two.pdf').scrolled);
+ // Only the list scrolls, and a metadata/title reorder keeps a previously visible selection in view.
+ view.listEl.getBoundingClientRect=()=>({top:0,bottom:100});view.listEl.scrollTop=500;
+ const chosen=view.rowEls.get(view.selectedPath);chosen.getBoundingClientRect=()=>({top:30,bottom:60});assert(view.selectionVisible());
+ chosen.getBoundingClientRect=()=>({top:170,bottom:200});view.revealSelection();assert.equal(view.listEl.scrollTop,600);
+ chosen.getBoundingClientRect=()=>({top:20,bottom:50});view.revealSelection();assert.equal(view.listEl.scrollTop,600);
+ const beforeSelection=view.selectedPath;view.notesDirty=true;assert.equal(await view.navigate({scope:'library',revealPaths:['papers/One.pdf']}),false);assert.equal(view.selectedPath,beforeSelection);view.notesDirty=false;
+ delete view.listEl.getBoundingClientRect;await view.navigate({scope:'library',category:'ML'});assert.equal(view.listEl.scrollTop,0,'Changing collections must not inherit a hidden scroll position');
  view.scope='inbox';view.renderDetail();assert.equal(view.bookmarkButton,null);
  console.log('PASS: lazy lossless bookmark schema, user-only edits, conflicts, intake/trash/restore, multi-category grouping, unique selection/actions, keyboard ranges, persistence, badge and details toggle, Notes drafts and failed saves.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

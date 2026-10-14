@@ -145,9 +145,9 @@ function reorderChild(text,scope,parent,from,target,after,expected){
  if(from===target)return text;const names=g.subgroups.filter(n=>n!==from);names.splice(names.indexOf(target)+(after?1:0),0,from);
  g.subgroupIndexes.forEach((line,i)=>{info.lines[line]='子类：'+encode(names[i])+(text.includes('\r\n')?'\r':'');});return finish(info.lines);
 }
-function groupRows(rows,group){
+function groupRows(rows,group,{includeEmpty=false}={}){
  const placements=new Map(group.members.map(m=>[m.path,m.subgroup||'']));
- return [...(group.subgroups||[]),''].map(name=>({name:name||'未分组',subgroup:name,kind:name?'child':'ungrouped',rows:rows.filter(r=>placements.has(r.path)&&placements.get(r.path)===name)})).filter(g=>g.rows.length);
+ return [...(group.subgroups||[]),''].map(name=>({name:name||'未分组',subgroup:name,kind:name?'child':'ungrouped',rows:rows.filter(r=>placements.has(r.path)&&placements.get(r.path)===name)})).filter(g=>includeEmpty||g.rows.length);
 }
 function setVenue(text,project,value,expected){
   if(/[\r\n]/.test(value))throw new Error(tr('Venue 无效'));

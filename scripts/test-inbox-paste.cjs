@@ -3,10 +3,11 @@ const I=require('./inbox-import');
 const xml='<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><array><string>/tmp/论文 &amp; paper.pdf</string><string>/tmp/B.PDF</string><string>/tmp/notes.txt</string></array></plist>';
 const raw=Buffer.from(xml),reads=[];
 const clipboard={readBuffer(format){reads.push(format);return format==='NSFilenamesPboardType'?raw:format==='public.file-url'?Buffer.from('file:///tmp/B.PDF\0'):Buffer.alloc(0);}};
+const testDocument={addEventListener(){},removeEventListener(){},defaultView:{addEventListener(){},removeEventListener(){}}};
 class Element{
- constructor(options={}){this.children=[];this.events={};this.dataset={};this.textContent=options.text||'';this.ownerDocument={};}
+ constructor(options={}){this.children=[];this.events={};this.dataset={};this.textContent=options.text||'';this.ownerDocument=testDocument;}
  createEl(tag,o){const e=new Element(o);e.tag=tag;this.children.push(e);return e;}createDiv(o){return this.createEl('div',o);}createSpan(o){return this.createEl('span',o);}
- addEventListener(n,f){this.events[n]=f;}addClass(){}setAttribute(){}empty(){this.children=[];}
+ addEventListener(n,f){this.events[n]=f;}removeEventListener(){}addClass(){}removeClass(){}setAttribute(){}empty(){this.children=[];}
 }
 const menus=[],notices=[];
 class Menu{
