@@ -634,6 +634,7 @@ class LiteratureBrowser extends ItemView {
       }
       e.preventDefault();if(!this.selectedPaths.has(row.path)&&!this.dirty())this.select(row.path);
       const menu=new Menu(),rows=this.selectedRows();
+      this.addBookmarkMenu(menu,rows);
       if(this.isPublic()&&this.plugin.snapshot.collections){
         if(this.groupingCollection())menu.addItem(item=>item.setTitle(tr('设置子类…')).setIcon('folder').onClick(()=>ldbChildMenu(this.plugin,rows,{scope:this.scope,name:this.filters.category},{x:e.clientX,y:e.clientY},this.contentEl.ownerDocument)));
         if(this.filters.subgroup)menu.addItem(item=>item.setTitle(tr('移出子类')).setIcon('minus').onClick(()=>this.moveOutOfChild(rows)));
@@ -667,7 +668,7 @@ class LiteratureBrowser extends ItemView {
   syncFilterControls(){
     // Only the selected label sizes the native select, not its longest menu option.
     for(const select of [this.statusEl,this.organizingEl])if(select?.ldbSizer)select.ldbSizer.setText(select.selectedOptions[0]?.textContent||'');
-    if(this.tagEl){const tags=this.filters.tags||[],labels=tags.map(TagTree.label),text=labels.join(' · ')||tr('全部标签');this.tagEl.setText(text);this.tagEl.title=tr('同时包含所选标签')+(labels.length?' · '+labels.join(', '):'');this.tagEl.setAttribute('aria-label',tr('标签')+': '+text);this.tagEl.toggleClass('is-active',!!tags.length);}
+    if(this.tagEl){const tags=this.filters.tags||[],labels=tags.map(TagTree.label),text=labels.join(' · ')||tr('全部标签');this.tagEl.setText(text);this.tagEl.title=tr('包含任一所选标签')+(labels.length?' · '+labels.join(', '):'');this.tagEl.setAttribute('aria-label',tr('标签')+': '+text);this.tagEl.toggleClass('is-active',!!tags.length);}
     if(this.bookmarkFilterEl){
       this.bookmarkFilterEl.hidden=!!this.filters.bookmarked;
       this.bookmarkFilterEl.toggleClass('is-active',this.filters.bookmarkOnly);
@@ -1024,6 +1025,36 @@ class LiteratureBrowser extends ItemView {
       if(saved){this.venueInput.value=this.venueDraft='';this.venueInput.hidden=true;this.lockFilters(this.notesDirty);this.renderPaperVenues();this.remember();if(!this.dirty())await this.reload();}
       return saved;
     }catch(error){this.quickError.setText(error.message);this.quickError.hidden=false;return false;}
+  }
+  addBookmarkMenu(menu,rows){
+    if(!this.isPublic()||!rows.length)return;
+    const marked=rows.every(row=>row.bookmarked);
+    menu.addItem(item=>item.setTitle(tr(marked?'取消书签':'添加书签')).setIcon(marked?'bookmark-minus':'bookmark-plus')
+      .setDisabled(!!(this.dirty()||this.readError||this.plugin.importing||this.plugin.hasPendingEdit()))
+      .onClick(()=>this.saveSelectedBookmarks(rows,!marked)));
+  }
+  async saveSelectedBookmarks(rows,value){
+    if(this.closed||!this.isPublic()||this.readError||this.dirty())return false;
+    const selected=[...new Map(rows.map(row=>[row.path,row])).values()];if(!selected.length)return false;
+    let updated;
+    try{
+      await this.plugin.recordAction(async()=>{
+        this.saving=true;
+        try{
+          await this.plugin.mutate(LIBRARY_SOURCE,text=>{
+            // Check the whole selection before migrating an old table or changing
+            // any row. A conflict cancels the complete batch, never a partial write.
+            const actor={kind:'human',name:'user'};
+            for(const row of selected)Engine.updateLibraryEntry(text,row,{bookmarked:value},actor);
+            let next=text;
+            for(const row of selected)next=Engine.updateLibraryEntry(next,Engine.parseLibrary(next).find(r=>r.path===row.path),{bookmarked:value},actor);
+            updated=Engine.parseLibrary(next).find(r=>r.path===this.detailRow?.path);return next;
+          });
+          if(updated)this.detailRow=this.notesBase=updated;
+        }finally{this.saving=false;}
+      });
+      await this.reload();this.queueDetailMotion();return true;
+    }catch(error){new Notice(error.message,8000);return false;}
   }
   async saveBookmark(value){
     const row=this.detailRow;

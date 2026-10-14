@@ -1,6 +1,6 @@
 // Editable tag vocabulary. Paper assignments stay in library.md; no PDF reads or network calls.
 class TagMapModal extends Modal {
-  constructor(view){super(view.app);this.view=view;this.plugin=view.plugin;this.closed=false;this.busy=false;this.nodes=new Map();this.collapsed=new Set();this.zoom=1;this.pan={x:24,y:24};this.cleanups=[];this.pointers=new Map();this.scope=new Scope(view.app.scope);this.scope.register([], 'Escape', e=>{e.preventDefault();if(this.editor)this.cancelEditor();else this.close();return false;});}
+  constructor(view){super(view.app);this.view=view;this.plugin=view.plugin;this.closed=false;this.busy=false;this.nodes=new Map();this.collapsed=new Set();this.branchSides=new Map();this.zoom=1;this.pan={x:24,y:24};this.cleanups=[];this.pointers=new Map();this.scope=new Scope(view.app.scope);this.scope.register([], 'Escape', e=>{e.preventDefault();if(this.editor)this.cancelEditor();else this.close();return false;});}
   listen(el,type,fn,options){el.addEventListener(type,fn,options);this.cleanups.push(()=>el.removeEventListener(type,fn,options));}
   icon(parent,icon,label,action,cls=''){const b=ldbButton(parent,'',action,'ldb-map-icon '+cls);setIcon(b,icon);b.title=label;b.setAttribute('aria-label',label);return b;}
   onOpen(){
@@ -55,18 +55,16 @@ class TagMapModal extends Modal {
   focusNode(key){const n=this.positions?.get(key);if(!n)return;const r=this.viewport.getBoundingClientRect();this.pan={x:r.width/2-(n.x+n.width/2)*this.zoom,y:r.height/2-(n.y+18)*this.zoom};this.transform();}
   render(){
     if(this.closed||!this.tree)return;
-    const visible=[],walk=(node,depth,parent)=>{const n={...node,depth,parent,width:Math.min(260,Math.max(node.kind==='root'?106:128,58+[...node.label].reduce((sum,c)=>sum+(/[\u2e80-\uffff]/.test(c)?14:7.8),0))),children:[]};visible.push(n);
-      if(!this.collapsed.has(node.key))n.children=node.children.map(c=>walk(c,depth+1,n));
-      if(this.editor?.parent===node.key){const editor={key:'editor',kind:'editor',label:'',depth:depth+1,parent:n,width:234,children:[]};n.children.push(editor);visible.push(editor);}return n;};
-    const root=walk(this.tree,0,null),widths=[];for(const n of visible)widths[n.depth]=Math.max(widths[n.depth]||0,n.width);
-    let row=0;const place=n=>{if(n.children.length){n.children.forEach(place);n.y=(n.children[0].y+n.children.at(-1).y)/2;}else n.y=row++*49;n.x=widths.slice(0,n.depth).reduce((s,w)=>s+w+55,0);};place(root);
-    this.layout={width:Math.max(...visible.map(n=>n.x+n.width))+36,height:row*49+18};this.positions=new Map(visible.map(n=>[n.key,n]));
+    const oldRoot=this.positions?.get('root');
+    this.layout=TagTree.layout(this.tree,{collapsed:this.collapsed,editor:this.editor,sides:this.branchSides});
+    const visible=this.layout.nodes;this.positions=new Map(visible.map(n=>[n.key,n]));
+    const root=this.positions.get('root');if(oldRoot){this.pan.x+=(oldRoot.x-root.x)*this.zoom;this.pan.y+=(oldRoot.y-root.y)*this.zoom;}
     this.stage.style.width=this.layout.width+'px';this.stage.style.height=this.layout.height+'px';this.lines.setAttribute('width',this.layout.width);this.lines.setAttribute('height',this.layout.height);this.lines.replaceChildren();
     const alive=new Set(visible.map(n=>n.key));for(const [key,el]of this.nodes)if(!alive.has(key)){el.remove();this.nodes.delete(key);}
     for(const n of visible){
-      if(n.parent){const p=n.parent,x=p.x+p.width,y=p.y+18,to=n.x,ty=n.y+18,path=this.mapDoc.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('d',`M ${x} ${y} C ${x+28} ${y}, ${to-28} ${ty}, ${to} ${ty}`);this.lines.appendChild(path);}
-      let el=this.nodes.get(n.key);if(!el){el=this.createNode(n);this.nodes.set(n.key,el);this.stage.appendChild(el);}el.ldbNode=n;el.style.left=n.x+'px';el.style.top=n.y+'px';el.style.width=n.width+'px';
-      if(n.kind!=='editor'){el.ldbLabel.setText(n.label);const hasChildren=!!this.descendants(this.tree).find(x=>x.key===n.key)?.children.length;el.ldbFold.hidden=!hasChildren;el.ldbFold.setAttribute('aria-expanded',String(!this.collapsed.has(n.key)));el.ldbFold.title=tr(this.collapsed.has(n.key)?'展开':'收起');el.ldbFold.setAttribute('aria-label',el.ldbFold.title);setIcon(el.ldbFold,this.collapsed.has(n.key)?'chevron-right':'chevron-down');}
+      if(n.parent){const p=n.parent,left=n.side==='left',direction=left?-1:1,x=left?p.x:p.x+p.width,y=p.y+18,to=left?n.x+n.width:n.x,ty=n.y+18,path=this.mapDoc.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('d',`M ${x} ${y} C ${x+28*direction} ${y}, ${to-28*direction} ${ty}, ${to} ${ty}`);this.lines.appendChild(path);}
+      let el=this.nodes.get(n.key);if(!el){el=this.createNode(n);this.nodes.set(n.key,el);this.stage.appendChild(el);}el.ldbNode=n;el.classList.toggle('is-left',n.side==='left');el.style.left=n.x+'px';el.style.top=n.y+'px';el.style.width=n.width+'px';
+      if(n.kind!=='editor'){el.ldbLabel.setText(n.label);const hasChildren=!!this.descendants(this.tree).find(x=>x.key===n.key)?.children.length;el.ldbFold.hidden=!hasChildren;el.ldbFold.setAttribute('aria-expanded',String(!this.collapsed.has(n.key)));el.ldbFold.title=tr(this.collapsed.has(n.key)?'展开':'收起');el.ldbFold.setAttribute('aria-label',el.ldbFold.title);setIcon(el.ldbFold,this.collapsed.has(n.key)?(n.side==='left'?'chevron-left':'chevron-right'):'chevron-down');}
     }
     this.syncChecked();this.transform();
   }

@@ -3,7 +3,7 @@ class TagFilterPopover {
   constructor(view){this.view=view;this.doc=view.contentEl.ownerDocument;this.win=this.doc.defaultView;this.closed=false;this.cleanups=[];this.entries=new Map();}
   listen(el,type,fn,options){el.addEventListener(type,fn,options);this.cleanups.push(()=>el.removeEventListener(type,fn,options));}
   open(){
-    this.root=this.doc.body.createDiv({cls:'ldb-tag-filter-popover',attr:{role:'dialog','aria-label':tr('标签'),'aria-description':tr('同时包含所选标签')}});
+    this.root=this.doc.body.createDiv({cls:'ldb-tag-filter-popover',attr:{role:'dialog','aria-label':tr('标签'),'aria-description':tr('包含任一所选标签')}});
     const header=this.root.createDiv('ldb-tag-filter-search');
     this.search=header.createEl('input',{type:'search',attr:{placeholder:tr('搜索标签…'),'aria-label':tr('搜索标签')}});
     this.clear=ldbButton(header,'',()=>this.view.setTagFilters([]),'clickable-icon');setIcon(this.clear,'x');this.clear.title=tr('清除标签筛选');this.clear.setAttribute('aria-label',tr('清除标签筛选'));

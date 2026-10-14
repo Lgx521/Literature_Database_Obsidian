@@ -1,7 +1,7 @@
 'use strict';
 // Source table values and user content are never translated in storage.
 const english = {
-  "同时包含所选标签": "Match all selected tags",
+  "包含任一所选标签": "Match any selected tag",
   "清除标签筛选": "Clear tag filters",
   "没有匹配标签": "No matching tags",
   "标签思维导图": "Tag map",

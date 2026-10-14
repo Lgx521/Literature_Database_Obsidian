@@ -111,7 +111,7 @@ function filterLibrary(rows, { query = '', category = '', status = '', tag = '',
   const selectedTags=normalizeTagFilter(Array.isArray(tags)?tags:tag).map(t=>t.toLocaleLowerCase());
   const result = rows.filter(r => (!bookmarked || r.bookmarked) && (!category || (r.categories ? (category===UNFILED_CATEGORY?!r.categories.length:r.categories.includes(category)) : r.category === category)) && (!status || r.status === status)
     && (!organizing || (organizing==='pending'?Organization.pending(r):r.organizing===organizing))
-    && selectedTags.every(t=>r.tags.toLocaleLowerCase().split(/\s+/).includes(t))
+    && (!selectedTags.length||selectedTags.some(t=>r.tags.toLocaleLowerCase().split(/\s+/).includes(t)))
     && tokens.every(t => [r.filename, r.title||'', ...(r.categories||[r.category]), r.tags, r.tldr, decodeText(r.notes || ''), r.published, r.status, r.priority, ...(r.venues||[])].join(' ').toLocaleLowerCase().includes(t)));
   return result.sort((a, b) => {
     // Unknown dates always stay at the end, in either direction.

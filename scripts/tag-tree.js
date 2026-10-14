@@ -71,4 +71,35 @@ async function save(plugin,expected,model){
   return after;
  }finally{plugin.recordBusy=false;}
 }
-module.exports={FILE,START,END,parse,serialize,validate,validTag,label,family,effective,addGroup,addTag,moveFamily,tree,read,save,fold};
+// Balance complete branches once per open map. Folding and adding a child must not
+// move an existing group across the root. This is view state, never catalog data.
+function layout(tree,{collapsed=new Set(),editor=null,sides=new Map()}={}){
+ const weight=node=>node.children.length?node.children.reduce((sum,n)=>sum+weight(n),0):1;
+ const loads={left:0,right:0},groups=tree.children;
+ for(const group of groups)if(sides.has(group.key))loads[sides.get(group.key)]+=weight(group);
+ for(const group of groups.filter(g=>!sides.has(g.key)).sort((a,b)=>weight(b)-weight(a))){const side=loads.right<=loads.left?'right':'left';sides.set(group.key,side);loads[side]+=weight(group);}
+ const visible=[],widths={left:[],right:[]};
+ const walk=(node,depth,parent,side)=>{
+  const width=node.kind==='editor'?234:Math.min(260,Math.max(node.kind==='root'?106:128,58+[...node.label].reduce((sum,c)=>sum+(/[\u2e80-\uffff]/.test(c)?14:7.8),0)));
+  const n={...node,depth,parent,side,width,children:[]};visible.push(n);
+  if(side)widths[side][depth]=Math.max(widths[side][depth]||0,width);
+  if(!collapsed.has(node.key))n.children=node.children.map(c=>walk(c,depth+1,n,side||sides.get(c.key)));
+  if(editor?.parent===node.key){const editorSide=side||'right';n.children.push(walk({key:'editor',kind:'editor',label:'',children:[]},depth+1,n,editorSide));}
+  return n;
+ };
+ const root=walk(tree,0,null,null),heights={left:0,right:0};root.x=0;
+ for(const side of ['left','right']){
+  let row=0;const place=n=>{
+   if(n.children.length){n.children.forEach(place);n.y=(n.children[0].y+n.children.at(-1).y)/2;}else n.y=row++*49;
+   const distance=55+widths[side].slice(1,n.depth).reduce((sum,w)=>sum+w+55,0);
+   n.x=side==='right'?root.width+distance:-distance-n.width;
+  };
+  root.children.filter(n=>n.side===side).forEach(place);heights[side]=Math.max(0,(row-1)*49);
+ }
+ const height=Math.max(heights.left,heights.right);root.y=height/2;
+ for(const n of visible)if(n.side)n.y+=(height-heights[n.side])/2;
+ const left=Math.min(...visible.map(n=>n.x))-24,right=Math.max(...visible.map(n=>n.x+n.width))+24;
+ for(const n of visible){n.x-=left;n.y+=12;}
+ return {nodes:visible,width:right-left,height:height+60};
+}
+module.exports={FILE,START,END,parse,serialize,validate,validTag,label,family,effective,addGroup,addTag,moveFamily,tree,layout,read,save,fold};

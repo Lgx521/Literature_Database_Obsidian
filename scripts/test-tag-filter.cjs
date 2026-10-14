@@ -1,9 +1,9 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),E=require('./dashboard');
 const rows=[['One','#research/rl #research/vla'],['Two','#research/rl'],['Three','#research/vla'],['Four','#research/rl/online']].map(([name,tags],i)=>({path:'papers/'+name+'.pdf',filename:name+'.pdf',title:name,tags,category:'ML',categories:['ML'],published:'2026.10',status:i===0?'在读':'待读',priority:'—',tldr:'Summary',notes:'',bookmarked:i===0,organizing:'待整理'}));
-assert.equal(E.filterLibrary(rows,{tags:['#research/rl','#research/vla']}).length,1);
+assert.equal(E.filterLibrary(rows,{tags:['#research/rl','#research/vla']}).length,3);
 assert.equal(E.filterLibrary(rows,{tags:['#research/rl']}).length,2,'Parent names must not match child paths implicitly');
-assert.equal(E.filterLibrary(rows,{tags:['#research/rl','#research/missing']}).length,0);
+assert.equal(E.filterLibrary(rows,{tags:['#research/rl','#research/missing']}).length,2);
 assert.equal(E.filterLibrary(rows,{tags:[]}).length,4);
 assert.equal(E.filterLibrary(rows,{tag:'#research/vla'}).length,2,'Keep compatibility with a stored single-tag filter');
 assert.equal(E.filterLibrary(rows,{tags:['#research/RL','#research/rl']}).length,2,'Case-insensitive duplicate selections are normalized');
@@ -29,7 +29,7 @@ view.rows=rows;view.tagEl=new Element();view.remember=()=>{};view.syncControls=(
  await view.setState({scope:'library',tag:'#research/vla',tags:[]});assert.equal(view.filters.tags.length,0,'An explicit empty multi-filter wins over stale legacy state');
  view.openTagFilter();const menu=view.tagFilterMenu;assert(menu);assert.equal(view.tagEl.attributes['aria-expanded'],'true');
  const rl=menu.entries.get('#research/rl'),vla=menu.entries.get('#research/vla');rl.box.click();assert.equal(view.visibleRows.length,2);
- menu.list.scrollTop=60;vla.box.focus();vla.box.click();assert.equal(view.visibleRows.length,1);assert.equal(view.visibleRows[0].title,'One');assert.equal(menu.list.scrollTop,60);assert.equal(doc.activeElement,vla.box);assert.equal(view.tagFilterMenu,menu);assert.equal(menu.entries.get('#research/rl').box,rl.box);
+ menu.list.scrollTop=60;vla.box.focus();vla.box.click();assert.equal(view.visibleRows.length,3);assert.equal(new Set(view.visibleRows.map(r=>r.path)).size,3);assert.equal(menu.list.scrollTop,60);assert.equal(doc.activeElement,vla.box);assert.equal(view.tagFilterMenu,menu);assert.equal(menu.entries.get('#research/rl').box,rl.box);
  assert.equal(view.tagEl.textContent,'rl · vla');const state=view.getState();await view.setState(state);assert.equal(view.filters.tags.length,2);
  menu.search.value='vla';menu.search.emit('input');assert(rl.el.hidden);assert(!vla.el.hidden);assert.equal(view.filters.tags.length,2,'Searching the chooser does not clear selected tags');
  menu.search.value='';menu.search.emit('input');vla.box.click();assert.equal(view.visibleRows.length,2);assert.equal(menu.clear.disabled,false);
@@ -40,5 +40,5 @@ view.rows=rows;view.tagEl=new Element();view.remember=()=>{};view.syncControls=(
  view.openTagFilter();doc.emit('pointerdown',{target:new Element()});assert.equal(view.tagFilterMenu,null);
  view.setTagFilters(['#research/rl','#research/vla']);view.clearFilters();assert.equal(view.filters.tags.length,0);
  view.notesDirty=true;view.openTagFilter();assert.equal(view.tagFilterMenu,null);
- console.log('PASS: exact multi-tag intersections, combined filters, old-state migration, stable checkbox menu/scroll/focus, search/clear, draft guards, cleanup and no metadata writes.');
+ console.log('PASS: exact multi-tag unions, combined filters, old-state migration, stable checkbox menu/scroll/focus, search/clear, draft guards, cleanup and no metadata writes.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

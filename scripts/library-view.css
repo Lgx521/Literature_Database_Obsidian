@@ -388,6 +388,10 @@
 .ldb-map-node .ldb-map-fold { flex-basis: 15px; width: 15px; min-width: 15px; height: 22px; padding: 0; background: transparent; }
 .ldb-map-add { margin-right: -20px; opacity: 0; pointer-events: none; transition: opacity 120ms ease; background: var(--background-secondary); border: 1px solid var(--background-modifier-border); }
 .ldb-map-node:hover .ldb-map-add, .ldb-map-node:focus-within .ldb-map-add, .ldb-map-node.is-root .ldb-map-add, .ldb-map-node.is-group .ldb-map-add { opacity: 1; pointer-events: auto; }
+/* Left branches keep readable text while their add handle points outward. */
+.ldb-map-node.is-left { flex-direction: row-reverse; }
+.ldb-map-node.is-left .ldb-map-add { margin-right: 0; margin-left: -20px; }
+.ldb-map-node.is-left .ldb-map-node-label { text-align: right; }
 .ldb-map-node.is-editor { border-color: var(--interactive-accent); }
 .ldb-map-node.is-editor input { width: 0; min-width: 0; flex: 1; height: 26px; border: 0; background: transparent; box-shadow: none; padding: 0 3px; }
 .ldb-map-node input[aria-invalid=true] { color: var(--text-error); }
