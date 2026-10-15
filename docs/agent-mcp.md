@@ -1,6 +1,6 @@
-# Agent MCP (development preview)
+# Agent MCP
 
-Open **Agent MCP** next to **Trash** at the bottom of the sidebar. The panel is a short setup guide, not an agent launcher. These changes are not in the published 4.8.4 release yet.
+Open **Agent MCP** next to **Trash** at the bottom of the sidebar. The panel is a short setup guide, not an agent launcher. Available in 4.8.5 and later.
 
 1. On desktop, select **Prepare Codex connection** once per computer and keep this vault open in Obsidian. The local Codex host needs **Node.js 20+** available as `node`.
 2. Open the **vault folder** as your Codex project, trust it when prompted, and start a new local session. Codex loads the project's MCP configuration automatically; no Codex plugin or pasted URL/token is required. An already running session needs a restart to load a newly added server.

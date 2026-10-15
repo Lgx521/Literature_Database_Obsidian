@@ -1,6 +1,6 @@
 # Community releases
 
-The [Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard) was published on **2026-10-13**. The initial submission checklist covered **4.3.1**; the current release is **4.8.4**. New releases are reviewed separately and may take time to propagate to the app directory.
+The [Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard) was published on **2026-10-13**. The initial submission checklist covered **4.3.1**; the current release is **4.8.5**. New releases are reviewed separately and may take time to propagate to the app directory.
 
 ## Repository and distribution
 
@@ -10,7 +10,7 @@ The [Community listing](https://community.obsidian.md/plugins/paper-reservoir-da
 | Root `README.md`, `LICENSE`, `manifest.json` | Present; usage, installation, screenshots, data access and platform limits documented |
 | Plugin identity | `paper-reservoir-dashboard`, displayed as Literature Database, author shengzhegan; retain the installed ID for upgrade compatibility |
 | Community entry | Published as `paper-reservoir-dashboard`; retain this ID across updates |
-| Version metadata | Manifest, package and version map agree on `4.8.4`; release tag must be exactly `4.8.4`, without `v` |
+| Version metadata | Manifest, package and version map agree on `4.8.5`; release tag must be exactly `4.8.5`, without `v` |
 | Description | Short action statement, under 250 characters, ending with a period |
 | Minimum app | `1.8.7` for the public `getLanguage()` API; native menus and deferred views also use public APIs available by this version |
 | Mobile declaration | `isDesktopOnly: false`; mobile paths use browser/vault APIs and are tested with Node/Electron imports forbidden |
@@ -30,12 +30,12 @@ The first release is [4.3.1](https://github.com/Lgx521/Literature_Database_Obsid
 - Source mutations use guarded `vault.process` operations with backups. The adapter is used for hidden maintenance data that the indexed Vault API cannot access. macOS import uses explicit argv to `ditto`; PDF opening uses explicit argv to the default opener, with no shell expansion.
 - UI content is built with DOM helpers rather than injecting note text as HTML. Citation exports use escaped/sanitized HTML. CSS is scoped to plugin classes/views, and inputs use the current window document.
 - Vault/workspace handlers use `registerEvent`; refresh/countdown timers are cancelled on unload/close. Citation work checks unload/cancellation before writing.
-- README discloses Crossref/arXiv requests, explicit clipboard access and outside-vault PDF/sidecar imports. There is no account/payment requirement and no upload of PDFs or private review/submission material. See [README data and privacy](../README.md#data-and-privacy).
+- README discloses Crossref/arXiv requests, explicit clipboard access and outside-vault PDF/sidecar imports. There is no account/payment requirement. Citation recognition never uploads PDFs. The optional local MCP service can return requested public PDF text to a connected agent, which may process it remotely; review/submission material is excluded from those tools. See [README data and privacy](../README.md#data-and-privacy).
 - Bibliography formatting is deterministic. Agents are explicitly prohibited from inventing or filling citation fields.
 
 ## Validation and limits
 
-- **39 synthetic regression suites pass on macOS**, including first-run defaults, initialization races, existing-file preservation, legacy migration, concurrent source edits, citation evidence, deletion scope, trash, deadlines and inline controls.
+- **44 synthetic regression suites pass on macOS**, including first-run defaults, initialization races, existing-file preservation, legacy migration, concurrent source edits, citation evidence, deletion scope, trash, deadlines and inline controls.
 - macOS application smoke checks use a separate temporary vault: plugin enable/disable, settings, explicit creation and library opening. No personal vault is used for testing.
 - The locked dependency audit reports **0 known vulnerabilities** as of the check date. This is not a guarantee that the software is vulnerability-free.
 - Release CI tests macOS and Linux, compares the rebuilt dependency bundle and validates version/asset consistency before publishing. Linux skips the two macOS Finder/clipboard suites; this does not establish Linux GUI compatibility.

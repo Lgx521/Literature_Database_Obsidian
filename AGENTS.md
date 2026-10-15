@@ -66,7 +66,7 @@ The list/detail separator supports mouse, touch and keyboard without recreating 
 
 The divider opts out of Obsidian swipe recognition with `data-ignore-swipe` and non-passive Touch Event handlers limited to the divider. Pointer capture alone does not stop drawer gestures. Only mouse pointers set hover feedback; touch/pen release or cancellation clears divider focus and feedback without taking focus from Notes. Keep keyboard focus feedback. Mobile public-paper lists show priority at 560px of actual list width, not device width; named list/browser containers keep pane resizing, nested queries and manuscript layouts independent.
 
-## Agent MCP and tag rename (development preview)
+## Agent MCP and tag rename (4.8.5)
 
 Tag renames are explicit human operations: edit one segment inline, rename descendants and canonical assignments together, preserve verified provenance hashes under the new names, keep unknown provenance unknown, and refuse collisions. Visual-group renames only change tags.md. Use SourceTransaction backups/exact-text guards and compensation for library.md + optional tags.md. Preserve selected paper, active tag filters and unsaved Notes; never rebase a stale Notes row.
 

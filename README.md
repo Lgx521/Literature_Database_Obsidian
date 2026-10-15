@@ -12,13 +12,13 @@ A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Bro
 
 *Real screenshots from a separate demo vault, using the English interface. Public papers are paired with example notes, projects and review tasks; no private library or confidential manuscripts are shown. Click any image to view it at full size.*
 
-**Status:** **4.8.4**. [View the Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard); new releases may take time to reach the in-app directory. Requires **Obsidian 1.8.7+**. Mobile support is enabled for iPhone/iPad with a compact touch layout and Files picker. Validated with Obsidian 1.14.4 mobile emulation and a runtime test that rejects Node/Electron imports; physical iOS/Android devices have not yet been tested. Desktop behavior is preserved. Windows/Linux GUI behavior has not been validated; Finder drag/paste requires macOS. The interface supports English and Chinese, following the Obsidian language by default. Screenshots show the 4.8.0 interface in an isolated English demo vault.
+**Status:** **4.8.5**. [View the Community listing](https://community.obsidian.md/plugins/paper-reservoir-dashboard); new releases may take time to reach the in-app directory. Requires **Obsidian 1.8.7+**. Mobile support is enabled for iPhone/iPad with a compact touch layout and Files picker. Validated with Obsidian 1.14.4 mobile emulation and a runtime test that rejects Node/Electron imports; physical iOS/Android devices have not yet been tested. Desktop behavior is preserved. Windows/Linux GUI behavior has not been validated; Finder drag/paste requires macOS. The interface supports English and Chinese, following the Obsidian language by default. Screenshots show the 4.8.0 interface in an isolated English demo vault.
 
 ## Features
 
-**Development preview (not released):** Rename tag branches and visual groups in place, preserving per-tag provenance. **Agent MCP**, beside **Trash**, prepares project-scoped Codex access: open and trust the vault folder in a new local Codex session to use inbox filing, incomplete-paper enrichment, Zotero export migration, tag proposals, audits and citation export. Prepare once per computer; Node.js 20+ is required. No extra Codex plugin, agent launcher or schedule. Other local MCP clients can use the manual connection. See [setup, tools and current limits](docs/agent-mcp.md).
+**New in 4.8.5:** Rename tag branches and visual groups in place, preserving per-tag provenance. **Agent MCP**, beside **Trash**, prepares project-scoped Codex access: open and trust the vault folder in a new local Codex session to use inbox filing, incomplete-paper enrichment, Zotero export migration, tag proposals, audits and citation export. Prepare once per computer; Node.js 20+ is required. No extra Codex plugin, agent launcher or schedule. Other local MCP clients can use the manual connection. See [setup, tools and current limits](docs/agent-mcp.md).
 
-**New in 4.8.4:** Touch-drag the divider immediately without opening Obsidian's side drawers; its highlight clears when you lift your finger. Mobile paper lists show Priority when the list has at least 560px of available width, including after resizing or changing split-screen size.
+**4.8.4:** Touch-drag the divider immediately without opening Obsidian's side drawers; its highlight clears when you lift your finger. Mobile paper lists show Priority when the list has at least 560px of available width, including after resizing or changing split-screen size.
 
 **4.8.3:** Drag the divider to resize the paper list and details with a mouse or touch. Hover or press to highlight it; sizes are remembered in the workspace, with minimum sizes for both panes. Mobile sidebar names save on Done or an outside tap, and tag creation has a visible cancel button.
 
@@ -94,7 +94,7 @@ Keep review tasks and your own submissions in separate trackers. Drop PDFs into 
 - **PDF inbox:** drag from Finder or right-click the empty inbox area and choose **Paste** on macOS. Original files and matching annotation sidecars are preserved.
 - **Recoverable trash:** multi-select, batch restore and batch permanent deletion with one confirmation. File collisions are never overwritten.
 - **English and Chinese:** switch from the sidebar or follow Obsidian's language; your paper titles and notes are not translated.
-- **Agent assistance:** the development preview uses an opt-in local MCP connection; 4.8.4 uses copied organization instructions. No scheduled agent runs, per-paper Markdown files or second JSON metadata database.
+- **Agent assistance:** use an opt-in local MCP connection for inbox organization, incomplete-paper enrichment, migration and tag proposals. No scheduled agent runs, per-paper Markdown files or second JSON metadata database.
 - **Portable storage:** metadata and memberships live in Markdown; PDFs and Skim sidecars remain ordinary vault files. File syncing is handled by your vault's storage provider.
 
 ## Try the current version
@@ -105,7 +105,7 @@ Use a separate vault for the literature library. Open the [Community listing](ht
 2. Create `<vault>/.obsidian/plugins/paper-reservoir-dashboard/` and place the three files there. Use your vault's configured configuration folder if it differs from `.obsidian`.
 3. Reload Obsidian and enable **Literature Database** in Community plugins.
 4. Click the library ribbon icon, or run **Literature Database: Open library** from the command palette. In a fresh vault, choose **Create library**. This creates four empty source tables, the attachment folders and an `AGENTS.md` if one does not already exist. It never replaces existing source files.
-5. Drag PDFs into Inbox, or copy PDFs in Finder and paste into the empty inbox area on macOS. Use **Organize with agent…** to copy instructions for a manually triggered agent with local file access; then review its changes. Dropping a PDF into Inbox alone does not add it to the public library.
+5. Drag PDFs into Inbox, or copy PDFs in Finder and paste into the empty inbox area on macOS. Use **Agent MCP** to prepare a local connection, open and trust the vault folder in Codex, then ask the connected agent to organize it. See the [setup guide](docs/agent-mcp.md). Dropping a PDF into Inbox alone does not add it to the public library.
 
 New libraries start with **no categories or writing projects**. Create your own with the sidebar **+** buttons; the categories in the screenshots are demo examples, not defaults.
 
@@ -133,7 +133,7 @@ The plugin makes local backups before edits, checks for concurrent changes and k
 
 **Outside-vault access:** when you explicitly drop or paste local PDFs on macOS, the importer reads those files and matching annotation sidecars and copies them into the vault using `ditto`, preserving extended attributes. It reads the clipboard only when Paste is chosen. Opening a PDF invokes the default desktop application (`/usr/bin/open` on macOS). The plugin does not change your default PDF application.
 
-No account, payment or analytics is required by the plugin. The development preview's optional MCP server exposes public paper text and controlled tools only to an authenticated local client, which may use a remote model according to that client's settings. Export-folder access requires selecting a folder in Obsidian. It does not launch a model. The published 4.8.4 agent button only copies instructions. See the [MCP access boundaries](docs/agent-mcp.md).
+No account, payment or analytics is required by the plugin. The optional MCP server exposes public paper text and controlled tools only to an authenticated local client, which may use a remote model according to that client's settings. Export-folder access requires selecting a folder in Obsidian. It does not launch a model. See the [MCP access boundaries](docs/agent-mcp.md).
 
 ## License and attribution
 
