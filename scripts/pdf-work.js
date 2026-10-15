@@ -1,5 +1,5 @@
 'use strict';
-// One PDF buffer/document per plugin, shared by metadata intake and MCP reads.
+// One PDF buffer/document per plugin, shared by metadata intake and DeepSeek reads.
 // No polling/timers while idle; queued jobs hold paths, never PDF bytes.
 class PdfWorkQueue {
   constructor(){this.jobs=[];this.active=null;this.closed=false;}

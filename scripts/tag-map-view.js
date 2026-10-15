@@ -1,7 +1,7 @@
 // Editable tag vocabulary. Paper assignments stay in library.md; no PDF reads or network calls.
 function ldbMapAction(slot){return (...args)=>slot.run?.(...args);}
 class TagMapModal extends Modal {
-  constructor(view){super(view.app);this.view=view;this.plugin=view.plugin;this.closed=false;this.busy=false;this.nodes=new Map();this.collapsed=new Set();this.branchSides=new Map();this.zoom=1;this.pan={x:24,y:24};this.cleanups=[];this.pointers=new Map();this.scope=new Scope(view.app.scope);this.escapeKey=this.scope.register([], 'Escape', e=>{e.preventDefault();if(this.editor)this.cancelEditor();else this.close();return false;});}
+  constructor(view,draft=null){super(view.app);this.draft=draft;this.view=view;this.plugin=view.plugin;this.closed=false;this.busy=false;this.nodes=new Map();this.collapsed=new Set();this.branchSides=new Map();this.zoom=1;this.pan={x:24,y:24};this.cleanups=[];this.pointers=new Map();this.scope=new Scope(view.app.scope);this.escapeKey=this.scope.register([], 'Escape', e=>{e.preventDefault();if(this.editor)this.cancelEditor();else this.close();return false;});}
   listen(el,type,fn,options){el.addEventListener(type,fn,options);this.cleanups.push(()=>el.removeEventListener(type,fn,options));}
   icon(parent,icon,label,action,cls=''){const b=ldbButton(parent,'',(...args)=>{if(!this.closed)action(...args);},'ldb-map-icon '+cls);setIcon(b,icon);b.title=label;b.setAttribute('aria-label',label);return b;}
   onOpen(){
@@ -41,8 +41,8 @@ class TagMapModal extends Modal {
   }
   async load(initial=false){
     try{
-      const source=await TagTree.read(this.plugin.app.vault);if(this.closed)return;
-      this.catalogText=source.text;this.model=TagTree.effective(source.model,this.plugin.snapshot.library);this.tree=TagTree.tree(this.model);
+      const source=await (this.draft?this.draft.read():TagTree.read(this.plugin.app.vault));if(this.closed)return;
+      this.catalogText=source.text;this.model=TagTree.effective(source.model,[...this.plugin.snapshot.library,...(this.draft?[this.view.detailRow]:[])]);this.tree=TagTree.tree(this.model);
       if(initial&&this.view.tagMapState){const saved=this.view.tagMapState,keys=new Set(this.descendants(this.tree).map(n=>n.key));this.collapsed=new Set(saved.collapsed.filter(k=>keys.has(k)));this.branchSides=new Map(saved.sides.filter(([k])=>keys.has(k)));this.zoom=saved.zoom;this.pan={...saved.pan};this.search.value=saved.search||'';}
       if(initial&&!this.view.tagMapState){const selected=this.selected();for(const group of this.tree.children)if(!this.descendants(group).some(n=>n.tag&&selected.has(TagTree.fold(n.tag))))this.collapsed.add(group.key);}
       this.error.hidden=true;this.render();if(initial&&!this.view.tagMapState){this.fit();if(this.viewport.clientWidth<600){this.zoom=1;const selected=this.selected(),focus=this.descendants(this.tree).find(n=>n.tag&&selected.has(TagTree.fold(n.tag)));this.focusNode(focus?.key||'root');}}
@@ -106,7 +106,7 @@ class TagMapModal extends Modal {
       input.addEventListener('input',()=>{this.editor.value=input.value;input.removeAttribute('aria-invalid');});
       input.addEventListener('keydown',e=>{e.stopPropagation();if(e.isComposing||e.keyCode===229)return;if(e.key==='Enter'){e.preventDefault();this.commitEditor();}else if(e.key==='Escape'){e.preventDefault();this.cancelEditor();}});
       this.icon(el,'check',tr('保存'),()=>this.commitEditor(),'ldb-map-save');
-      if(Platform.isMobile)this.icon(el,'x',tr('取消'),()=>this.cancelEditor(),'ldb-map-cancel');
+      this.icon(el,'x',tr('取消'),()=>this.cancelEditor(),'ldb-map-cancel');
       return el;
     }
     const fold=this.icon(el,'chevron-down',tr('收起'),()=>{if(this.editor)return;this.collapsed.has(n.key)?this.collapsed.delete(n.key):this.collapsed.add(n.key);this.render();},'ldb-map-fold');el.ldbFold=fold;
@@ -117,8 +117,10 @@ class TagMapModal extends Modal {
     }else el.ldbLabel=el.createSpan({cls:'ldb-map-node-label',text:n.label});
     if(n.kind!=='root')el.addEventListener('contextmenu',e=>{
       e.preventDefault();if(this.closed||this.busy||this.editor)return;this.clearMenu();const node=el.ldbNode,menu=this.contextMenu=new Menu().setUseNativeMenu(!Platform?.isMobile);
-      menu.addItem(i=>i.setTitle(tr('重命名')).setIcon('pencil').onClick(this.menuAction(()=>this.beginRename(node))));
-      if(node.kind==='tag'){menu.addSeparator();menu.addItem(i=>i.setTitle(tr('移动标签分支到…')).setIsLabel(true));for(const g of this.model.groups)menu.addItem(i=>i.setTitle(g.name).setChecked(g.name===node.group).onClick(this.menuAction(()=>this.move(node,g.name))));}
+      if(!this.draft)menu.addItem(i=>i.setTitle(tr('重命名')).setIcon('pencil').onClick(this.menuAction(()=>this.beginRename(node))));
+      if(!this.draft&&node.kind==='tag'){menu.addSeparator();menu.addItem(i=>i.setTitle(tr('移动标签分支到…')).setIsLabel(true));for(const g of this.model.groups)menu.addItem(i=>i.setTitle(g.name).setChecked(g.name===node.group).onClick(this.menuAction(()=>this.move(node,g.name))));}
+      if(!this.draft||this.draft.canRemove?.(node)){menu.addSeparator();menu.addItem(i=>i.setTitle(tr(this.draft?'删除预览分支…':node.kind==='group'?'删除标签分组…':'删除标签分支…')).setIcon('trash-2').onClick(this.menuAction(()=>this.removeBranch(node))));}
+      if(this.draft&&!this.draft.canRemove?.(node))menu.addItem(i=>i.setTitle(tr('已有标签可通过复选框取消选择')).setIsLabel(true));
       const r=el.getBoundingClientRect();menu.showAtPosition({x:r.left,y:r.bottom},this.mapDoc);
     });
     el.ldbPlus=this.icon(el,'plus',tr(n.kind==='root'?'新建标签分组':n.kind==='group'?'新建标签':'新建子标签'),()=>this.beginEditor(el.ldbNode),'ldb-map-add');
@@ -133,7 +135,17 @@ class TagMapModal extends Modal {
     this.render();this.focusNode('editor');this.editor.input.focus();this.editor.input.select();
   }
   cancelEditor(){if(this.busy)return;const parent=this.editor?.parent;this.editor=null;this.render();this.nodes.get(parent)?.ldbPlus?.focus({preventScroll:true});}
-  async store(model){const text=await TagTree.save(this.plugin,this.catalogText,model);if(this.closed)return;this.catalogText=text;this.model=model;this.tree=TagTree.tree(model);}
+  async removeBranch(node){
+    if(this.busy||this.editor||this.closed)return;this.busy=true;this.syncChecked();
+    try{
+      const change=this.draft?{...TagTree.remove(this.model,node),affected:[]}:await this.plugin.planTagDeletion(node,this.catalogText);if(this.closed)return;
+      const approved=await new Promise(resolve=>{this.deletionModal=new TagDeleteModal(this.app,node,change,!!this.draft,resolve);this.deletionModal.open();});this.deletionModal=null;if(!approved||this.closed)return;
+      if(this.draft){await this.draft.remove(change);this.catalogText=TagTree.serialize(change.model);}
+      else{await this.plugin.deleteTagBranch(change,this.view);this.catalogText=change.after[TagTree.FILE];}
+      if(this.closed)return;this.model=change.model;this.tree=TagTree.tree(this.model);this.render();this.focusNode('root');
+    }catch(e){this.showError(e);}finally{this.busy=false;this.syncChecked();}
+  }
+  async store(model){const text=await (this.draft?this.draft.store(model):TagTree.save(this.plugin,this.catalogText,model));if(this.closed)return;this.catalogText=text;this.model=model;this.tree=TagTree.tree(model);}
   async commitEditor(){
     if(!this.editor||this.busy)return;const draft=this.editor;this.busy=true;draft.input.readOnly=true;this.error.hidden=true;this.syncChecked();
     try{
@@ -152,7 +164,7 @@ class TagMapModal extends Modal {
   async move(node,group){if(node.group===group||this.busy)return;this.busy=true;try{await this.store(TagTree.moveFamily(this.model,node.tag,group));if(this.closed)return;this.collapsed.delete('group:'+group);this.render();this.focusNode(node.key);}catch(e){this.showError(e);}finally{this.busy=false;this.syncChecked();}}
   syncChecked(){
     if(this.closed)return;
-    const selected=this.selected();for(const el of this.nodes.values()){const n=el.ldbNode;if(!n||n.kind==='editor')continue;if(el.ldbCheck){const checked=selected.has(TagTree.fold(n.tag));el.ldbCheck.checked=checked;el.ldbCheck.disabled=this.busy||!!this.editor;el.classList.toggle('is-checked',checked);const actual=String(this.view.detailRow.tags||'').split(/\s+/).find(t=>TagTree.fold(t)===TagTree.fold(n.tag));el.classList.toggle('is-human',!!actual&&Organization.source(this.view.detailRow,actual,true).kind==='human');}if(el.ldbPlus)el.ldbPlus.disabled=this.busy;}
+    const selected=this.selected();for(const el of this.nodes.values()){const n=el.ldbNode;if(!n||n.kind==='editor')continue;if(el.ldbCheck){const checked=selected.has(TagTree.fold(n.tag));el.ldbCheck.checked=checked;el.ldbCheck.disabled=this.busy||!!this.editor;el.classList.toggle('is-checked',checked);const actual=String(this.view.detailRow.tags||'').split(/\s+/).find(t=>TagTree.fold(t)===TagTree.fold(n.tag));el.classList.toggle('is-human',!!actual&&(this.draft?this.draft.isHuman(actual):Organization.source(this.view.detailRow,actual,true).kind==='human'));}if(el.ldbPlus)el.ldbPlus.disabled=this.busy;}
   }
   async toggle(node,checked){
     if(this.busy||this.editor||this.closed){this.syncChecked();return;}this.busy=true;this.error.hidden=true;this.syncChecked();
@@ -172,6 +184,7 @@ class TagMapModal extends Modal {
   close(force=false){if(this.closed)return;if(this.busy&&!this.plugin?.stopped&&!force)return;super.close();}
   onClose(){
     if(this.closed)return;this.closed=true;
+    this.deletionModal?.close();this.deletionModal=null;
     const view=this.view,plugin=this.plugin;
     view.tagMapState={collapsed:[...this.collapsed],sides:[...this.branchSides],zoom:this.zoom,pan:{...this.pan},search:this.search?.value||''};
     clearTimeout(this.refreshTimer);if(this.frame)this.mapWin?.cancelAnimationFrame(this.frame);this.frame=null;
@@ -183,6 +196,18 @@ class TagMapModal extends Modal {
     this.contentEl.empty();this.stage=this.lines=this.viewport=this.search=this.zoomLabel=this.error=null;this.mapDoc=this.mapWin=null;
     if(view.tagMap===this)view.tagMap=null;if(plugin.tagMap===this)plugin.tagMap=null;
     if(!plugin.stopped&&!view.closed){view.lockFilters(view.dirty());if(!view.dirty())view.reload();}
-    this.view=this.plugin=null;
+    this.view=this.plugin=this.draft=null;
   }
+}
+
+class TagDeleteModal extends Modal{
+ constructor(app,node,change,draft,resolve){super(app);Object.assign(this,{node,change,draft,resolve,approved:false});}
+ onOpen(){
+  this.modalEl.addClass('ldb-dialog');this.titleEl.setText(tr(this.draft?'删除预览分支':this.node.kind==='group'?'删除标签分组':'删除标签分支'));
+  this.contentEl.createEl('p',{text:this.node.label||this.node.group||TagTree.label(this.node.tag)});
+  this.contentEl.createEl('p',{text:tr('标签数量：')+this.change.removed.length+(this.draft?'':' · '+tr('涉及文献：')+this.change.affected.length)});
+  this.contentEl.createEl('p',{text:tr(this.draft?'仅移除这次预览中新建的分支和勾选，已有词表不变。':'将删除该分支及其子标签，并从所有文献移除这些标签。论文、Notes 和其他字段保持不变。')});
+  const actions=this.contentEl.createDiv('ldb-actions');ldbButton(actions,tr('取消'),()=>this.close());ldbButton(actions,tr('删除'),()=>{this.approved=true;this.close();},'mod-warning');
+ }
+ onClose(){this.contentEl.empty();this.resolve(this.approved);this.resolve=()=>{};}
 }

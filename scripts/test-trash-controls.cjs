@@ -6,7 +6,7 @@ class Element{
  all(){return this.children.flatMap(e=>[e,...e.all()]);}querySelectorAll(){return this.all().filter(e=>['button','input','select','textarea'].includes(e.tag));}
 }
 const notices=[],modals=[];
-class Modal{constructor(app){this.app=app;this.titleEl=new Element();this.contentEl=new Element();}open(){modals.push(this);return this.onOpen();}close(){this.closed=true;this.onClose();}}
+class Modal{constructor(app){this.app=app;this.modalEl=new Element();this.titleEl=new Element();this.contentEl=new Element();}open(){modals.push(this);return this.onOpen();}close(){this.closed=true;this.onClose();}}
 class ItemView{constructor(){this.contentEl=new Element();}}
 class Notice{constructor(text){this.text=text;notices.push(this);}hide(){this.hidden=true;}}
 const ctx={module:{exports:{}},require:n=>n==='obsidian'?{Plugin:class{},ItemView,Modal,Notice,Platform:{isDesktopApp:true,isMacOS:true}}:require(n)};

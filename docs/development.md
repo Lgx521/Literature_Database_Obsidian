@@ -1,6 +1,6 @@
 # Development
 
-This repository contains the plugin source and synthetic tests, with no personal library data. The first version-controlled baseline was 4.2.3; the current release is 4.8.6.
+This repository contains the plugin source and synthetic tests, with no personal library data. The first version-controlled baseline was 4.2.3; the current release is 4.9.0.
 
 ## Build and test
 
@@ -24,7 +24,8 @@ The build assembles source modules into `main.js` and copies the plugin CSS to `
 | `pane-splitter.js` | Accessible mouse/touch pane resizing and workspace-only size preferences |
 | `tag-tree.js`, `tag-map-view.js`, `tag-filter-view.js` | Optional Markdown tag vocabulary and editable map; assignments remain in the library |
 | `tag-rename.js`, `source-transaction.js` | Provenance-preserving global tag rename and guarded multi-source writes |
-| `agent-mcp.js`, `agent-service.js`, `agent-migration.js`, `agent-guide-view.js`, `agent-codex.js`, `agent-codex-bridge.cjs` | Opt-in desktop MCP transport, constrained tools, export migration and bilingual guide |
+| `deepseek-beta.js`, `deepseek-work.js`, `deepseek-view.js`, `deepseek-secret.js` | On-demand AI requests, editable previews, batch lifecycle and credential storage |
+| `custom-fields.js`, `field-settings-view.js` | Custom field definitions, protected values and field settings |
 | `setup.js` | Explicit empty-vault setup and startup preferences |
 | `plugin-tail.js` | Obsidian lifecycle, mutation guards, coordination and system PDF opening |
 | `snapshot-cache.js`, `pdf-work.js`, `title-export.js` | Source-scoped snapshots, shared cancellable PDF queue and lightweight title export |

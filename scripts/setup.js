@@ -16,7 +16,7 @@ async function ldbInitializeVault(vault){
 }
 class LibrarySetupModal extends Modal {
   constructor(plugin){super(plugin.app);this.plugin=plugin;}
-  onOpen(){
+  onOpen(){this.modalEl?.addClass('ldb-dialog');
     this.titleEl.setText(tr('创建文献库'));
     this.contentEl.createEl('p',{text:tr('在当前仓库创建四个 Markdown 源表和 papers、temp、reviews、submissions 文件夹。已有文件不会被覆盖。建议使用独立仓库。')});
     this.contentEl.createEl('p',{text:tr('同时添加 AGENTS.md（如果尚不存在），供手动整理使用。')});
@@ -49,6 +49,14 @@ function ldbSettingsTab(plugin){
         catch(e){toggle.setValue(!!previous[key]);new Notice(e.message,8000);}
       }));
       new Setting(this.containerEl).setName(tr('文献库')).addButton(button=>button.setButtonText(tr('打开文献管理器')).onClick(()=>plugin.openLibrary()));
+      new Setting(this.containerEl).setName(tr('字段设置')).setDesc(tr('修改字段名称与选项，新增或隐藏详情字段。')).addButton(button=>button.setButtonText(tr('自定义字段')).onClick(()=>new FieldSettingsModal(plugin).open()));
+      let openBeta;
+      new Setting(this.containerEl).setName('DeepSeek Beta').setDesc(tr('关闭后隐藏相关入口并停止整理，保留密钥配置和本次预览。')).addButton(button=>{openBeta=button;button.setButtonText(tr('打开体验功能')).setDisabled(!ldbDeepSeekAvailable(plugin)).onClick(()=>ldbOpenDeepSeek(plugin));}).addToggle(toggle=>toggle.setValue(ldbDeepSeekAvailable(plugin)).onChange(async value=>{
+        toggle.setDisabled(true);
+        try{await plugin.setDeepSeekBetaEnabled(value);}
+        catch(e){new Notice(e.message,8000);}
+        finally{toggle.setValue(ldbDeepSeekAvailable(plugin));toggle.setDisabled(false);openBeta.setDisabled(!ldbDeepSeekAvailable(plugin));}
+      }));
     }
   })(plugin.app,plugin);
 }

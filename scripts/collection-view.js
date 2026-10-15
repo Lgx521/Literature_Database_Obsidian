@@ -71,7 +71,7 @@ async function ldbPlanPaperRemoval(plugin,rows,from,intent){
 }
 class PaperRemovalModal extends Modal {
   constructor(plugin,rows,from,plan,intent,resolve){super(plugin.app);Object.assign(this,{plugin,rows:[...rows],from,plan,intent,resolve,action:null});}
-  onOpen(){
+  onOpen(){this.modalEl?.addClass('ldb-dialog');
     const last=this.intent==='remove';this.titleEl.setText(tr(last?'仅有一个归属':'选择删除范围'));
     this.contentEl.createEl('p',{text:tr(last?'所选文献中有文献仅属于这一个集合。是否将所选文献移至回收站？':'所选文献存在多个归属。请选择仅从当前集合移除，或将整篇文献移至回收站。')});
     const names=this.contentEl.createDiv('ldb-trash-confirm-list');
@@ -137,7 +137,7 @@ function ldbPaperVenueMenu(view,button){
 }
 class ProjectNoteModal extends Modal {
   constructor(plugin,project,row,before){super(plugin.app);Object.assign(this,{plugin,project,row,before});}
-  onOpen(){
+  onOpen(){this.modalEl?.addClass('ldb-dialog');
     if(this.plugin.hasPendingEdit()){new Notice(tr('请先保存或取消右侧编辑'));this.close();return;}
     this.titleEl.setText(this.project+tr(' · 项目备注'));
     const area=this.contentEl.createEl('textarea',{cls:'ldb-citation-input',attr:{rows:'8','aria-label':tr('项目备注')}});area.value=this.before;
@@ -148,7 +148,7 @@ class ProjectNoteModal extends Modal {
 }
 class CitationExportModal extends Modal {
   constructor(plugin,rows,name,selected=[]){super(plugin.app);Object.assign(this,{plugin,rows:[...rows],name,selected:[...selected]});}
-  onOpen(){
+  onOpen(){this.modalEl?.addClass('ldb-dialog');
     this.closed=false;this.refreshToken=0;
     this.titleEl.setText(this.name+tr(' · 导出'));
     const controls=this.contentEl.createDiv('ldb-actions');

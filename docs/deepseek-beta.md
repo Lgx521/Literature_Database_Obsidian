@@ -1,0 +1,49 @@
+# DeepSeek AI organization
+
+Included in the regular **4.9.0** release as **DeepSeek Beta**, enabled by default. Configure your own API key and choose a model to start organizing. An existing disabled feature preference stays disabled.
+
+## Use
+
+Open **DeepSeek Beta** from the persistent sidebar status entry, beside a public paper's Open button, from its context menu, the command palette, or Literature Database settings. Enable it with your own DeepSeek API key. Merely opening the panel performs no network request or PDF extraction.
+
+Literature Database settings also has a **DeepSeek Beta** feature toggle. Turning it off hides the AI tools section, paper/context-menu actions, Inbox action and command-palette entry, closes its panel and stops the batch. An Apply transaction already in progress finishes safely; later items do not start. Completed previews and edits remain in memory for this session. Saved encrypted/device keys, model preference and paper data are preserved; the unlocked session key is cleared. Turning it back on restores the entries without starting requests or resuming work. New and existing installations show the feature unless explicitly disabled; API access still requires a key and explicit actions. The feature preference is saved as `deepSeekBetaEnabled` in plugin settings.
+
+- **Organize**: choose the current selection, Inbox, or **Library papers with missing information**. A batch contains at most 20 unique PDFs, processed serially. The preview shows the full title, TL;DR, tags and research categories/subcategories. Edit these directly, open the tag mind map to select tags or add branches, then **Apply to library** or **Apply all**. Missing title, summary, tags or category blocks Apply until completed. AI prefers existing taxonomy. A substantially different paper may propose new tags, a category or a subcategory with explicit reasons. Review these additions before applying; unselected categories are not created. Mind-map edits remain session drafts, including unselected new branches, until Apply. Existing research memberships are shown together and stay intact unless explicitly edited. Writing projects are preserved.
+- **Close / Continue in background**: closes the panel while the manually started batch continues. The sidebar shows the current phase and progress; a completion notice brings you back to review. Reopening restores bounded results and your field/tag/category edits. This is session-only: quitting, unloading or restarting the plugin stops work and clears results. A mobile OS may suspend Obsidian when you leave the app.
+- **Stop**: stops subsequent papers, discards a late generation response, and preserves already completed previews. An Apply already writing a guarded transaction finishes atomically; Stop prevents later writes. **Clear results** releases the current previews. Obsidian's cross-platform `requestUrl` does not expose transport abort: an already sent request may still complete and be billed. A single in-flight slot prevents repeated cancellations from accumulating requests. No automatic retry or hidden extra call is made.
+
+The selected text model comes from the provider API, with thinking disabled and bounded JSON output. It can make mistakes; applying a preview does not make its summary or classification verified research evidence. Scanned PDFs without extractable text are skipped; PDFs over 30 MB are outside the extraction limit.
+
+## Secrets and iCloud
+
+The default key is session-only. Disable or unload clears the plugin's reference to it. JavaScript strings cannot be guaranteed to be physically zeroed immediately by the runtime.
+
+Optional **Encrypt and save for sync** stores a ciphertext envelope under `deepSeekEncrypted` in the existing plugin settings (`data.json`). It uses PBKDF2-HMAC-SHA256 (600,000 iterations, a fresh random 128-bit salt), AES-256-GCM (fresh random 96-bit nonce and authentication tag), and a passphrase of at least 12 characters. Prefer a long unique passphrase. The key and passphrase are never saved in plaintext or logged. Web Crypto runs derivation only when saving/unlocking; there is no idle work or Node dependency.
+
+When plugin configuration files sync through iCloud, the encrypted envelope travels with them. Each new device opens Beta and unlocks it with the same passphrase once. With **Remember key on this device**, the key is retained in Obsidian’s vault-scoped SecretStorage when encrypted device storage is available. Opening Beta after a restart restores it without a network request. Older/unsupported devices remain session-only. The enabled state and plaintext key do not sync. The passphrase is never remembered. A changed synced envelope invalidates the local cached key; **Disable and clear this device key** removes it without deleting the encrypted sync envelope. We cannot recover a forgotten passphrase: replace the encrypted key using a new passphrase. Removing the synced key removes the current settings value; it cannot erase previous iCloud versions/backups or immediately revoke keys already unlocked on another device. Revoke the API key with the provider if required.
+
+## Data and performance contract
+
+- Only public `papers/` rows and `temp/` PDFs are accessible. Desktop symlink attachments are refused. Review/submission manuscripts, personal Notes, project notes and bibliography are excluded from requests. Requests go only to the official DeepSeek endpoint over HTTPS.
+- Organization sends selected PDF text, research category/subcategory names and existing canonical tags. No full-library content, private source tables or arbitrary tool execution is provided to the model.
+- Validate JSON keys, limits, taxonomy-addition reasons and title evidence. Never accept model-written author/date/DOI/venue/BibTeX fields. Preserve human/unknown content, bookmarks, reading status, priority, project notes and existing placements; skip manually complete papers. Stamp AI changes with actor `DeepSeek`. Apply actual user edits separately with the human actor: untouched AI tags remain neutral, manually added tags use the accent color. New tag vocabulary and source edits share one guarded transaction.
+- Generation is read-only. Apply revalidates the file, row and memberships; source writes use exact-text concurrency guards, backups and compensation. Inbox filing preserves PDF/sidecar basenames and moves through the vault API. Collisions use a separate directory. On a failed source write, move unchanged attachments back where possible; never overwrite or delete a collision.
+- PDF bytes enter only the existing cancellable serial queue. Destroy the PDF task before contacting DeepSeek. Previews retain bounded metadata and page numbers, never PDF buffers or extracted full text. Closing unsubscribes and releases all view DOM. The task retains at most 20 compact proposals, with no view nodes or callbacks; Clear or plugin unload releases them. Status changes update only the small sidebar indicator. No idle polling or status timer runs. Modules initialize lazily; no SDK, worker service, vector index, polling, telemetry or persisted chat.
+
+## Validation and performance
+
+The release has 53 offline regression suites covering request boundaries, read-only previews, protected metadata, stale writes, rollback, cancellation, credential storage, model selection and custom fields. Tests use synthetic documents and keys. Demo UI checks cover desktop and mobile emulation, retained drafts, and repeated open/close cleanup; physical-device and cross-device sync testing remain separate.
+
+See [performance measurements](performance.md) for rendering and memory results. The AI feature adds no SDK, persistent worker or background polling.
+
+## Custom detail fields
+
+Open Literature Database settings → **Field settings**. Rename built-in fields/options, hide fields/options without deleting values, and create text or single-choice fields. Saved custom field types stay fixed. New values extend `library.md` to an optional 15th column only on first edit. Added fields appear in public-paper details and the Edit form. Existing published/reading/priority columns follow their display names and visibility. Organization states retain their automation semantics. AI does not write user-defined fields.
+
+## Model selection and workspace agents
+
+Model choices come from an authenticated `GET https://api.deepseek.com/models`, filtered to text-capable models. The plugin does not ship a fixed model list. After enabling/unlocking a key, it loads the list; a restored device key requires the explicit **Get models** action. **Refresh models** fetches again. A selected provider model ID is saved in plugin settings; credentials remain separate. Missing/withdrawn choices require a new selection before organization. Fetching models sends no papers or library data. Closing and reopening the dialog reuses the current session's list.
+
+Version 4.9.0 removes Agent MCP. External agents open the vault and read `AGENTS.md`; no listener or connection setup is started. The sidebar retains DeepSeek task status and Trash.
+
+Tag-map editors show Save and Cancel on desktop and mobile. Right-click a catalog branch to delete it and its descendants; confirmation shows the tag and affected-paper counts. The guarded change backs up both sources, removes only the chosen tag assignments/provenance, and preserves papers, notes and other fields. Inside a DeepSeek draft, only newly proposed branches can be deleted; existing vocabulary can be unchecked without global deletion.

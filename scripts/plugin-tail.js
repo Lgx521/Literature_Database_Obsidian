@@ -5,7 +5,7 @@ module.exports=class LiteratureManager extends Plugin {
     // The file index can still be empty in onload, even for an existing vault.
     this.layoutReady=false;this.ready=false;this.setupNeeded=false;
     this.settings={language:'auto',...saved};
-    this.pdfWork=new PdfWorkQueue();this.agentMcp=new AgentMcpService(this);
+    this.pdfWork=new PdfWorkQueue();
     LdbI18n.setLanguage(this.settings.language,require('obsidian').getLanguage?.()||'en');
     this.stopped=false;this.snapshot=null;this.navigation={scope:'library',category:'',status:''};this.lastError='';this.timer=null;this.loading=null;
     this.citationQueue=Promise.resolve();this.citationErrors=new Map();this.citationKnown=null;
@@ -56,7 +56,7 @@ module.exports=class LiteratureManager extends Plugin {
       finally{this.migrating=false;}
       await this.refresh();
       if(this.stopped)return;
-      this.ready=true;await this.agentMcp.resume();if(this.settings.openOnStartup)await this.openLibrary();
+      this.ready=true;if(this.settings.openOnStartup)await this.openLibrary();
     });
   }
   registerCommands(){
@@ -64,10 +64,20 @@ module.exports=class LiteratureManager extends Plugin {
     this.addCommand({id:'open-library',name:tr('打开文献管理器'),callback:()=>this.openLibrary()});
     this.addCommand({id:'open-inbox',name:tr('打开收件箱'),callback:()=>this.openLibrary({scope:'inbox'})});
     this.addCommand({id:'new-category',name:tr('新建分类'),callback:()=>new CategoryModal(this).open()});
-    this.addCommand({id:'agent-inbox',name:'Agent MCP',callback:()=>new AgentMcpModal(this).open()});
+    this.addCommand({id:'deepseek-beta',name:'DeepSeek Beta',checkCallback:checking=>{if(!ldbDeepSeekAvailable(this))return false;if(!checking)ldbOpenDeepSeek(this);return true;}});
     this.addCommand({id:'refresh-citations',name:tr('重新识别缺失引用'),callback:()=>this.ensureCitationRows(this.snapshot?.library||[]).then(rows=>new Notice(tr('引用识别完成：')+rows.filter(r=>r.bibtex).length+' / '+rows.length)).catch(e=>new Notice(e.message,8000))});
     this.addCommand({id:'cancel-pdf-work',name:tr('取消 PDF 识别与读取'),callback:()=>{this.citationGeneration=(this.citationGeneration||0)+1;this.pdfWork?.cancelAll();new Notice(tr('已取消 PDF 任务'));}});
     this.addCommand({id:'refresh',name:tr('重新读取本地数据'),callback:()=>this.refresh(true)});
+  }
+  async setDeepSeekBetaEnabled(enabled){
+    if(this.deepSeekSettingBusy)throw new Error(tr('请等待设置保存完成'));
+    this.deepSeekSettingBusy=true;
+    try{
+      const saved=await this.loadData()||{},next={...this.settings,...saved,deepSeekBetaEnabled:!!enabled};
+      await this.saveData(next);this.settings=next;
+      if(!enabled){this.deepSeekWork?.stop();this.deepSeekModal?.close();this.deepSeek?.disable();}
+      ldbSyncDeepSeekAccess(this);
+    }finally{this.deepSeekSettingBusy=false;}
   }
   showLanguageMenu(event){
     const menu=new Menu().setUseNativeMenu(!Platform?.isMobile);
@@ -137,7 +147,7 @@ module.exports=class LiteratureManager extends Plugin {
       });
     }
   }
-  renderNavigation(){for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))if(leaf.view instanceof LibraryNavigation)leaf.view.render();}
+  renderNavigation(){this.deepSeekModal?.refreshSources();for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))if(leaf.view instanceof LibraryNavigation)leaf.view.render();}
   stagingGroup(scope){const groups=this.snapshot?.groups[scope]||[];return groups.includes('暂存区')?'暂存区':groups.includes('待确定 venue')?'待确定 venue':'暂存区';}
   async remapGroup(scope,from,to){
     if(this.navigation?.scope===scope&&this.navigation.category===from)this.navigation.category=to;
@@ -426,6 +436,22 @@ module.exports=class LiteratureManager extends Plugin {
       this.tagFilterMenu?.close();await this.refresh();return change;
     }finally{this.recordBusy=false;if(origin)origin.saving=false;}
   }
+  async planTagDeletion(node,expectedCatalog){
+    const vault=this.app.vault,catalog=await TagTree.read(vault);if(catalog.text!==expectedCatalog)throw Error(tr('标签目录已改变，请重新打开；输入已保留'));
+    return TagRename.removePlan(await vault.read(vault.getAbstractFileByPath(LIBRARY_SOURCE)),catalog.text,node);
+  }
+  async deleteTagBranch(change,origin){
+    const views=this.app.workspace.getLeavesOfType(LIBRARY_VIEW).map(l=>l.view);
+    if(this.stopped||this.recordBusy||this.importing||this.lastError||views.some(v=>v.editing||v.saving||(v!==origin&&v.dirty?.())))throw Error(tr('请先保存或取消编辑，并等待当前操作结束'));
+    if(origin?.detailRow){const row=Engine.parseLibrary(change.before[LIBRARY_SOURCE]).find(r=>r.path===origin.detailRow.path);if(JSON.stringify(row?.cells)!==JSON.stringify(origin.detailRow.cells))throw Error(tr('源表发生并发修改，请重试'));}
+    this.recordBusy=true;if(origin)origin.saving=true;
+    try{
+      await SourceTransaction.write(this.app.vault,change.before,change.after,'tag-delete');
+      const updated=Engine.parseLibrary(change.after[LIBRARY_SOURCE]),removed=new Set(change.removed.map(TagTree.fold));
+      for(const view of views){if(view.filters?.tags)view.filters.tags=view.filters.tags.filter(t=>!removed.has(TagTree.fold(t)));if(view===origin&&view.detailRow){const row=updated.find(r=>r.path===view.detailRow.path);if(row){view.detailRow=view.notesBase=row;view.renderTags();}}view.remember?.();}
+      this.tagFilterMenu?.close();await this.refresh();return change;
+    }finally{this.recordBusy=false;if(origin)origin.saving=false;}
+  }
   async mutateDeadlineSources(transform,names=[COLLECTION_SOURCE,TRACK_FILES.submissions],label='ddl'){
     if(this.lastError)throw new Error(tr('源数据不完整，暂不能保存'));
     const vault=this.app.vault,files=names.map(n=>vault.getAbstractFileByPath(n));
@@ -580,5 +606,5 @@ module.exports=class LiteratureManager extends Plugin {
       else await this.app.workspace.getLeaf('tab').openFile(file);
     }catch(e){new Notice(e.message,8000);}
   }
-  onunload(){this.stopped=true;for(const [win,frame] of this.resumeFrames||[])win.cancelAnimationFrame(frame);this.resumeFrames?.clear();this.pdfWork?.close();this.agentGuide?.close();this.agentMcp?.stop(false).catch(()=>{});this.tagFilterMenu?.close();this.tagMap?.close(true);this.membershipMenu?.close();this.removalModal?.close();clearTimeout(this.timer);this.snapshotCache?.clear();this.refreshDirty?.clear();for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))leaf.view.stopCountdowns?.();this.endPaperDrag();this.endGroupDrag();}
+  onunload(){this.stopped=true;this.deepSeekModal?.close();this.deepSeekWork?.close();this.deepSeek?.close();for(const [win,frame] of this.resumeFrames||[])win.cancelAnimationFrame(frame);this.resumeFrames?.clear();this.pdfWork?.close();this.tagFilterMenu?.close();this.tagMap?.close(true);this.membershipMenu?.close();this.removalModal?.close();clearTimeout(this.timer);this.snapshotCache?.clear();this.refreshDirty?.clear();for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))leaf.view.stopCountdowns?.();this.endPaperDrag();this.endGroupDrag();}
 };

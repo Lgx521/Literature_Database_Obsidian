@@ -52,6 +52,13 @@ function addTag(model,group,parent,value){
  g.tags.push(tag);validate(next);return {model:next,tag};
 }
 function moveFamily(model,tag,to){const next=clone(model),target=next.groups.find(g=>g.name===to);if(!target)throw Error(tr('标签分组已改变，请重新打开'));const key=fold(family(tag));for(const g of next.groups){if(g===target)continue;target.tags.push(...g.tags.filter(t=>fold(family(t))===key));g.tags=g.tags.filter(t=>fold(family(t))!==key);}return validate(next);}
+function remove(model,node){
+ const next=clone(model),removed=[];
+ if(node.kind==='group'){const index=next.groups.findIndex(g=>g.name===node.group);if(index<0)throw Error(tr('标签分组已改变，请重新打开'));removed.push(...next.groups[index].tags);next.groups.splice(index,1);}
+ else if(node.kind==='tag'){const prefix=fold(node.tag);for(const group of next.groups)group.tags=group.tags.filter(t=>{if(fold(t)===prefix||fold(t).startsWith(prefix+'/')){removed.push(t);return false;}return true;});if(!removed.length)throw Error(tr('标签分支已改变，请重新打开'));}
+ else throw Error(tr('不能删除标签库根节点'));
+ return {model:validate(next),removed};
+}
 function rename(model,node,value){
  const next=clone(model);
  if(node.kind==='group'){
@@ -101,7 +108,7 @@ function layout(tree,{collapsed=new Set(),editor=null,sides=new Map()}={}){
  const visible=[],widths={left:[],right:[]};
  const walk=(node,depth,parent,side)=>{
   const renaming=editor?.renameKey===node.key;
-  const width=node.kind==='editor'||renaming?234:Math.min(260,Math.max(node.kind==='root'?106:128,58+[...node.label].reduce((sum,c)=>sum+(/[\u2e80-\uffff]/.test(c)?14:7.8),0)));
+  const width=node.kind==='editor'||renaming?274:Math.min(260,Math.max(node.kind==='root'?106:128,58+[...node.label].reduce((sum,c)=>sum+(/[\u2e80-\uffff]/.test(c)?14:7.8),0)));
   const n={...node,...(renaming?{key:'editor',kind:'editor'}:{}),depth,parent,side,width,hasChildren:node.children.length>0,children:[]};visible.push(n);
   if(side)widths[side][depth]=Math.max(widths[side][depth]||0,width);
   if(!collapsed.has(node.key))n.children=node.children.map(c=>walk(c,depth+1,n,side||sides.get(c.key)));
@@ -123,4 +130,4 @@ function layout(tree,{collapsed=new Set(),editor=null,sides=new Map()}={}){
  for(const n of visible){n.x-=left;n.y+=12;}
  return {nodes:visible,width:right-left,height:height+60};
 }
-module.exports={FILE,START,END,parse,serialize,validate,validTag,label,family,effective,addGroup,addTag,moveFamily,rename,tree,layout,read,save,fold};
+module.exports={remove,FILE,START,END,parse,serialize,validate,validTag,label,family,effective,addGroup,addTag,moveFamily,rename,tree,layout,read,save,fold};

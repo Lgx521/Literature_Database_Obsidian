@@ -1,5 +1,6 @@
 const {t:tr}=require('./i18n');
 const Organization=require('./organization');
+const CustomFields=require('./custom-fields');
 'use strict';
 // Pure Markdown -> Markdown. Shared by the offline CLI and the Obsidian plugin.
 const HEADERS = ['PDF（文件名）', '发表时间', '标签', 'TL;DR', '阅读', '优先级'];
@@ -9,6 +10,7 @@ const CITATION_HEADERS = [...VENUE_HEADERS, 'BibTeX', '引用来源'];
 const TITLE_HEADERS = [...CITATION_HEADERS, '篇名'];
 const ORGANIZATION_HEADERS=[...TITLE_HEADERS,'整理状态','整理来源'];
 const BOOKMARK_HEADERS=[...ORGANIZATION_HEADERS,'书签'];
+const CUSTOM_HEADERS=[...BOOKMARK_HEADERS,'自定义字段'];
 const STATUSES = ['在读', '待读', '待整理', '未标记', '已读', '暂存'];
 const PRIORITIES = ['高', '中', '低', '—'];
 const REVIEW_STATUSES = ['待审', '在审', '完成'];
@@ -47,7 +49,7 @@ function parseLibrary(text) {
     const path = decodeURIComponent(link[2]), filename = path.split('/').pop();
     if (!path.startsWith('papers/') || !/\.pdf$/i.test(path) || path.split('/').includes('..')) throw new Error(tr`${filename}：PDF 路径无效`);
     if (paths.has(path)) throw new Error(tr`${filename}：PDF 被重复收录`);
-    if (!STATUSES.includes(status) || !PRIORITIES.includes(priority)) throw new Error(tr`${filename}：阅读状态或优先级无效`);
+    if (!STATUSES.includes(status)&&!CustomFields.ID.test(status) || !PRIORITIES.includes(priority)&&!CustomFields.ID.test(priority)) throw new Error(tr`${filename}：阅读状态或优先级无效`);
     if (!/^(?:(?:19|20)\d{2}(?:\.(?:[1-9]|1[0-2]))?|待核实)$/.test(published)) throw new Error(tr`${filename}：发表时间须为 YYYY.M（如 2026.5）、YYYY 或待核实，月份为 1–12 且不补零`);
     const organizing=r.cells[11]||'待整理';
     if(!Organization.STATES.includes(organizing))throw new Error(tr('整理状态无效'));
@@ -56,7 +58,8 @@ function parseLibrary(text) {
     const bookmarked=r.cells[13]==='是';
     paths.add(path);
     const venues=normalizeVenues(decodeText(r.cells[7]||'').split('\n').filter(Boolean));
-    Object.assign(r, { bookmarked, organizing, provenance, pdf, published, tags, tldr, status, priority, notes, venues, bibtex:decodeText(r.cells[8]||''), citationSource:decodeText(r.cells[9]||''), title:decodeText(r.cells[10]||''), path, filename });
+    const customFields=CustomFields.values(decodeText(r.cells[14]||''));
+    Object.assign(r, { customFields, bookmarked, organizing, provenance, pdf, published, tags, tldr, status, priority, notes, venues, bibtex:decodeText(r.cells[8]||''), citationSource:decodeText(r.cells[9]||''), title:decodeText(r.cells[10]||''), path, filename });
   }
   return rows;
 }
@@ -106,21 +109,28 @@ function publicationRank(value) {
 function normalizeTagFilter(value){
   const seen=new Set();return (Array.isArray(value)?value:typeof value==='string'?[value]:[]).filter(tag=>{if(typeof tag!=='string'||!tag.startsWith('#')||/\s/.test(tag))return false;const key=tag.toLocaleLowerCase();if(seen.has(key))return false;seen.add(key);return true;});
 }
-function filterLibrary(rows, { query = '', category = '', status = '', tag = '', tags, sort = 'filename', descending = false, organizing = '', bookmarked = false } = {}) {
+let filenameCollator;
+function compareFilenames(a,b){return (filenameCollator??=new Intl.Collator('en',{numeric:true})).compare(a,b);}
+function filterLibrary(rows, { query = '', category = '', status = '', tag = '', tags, sort = 'filename', descending = false, organizing = '', bookmarked = false, statusOrder=STATUSES, priorityOrder=PRIORITIES, fieldSearch=null } = {}) {
   const tokens = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   const selectedTags=normalizeTagFilter(Array.isArray(tags)?tags:tag).map(t=>t.toLocaleLowerCase());
-  const result = rows.filter(r => (!bookmarked || r.bookmarked) && (!category || (r.categories ? (category===UNFILED_CATEGORY?!r.categories.length:r.categories.includes(category)) : r.category === category)) && (!status || r.status === status)
-    && (!organizing || (organizing==='pending'?Organization.pending(r):r.organizing===organizing))
-    && (!selectedTags.length||selectedTags.some(t=>r.tags.toLocaleLowerCase().split(/\s+/).includes(t)))
-    && tokens.every(t => [r.filename, r.title||'', ...(r.categories||[r.category]), r.tags, r.tldr, decodeText(r.notes || ''), r.published, r.status, r.priority, ...(r.venues||[])].join(' ').toLocaleLowerCase().includes(t)));
+  const result = rows.filter(r => {
+    if(bookmarked&&!r.bookmarked||status&&r.status!==status)return false;
+    if(category&&(r.categories?(category===UNFILED_CATEGORY?!!r.categories.length:!r.categories.includes(category)):r.category!==category))return false;
+    if(organizing&&!(organizing==='pending'?Organization.pending(r):r.organizing===organizing))return false;
+    if(selectedTags.length&&!r.tags.toLocaleLowerCase().split(/\s+/).some(t=>selectedTags.includes(t)))return false;
+    if(!tokens.length)return true;
+    const text=[r.filename, r.title||'', ...(r.categories||[r.category]), r.tags, r.tldr, decodeText(r.notes || ''), r.published, r.status, r.priority, fieldSearch?.(r)||'', ...Object.values(r.customFields||{}), ...(r.venues||[])].join(' ').toLocaleLowerCase();
+    return tokens.every(t=>text.includes(t));
+  });
   return result.sort((a, b) => {
     // Unknown dates always stay at the end, in either direction.
     if (sort === 'published' && (a.published === '待核实') !== (b.published === '待核实')) return a.published === '待核实' ? 1 : -1;
     const cmp = sort === 'published' ? publicationRank(a.published) - publicationRank(b.published)
-      : sort === 'status' ? STATUSES.indexOf(a.status) - STATUSES.indexOf(b.status)
-      : sort === 'priority' ? PRIORITIES.indexOf(a.priority) - PRIORITIES.indexOf(b.priority)
-      : sort==='title'?(a.title||a.filename).localeCompare(b.title||b.filename,'en',{numeric:true}):a.filename.localeCompare(b.filename, 'en', { numeric: true });
-    return (descending ? -cmp : cmp) || a.filename.localeCompare(b.filename, 'en', { numeric: true });
+      : sort === 'status' ? statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status)
+      : sort === 'priority' ? priorityOrder.indexOf(a.priority) - priorityOrder.indexOf(b.priority)
+      : sort==='title'?compareFilenames(a.title||a.filename,b.title||b.filename):compareFilenames(a.filename,b.filename);
+    return (descending ? -cmp : cmp) || compareFilenames(a.filename,b.filename);
   });
 }
 
@@ -165,7 +175,7 @@ function normalizeVenues(values){
   return result;
 }
 function venueOptions(rows){return normalizeVenues(rows.flatMap(r=>r.venues||[])).sort((a,b)=>a.localeCompare(b,'en',{numeric:true}));}
-function libraryHeaders(text){const n=Math.max(...libraryTables(text).tables.map(t=>t.header.length));return n===14?BOOKMARK_HEADERS:n===13?ORGANIZATION_HEADERS:n===11?TITLE_HEADERS:n===10?CITATION_HEADERS:n===8?VENUE_HEADERS:NOTES_HEADERS;}
+function libraryHeaders(text){const n=Math.max(...libraryTables(text).tables.map(t=>t.header.length));return n===15?CUSTOM_HEADERS:n===14?BOOKMARK_HEADERS:n===13?ORGANIZATION_HEADERS:n===11?TITLE_HEADERS:n===10?CITATION_HEADERS:n===8?VENUE_HEADERS:NOTES_HEADERS;}
 function libraryTables(text) {
   if (text.split('<!-- library:end -->').length!==2) throw new Error(tr('文献库尚未完整同步，暂停刷新'));
   const lines=text.split(/\r?\n/), tables=[], rows=[]; let heading='',headingLine=-1;
@@ -174,7 +184,7 @@ function libraryTables(text) {
     if(lines[i].startsWith('## ')){heading=lines[i].slice(3).trim();headingLine=i;}
     if(!lines[i].startsWith('|')) continue;
     const header=cells(lines[i]);
-    if (!same(header,HEADERS) && !same(header,NOTES_HEADERS) && !same(header,VENUE_HEADERS) && !same(header,CITATION_HEADERS) && !same(header,TITLE_HEADERS) && !same(header,ORGANIZATION_HEADERS) && !same(header,BOOKMARK_HEADERS)) throw new Error(tr`${heading}：文献表头无效`);
+    if (!same(header,HEADERS) && !same(header,NOTES_HEADERS) && !same(header,VENUE_HEADERS) && !same(header,CITATION_HEADERS) && !same(header,TITLE_HEADERS) && !same(header,ORGANIZATION_HEADERS) && !same(header,BOOKMARK_HEADERS) && !same(header,CUSTOM_HEADERS)) throw new Error(tr`${heading}：文献表头无效`);
     categoryName(heading);
     if(tables.some(t=>t.name.toLocaleLowerCase()===heading.toLocaleLowerCase())) throw new Error(tr('分类名称重复：')+heading);
     const start=i;
@@ -195,6 +205,7 @@ function migrateLibraryNotes(text) {
 }
 function migrateLibraryVenues(text){return migrateLibraryColumns(text,VENUE_HEADERS);}
 function migrateLibraryTitles(text){return migrateLibraryColumns(text,TITLE_HEADERS);}
+function migrateLibraryCustomFields(text){return migrateLibraryColumns(text,CUSTOM_HEADERS);}
 function migrateLibraryBookmarks(text){return migrateLibraryColumns(text,BOOKMARK_HEADERS);}
 function migrateLibraryOrganization(text){return migrateLibraryColumns(text,ORGANIZATION_HEADERS);}
 function migrateLibraryCitations(text){return migrateLibraryColumns(text,CITATION_HEADERS);}
@@ -269,14 +280,16 @@ function updateLibraryEntry(text, expected, changes, actor=null) {
     if(actor?.kind!=='human')throw new Error(tr('书签只能由用户修改'));
     if(typeof changes.bookmarked!=='boolean')throw new Error(tr('书签值无效'));
   }
+  if('customFields' in changes){if(actor?.kind!=='human')throw new Error(tr('自定义字段只能由用户修改'));changes.customFields=CustomFields.values(changes.customFields);}
   if('title' in changes)changes.title=String(changes.title).replace(/\r\n?/g,'\n').trim();
   for(const key of ['tldr','published','tags','organizing'])if(key in changes)changes[key]=String(changes[key]).replace(/\r?\n/g,' ').trim();
   if(!(Object.keys(changes).length===1&&'bookmarked' in changes))changes=Organization.apply({...current,tldr:decodeText(current.tldr)},changes,actor);
-  const columns = { bookmarked:13, organizing:11, provenance:12, published: 1, tags: 2, tldr: 3, status: 4, priority: 5, notes:6, venues:7, bibtex:8, citationSource:9, title:10 };
+  const columns = { customFields:14,bookmarked:13, organizing:11, provenance:12, published: 1, tags: 2, tldr: 3, status: 4, priority: 5, notes:6, venues:7, bibtex:8, citationSource:9, title:10 };
   for (const key of Object.keys(changes)) if (!(key in columns) && key!=='category') throw new Error(tr('不支持修改字段：') + key);
   const target=changes.category===undefined?current.category:categoryName(changes.category);
   if(!getCategories(text).includes(target)) throw new Error(tr('目标分类不存在'));
-  if('bookmarked' in changes){
+  if('customFields' in changes){text=migrateLibraryCustomFields(text);current=parseLibrary(text).find(r=>r.path===expected.path);}
+  else if('bookmarked' in changes){
     text=migrateLibraryBookmarks(text);current=parseLibrary(text).find(r=>r.path===expected.path);
   }else if('organizing' in changes||'provenance' in changes){
     text=migrateLibraryOrganization(text);current=parseLibrary(text).find(r=>r.path===expected.path);
@@ -292,7 +305,7 @@ function updateLibraryEntry(text, expected, changes, actor=null) {
   const next = [...current.cells];
   for (const [key,value] of Object.entries(changes)) {
     if(key==='category') continue;
-    next[columns[key]]=key==='bookmarked'?(value?'是':''):key==='provenance'?encodeNotes(JSON.stringify(Organization.parse(value))):key==='venues'?normalizeVenues(value).map(encodeNotes).join('<br>'):['notes','bibtex','citationSource','title','tldr'].includes(key)?encodeNotes(value):String(value).replace(/\r?\n/g,' ').trim().replace(/\|/g,'&#124;');
+    next[columns[key]]=key==='customFields'?encodeNotes(JSON.stringify(CustomFields.values(value))):key==='bookmarked'?(value?'是':''):key==='provenance'?encodeNotes(JSON.stringify(Organization.parse(value))):key==='venues'?normalizeVenues(value).map(encodeNotes).join('<br>'):['notes','bibtex','citationSource','title','tldr'].includes(key)?encodeNotes(value):String(value).replace(/\r?\n/g,' ').trim().replace(/\|/g,'&#124;');
   }
   if(same(next,current.cells) && target===current.category) return text;
   const lines=text.split('\n'), index=lines.findIndex(l=>l.startsWith('|')&&same(cells(l),current.cells));
@@ -463,7 +476,7 @@ function restoreRecord(text,scope,row){
   if(!['library','reviews','submissions'].includes(scope))throw new Error(tr('无效记录类型'));
   const rows=library?parseLibrary(text):parseTracker(text,source),group=library&&text.includes('<!-- library:collections -->')?'文献':categoryName(row.category);
   if(rows.some(r=>library?r.path===row.path:r.category===group&&sameTrackerContent(r.cells,row.cells)))throw new Error(tr('这条记录已存在，未重复恢复'));
-  if(library)text=row.cells.length===14?migrateLibraryBookmarks(text):row.cells.length===13?migrateLibraryOrganization(text):row.cells.length===11?migrateLibraryTitles(text):row.cells.length===10?migrateLibraryCitations(text):row.cells.length===8?migrateLibraryVenues(text):migrateLibraryNotes(text);
+  if(library)text=row.cells.length===15?migrateLibraryCustomFields(text):row.cells.length===14?migrateLibraryBookmarks(text):row.cells.length===13?migrateLibraryOrganization(text):row.cells.length===11?migrateLibraryTitles(text):row.cells.length===10?migrateLibraryCitations(text):row.cells.length===8?migrateLibraryVenues(text):migrateLibraryNotes(text);
   const names=library?getCategories(text):trackerGroups(text),cr=text.includes('\r\n')?'\r':'';
   if(!names.includes(group)){
     if(library)text=addCategory(text,group);
@@ -474,4 +487,4 @@ function restoreRecord(text,scope,row){
   if(end<0)throw new Error(tr('无法恢复到分类'));const values=[...row.cells];if(library)while(values.length<header.length)values.push('');if(!library)values[2]=trackerDeadline(text,group);
   lines.splice(end+1,0,'| '+values.join(' | ')+' |'+cr);const output=lines.join('\n');library?parseLibrary(output):parseTracker(output,source);return output;
 }
-module.exports = { normalizeTagFilter, BOOKMARK_HEADERS, migrateLibraryBookmarks, groupLibrary, Organization, ORGANIZATION_HEADERS, migrateLibraryOrganization, addLibraryEntry, REVIEW_STATUSES, updateReviewStatus, TITLE_HEADERS, migrateLibraryTitles, trackerLayout, CITATION_HEADERS, migrateLibraryCitations, HEADERS, NOTES_HEADERS, VENUE_HEADERS, normalizeVenues, venueOptions, migrateLibraryVenues, STATUSES, PRIORITIES, UNFILED_CATEGORY, TRACKING_HEADERS, parseLibrary, deadline, deadlineParts, composeDeadline, displayDeadline, deadlineCountdown, escapeLabel, filterLibrary, updateLibraryEntry, decodeText, encodeNotes, getCategories, migrateLibraryNotes, addCategory, renameCategory, deleteCategory, reorderGroups, parseTracker, trackerGroups, trackerDeadline, setTrackerDeadline, migrateTrackerDeadlines, isStagingGroup, renameTrackerGroup, deleteTrackerGroup, addTrackerGroup, updateTracker, removeRecord, restoreRecord, sameTrackerContent };
+module.exports = { CUSTOM_HEADERS,migrateLibraryCustomFields,normalizeTagFilter, BOOKMARK_HEADERS, migrateLibraryBookmarks, groupLibrary, Organization, ORGANIZATION_HEADERS, migrateLibraryOrganization, addLibraryEntry, REVIEW_STATUSES, updateReviewStatus, TITLE_HEADERS, migrateLibraryTitles, trackerLayout, CITATION_HEADERS, migrateLibraryCitations, HEADERS, NOTES_HEADERS, VENUE_HEADERS, normalizeVenues, venueOptions, migrateLibraryVenues, STATUSES, PRIORITIES, UNFILED_CATEGORY, TRACKING_HEADERS, parseLibrary, deadline, deadlineParts, composeDeadline, displayDeadline, deadlineCountdown, escapeLabel, filterLibrary, updateLibraryEntry, decodeText, encodeNotes, getCategories, migrateLibraryNotes, addCategory, renameCategory, deleteCategory, reorderGroups, parseTracker, trackerGroups, trackerDeadline, setTrackerDeadline, migrateTrackerDeadlines, isStagingGroup, renameTrackerGroup, deleteTrackerGroup, addTrackerGroup, updateTracker, removeRecord, restoreRecord, sameTrackerContent };

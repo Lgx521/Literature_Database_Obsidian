@@ -168,9 +168,9 @@ body:not(.is-mobile) .workspace-split.mod-left-split:not(.is-sidedock-collapsed)
 }
 .workspace-leaf-content[data-type="literature-database-navigation"] .view-content.ldb-navigation {
   padding: 12px 8px; display: flex; flex-direction: column; gap: 2px;
-  height: 100%; overflow-y: auto; background: var(--background-secondary); font-size: 12px;
+  height: 100%; overflow: hidden; background: var(--background-secondary); font-size: 12px;
 }
-.ldb-nav-heading { padding: 5px 8px 17px; overflow-wrap: anywhere; font-size: 12px; }
+.ldb-nav-heading { flex: 0 0 auto; padding: 5px 8px 17px; overflow-wrap: anywhere; font-size: 12px; }
 .ldb-navigation .ldb-nav-item { display: flex; align-items: center; width: 100%; flex: 0 0 auto; gap: 8px; min-height: 29px; height: auto; padding: 5px 8px; background: transparent; border: 0; box-shadow: none; border-radius: 4px; color: var(--text-normal); text-align: left; font-size: 12px; }
 .ldb-navigation .ldb-nav-item:hover { background: var(--background-modifier-hover); }
 .ldb-navigation .ldb-nav-item.is-active { background: var(--background-modifier-active-hover); color: var(--text-accent); font-weight: 600; }
@@ -211,19 +211,7 @@ body:not(.is-mobile) .workspace-split.mod-left-split:not(.is-sidedock-collapsed)
 .ldb-row[draggable="true"] { cursor: grab; }
 .ldb-row.is-dragging { opacity: .45; cursor: grabbing; }
 .ldb-drop-hint { flex: 0 0 auto; padding: 6px 12px; color: var(--text-muted); font-size: 11px; border-bottom: 1px dashed var(--background-modifier-border); }
-.ldb-nav-bottom { margin-top: auto; padding: 24px 7px 6px; display: flex; align-items: center; gap: 8px; }
-.ldb-nav-bottom button { flex: 1; min-width: 0; width: auto; font-size: 12px; box-shadow: none; background: transparent; color: var(--text-normal); }
-.ldb-nav-bottom .ldb-trash-link { color: var(--text-error); }
-.ldb-nav-bottom button:hover { background: var(--background-modifier-hover); }
-.ldb-agent-modal { width: min(620px, 94vw); }
-.ldb-agent-modal .modal-content { line-height: 1.6; }
-.ldb-agent-steps { padding-inline-start: 24px; }
-.ldb-agent-steps li { margin-bottom: 6px; }
-.ldb-agent-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
-.ldb-agent-connection input { width: 100%; font-family: var(--font-monospace); font-size: 12px; }
-.ldb-agent-proposal { padding: 12px 0; border-top: 1px solid var(--background-modifier-border); }
-.ldb-agent-modal summary { cursor: pointer; }
-.ldb-agent-hint { font-size: var(--font-ui-small); color: var(--text-muted); line-height: 1.5; }
+.ldb-navigation .ldb-nav-item.ldb-trash-link { color: var(--text-error); margin-top: 18px; justify-content: flex-start; }
 .ldb-notes-input { display: block; width: 100%; resize: vertical; min-height: 130px; line-height: 1.7; margin: 8px 0; padding: 9px; font-size: 12px; }
 .ldb-browser .ldb-toolbar { padding: 9px 12px; gap: 12px; }
 .ldb-browser .ldb-details { padding: 15px; }
@@ -496,3 +484,156 @@ body:not(.is-mobile) .workspace-split.mod-left-split:not(.is-sidedock-collapsed)
 .is-mobile .ldb-tag-filter-option { min-height: 40px; }
 .is-mobile .ldb-tag-filter-search button { padding: 4px; min-width: 0; }
 .is-mobile .ldb-tag-filter-search button svg { flex-shrink: 0; }
+/* Optional local beta: compact native controls; no changes to the core panes. */
+
+
+/* Local Beta: flat task workspace, with persistent status outside the dialog. */
+.ldb-deepseek-nav-text { min-width: 0; flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.ldb-deepseek-nav-text > span:first-child { white-space: nowrap; }
+.ldb-deepseek-nav-status { font-size: 12px; color: var(--text-muted); line-height: 1.4; overflow-wrap: anywhere; }
+.ldb-deepseek-nav.is-working .ldb-deepseek-nav-status, .ldb-deepseek-nav.has-results .ldb-deepseek-nav-status { color: var(--interactive-accent); }
+.ldb-navigation .ldb-deepseek-nav[hidden], .ldb-navigation .ldb-deepseek-heading[hidden] { display: none; }
+.ldb-deepseek-modal { width: min(720px, 94vw); max-height: 90dvh; padding: 24px; }
+.ldb-deepseek-modal [hidden] { display: none !important; }
+.ldb-deepseek-modal .modal-title { display: flex; align-items: center; gap: 9px; font-size: 24px; margin-bottom: 8px; }
+.ldb-deepseek-beta-badge { color: var(--text-accent); background: var(--background-modifier-hover); padding: 3px 5px; font-size: 10px; letter-spacing: .08em; font-weight: 600; border-radius: 3px; }
+.ldb-deepseek-modal .modal-content { display: flex; flex-direction: column; min-height: 0; overflow: hidden; margin-top: 0; }
+.ldb-deepseek-scroll { overflow-y: auto; min-height: 0; overscroll-behavior: contain; padding: 0 2px 2px; }
+.ldb-deepseek-modal .ldb-form-error:empty { display: none; }
+.ldb-deepseek-config { border-block: 1px solid var(--background-modifier-border); padding: 10px 0; margin-bottom: 14px; font-size: 13px; }
+.ldb-deepseek-modal summary { cursor: pointer; }
+.ldb-deepseek-key-editor, .ldb-deepseek-secret-more { margin-block: 12px; }
+.ldb-deepseek-secret-more { color: var(--text-muted); }
+.ldb-deepseek-modal input[type="password"], .ldb-deepseek-modal textarea { width: 100%; margin-block: 8px; }
+.ldb-deepseek-modal .ldb-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ldb-deepseek-modal button { min-height: 30px; height: auto; padding: 7px 12px; border-radius: 5px; box-shadow: none; font-size: 13px; }
+.ldb-deepseek-modal .ldb-actions button { min-width: 0; }
+.ldb-deepseek-scope { display: flex; align-items: flex-end; gap: 12px; }
+.ldb-deepseek-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1; }
+.ldb-deepseek-field label { color: var(--text-muted); font-size: 12px; }
+.ldb-deepseek-modal select { width: auto; max-width: 100%; min-width: 0; font-size: 13px; }
+.ldb-deepseek-field select { width: 100%; height: 34px; }
+.ldb-deepseek-caption { color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+.ldb-deepseek-task { margin-block: 20px 8px; border-left: 3px solid var(--interactive-accent); padding: 10px 14px; background: var(--background-secondary); }
+.ldb-deepseek-task.is-error { border-left-color: var(--text-error); }
+.ldb-deepseek-task-heading { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.ldb-deepseek-task-icon { display: flex; color: var(--text-accent); }
+.ldb-deepseek-task-icon svg { width: 16px; height: 16px; }
+.ldb-deepseek-task.is-working .ldb-deepseek-task-icon svg { animation: ldb-deepseek-spin 1.2s linear infinite; }
+.ldb-deepseek-current { font-size: 12px; margin-block: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+.ldb-deepseek-track { height: 3px; background: var(--background-modifier-border); overflow: hidden; position: relative; margin-bottom: 8px; }
+.ldb-deepseek-bar { height: 100%; background: var(--interactive-accent); transition: width .25s ease; }
+.ldb-deepseek-task.is-working .ldb-deepseek-track::after { content: ''; position: absolute; inset: 0; width: 25%; background: var(--interactive-accent); opacity: .45; animation: ldb-deepseek-scan 1.8s ease-in-out infinite; }
+.ldb-deepseek-result-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 20px; padding-bottom: 10px; font-size: 13px; border-bottom: 1px solid var(--background-modifier-border); }
+.ldb-deepseek-result-heading strong { margin-right: auto; }
+.ldb-deepseek-modal button.ldb-deepseek-text-button { background: transparent; color: var(--text-muted); }
+.ldb-deepseek-proposal { border-bottom: 1px solid var(--background-modifier-border); }
+.ldb-deepseek-proposal > summary { display: flex; align-items: center; gap: 8px; padding-block: 13px; list-style: none; font-size: 13px; }
+.ldb-deepseek-proposal > summary::-webkit-details-marker { display: none; }
+.ldb-deepseek-proposal > summary svg { width: 15px; height: 15px; display: block; color: var(--text-muted); }
+.ldb-deepseek-proposal > summary::after { content: '›'; font-size: 18px; transform: rotate(0deg); color: var(--text-muted); }
+.ldb-deepseek-proposal[open] > summary::after { transform: rotate(90deg); }
+.ldb-deepseek-proposal-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ldb-deepseek-item-state { color: var(--text-muted); font-size: 11px; flex-shrink: 0; }
+.ldb-deepseek-proposal-body { padding: 0 0 14px 23px; }
+.ldb-deepseek-proposal-body p { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.7; }
+.ldb-deepseek-proposal-body .ldb-actions { margin-top: 10px; }
+.ldb-deepseek-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; font-size: 12px; color: var(--text-muted); }
+.ldb-deepseek-empty { padding: 30px 0; color: var(--text-muted); font-size: 14px; line-height: 1.6; }
+.ldb-deepseek-footer { display: flex; gap: 8px; align-items: center; border-top: 1px solid var(--background-modifier-border); padding-top: 14px; margin-top: 18px; }
+.ldb-deepseek-footer > span { margin-right: auto; }
+.ldb-deepseek-modal .ldb-deepseek-stop { color: var(--text-error); background: transparent; }
+.ldb-deepseek-entry { margin-inline-start: 8px; }
+@keyframes ldb-deepseek-spin { to { transform: rotate(360deg); } }
+@keyframes ldb-deepseek-scan { from { transform: translateX(-100%); } to { transform: translateX(400%); } }
+@media (max-width: 600px) {
+ .ldb-deepseek-modal { padding: 18px; width: 94vw; }
+ .ldb-deepseek-modal button { white-space: normal; }
+ .ldb-deepseek-scope { flex-wrap: wrap; }
+ .ldb-deepseek-scope .ldb-deepseek-field { flex-basis: 100%; }
+ .ldb-deepseek-scope > button { margin-left: auto; }
+ .ldb-deepseek-empty { padding: 26px 10px; }
+ .ldb-deepseek-footer > span { max-width: 45%; }
+ .ldb-deepseek-proposal-body { padding-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+ .ldb-deepseek-task.is-working .ldb-deepseek-task-icon svg, .ldb-deepseek-task.is-working .ldb-deepseek-track::after { animation: none; }
+ .ldb-deepseek-bar { transition: none; }
+}
+.ldb-nav-scroll { min-height: 0; flex: 1; overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain; scrollbar-gutter: stable; display: flex; flex-direction: column; gap: 2px; padding-bottom: 4px; }
+.ldb-nav-scroll > * { flex-shrink: 0; }
+.ldb-deepseek-scroll { overflow-x: hidden; padding-inline-end: 6px; }
+.ldb-deepseek-modal .modal-header { margin-bottom: 8px; }
+.ldb-deepseek-proposal > summary { margin: 0; padding: 13px 0; width: 100%; box-sizing: border-box; }
+.ldb-deepseek-proposal > summary::after { flex: 0 0 16px; width: 16px; height: 16px; line-height: 16px; text-align: center; }
+
+.ldb-deepseek-proposal-body > .ldb-deepseek-field { margin-bottom: 18px; }
+.ldb-deepseek-proposal-body label { font-size: 14px; color: var(--text-normal); font-weight: 500; }
+.ldb-deepseek-proposal-body input[type="text"], .ldb-deepseek-proposal-body textarea { width: 100%; font-size: 14px; line-height: 1.5; margin: 0; }
+.ldb-deepseek-proposal-body textarea { min-height: 100px; resize: vertical; padding: 9px 10px; }
+.ldb-deepseek-tags { margin: 0; align-items: center; }
+.ldb-deepseek-tag { display: inline-flex; gap: 4px; align-items: center; padding: 4px 5px 4px 8px; border-radius: 4px; background: var(--background-secondary); color: var(--text-muted); font-size: 13px; overflow-wrap: anywhere; }
+.ldb-deepseek-tag.is-human { color: var(--text-accent); background: var(--background-modifier-active-hover); }
+.ldb-deepseek-tag-composer { display: flex; align-items: center; gap: 8px; }
+.ldb-deepseek-tag-composer input { min-width: 0; flex: 1; }
+.ldb-deepseek-modal button.ldb-deepseek-icon-button, .ldb-deepseek-modal button.ldb-deepseek-tag-remove { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 32px; width: 32px; height: 32px; min-height: 32px; padding: 0; border-radius: 50%; }
+.ldb-deepseek-modal button.ldb-deepseek-tag-remove { flex-basis: 24px; width: 24px; height: 24px; min-height: 24px; background: transparent; color: inherit; }
+.ldb-deepseek-icon-button svg { width: 16px; height: 16px; flex: none; }
+.ldb-deepseek-tag-remove svg { width: 13px; height: 13px; flex: none; }
+.ldb-deepseek-placement { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 32px; gap: 8px; align-items: center; margin-bottom: 8px; }
+.ldb-deepseek-placement select { width: 100%; }
+.ldb-deepseek-field > .ldb-deepseek-icon-button { align-self: flex-start; }
+.ldb-deepseek-validation, .ldb-deepseek-uncertainty { color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+.ldb-deepseek-validation:empty { display: none; }
+.is-mobile .ldb-deepseek-modal button.ldb-deepseek-icon-button { flex-basis: 40px; width: 40px; height: 40px; min-height: 40px; padding: 0; }
+.is-mobile .ldb-deepseek-placement { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px; }
+.is-mobile .ldb-deepseek-modal button.ldb-deepseek-tag-remove { width: 32px; height: 32px; flex-basis: 32px; min-height: 32px; }
+
+.ldb-deepseek-tag-field { position: relative; padding-top: 4px; }
+.ldb-deepseek-tag-field > .ldb-deepseek-icon-button { position: absolute; top: 0; right: 0; }
+.ldb-deepseek-tag-field > label { min-height: 32px; display: flex; align-items: center; }
+.ldb-deepseek-novelty { margin: 14px 0; border-left: 2px solid var(--interactive-accent); padding-left: 12px; font-size: 14px; }
+
+.ldb-field-settings { width: min(640px, 94vw); }
+.ldb-field-settings .modal-content { overflow-y: auto; }
+.ldb-field-settings p { color: var(--text-muted); }
+.ldb-field-definition { padding: 12px 0; border-block-end: 1px solid var(--background-modifier-border); }
+.ldb-field-definition summary { cursor: pointer; font-weight: 600; }
+.ldb-field-definition-row { display: flex; gap: 12px; align-items: center; padding: 8px 0; }
+.ldb-field-definition-row > input { min-width: 0; flex: 1; }
+.ldb-field-definition-row label { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+.ldb-field-options { margin-left: 16px; }
+.ldb-field-settings .ldb-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.ldb-metadata .ldb-custom-text { text-align: left; padding: 0; height: auto; white-space: pre-wrap; background: transparent; box-shadow: none; line-height: 1.5; }
+.ldb-browser.ldb-public.ldb-configured-columns .ldb-columns, .ldb-browser.ldb-public.ldb-configured-columns .ldb-row { grid-template-columns: var(--ldb-user-grid-wide); }
+.ldb-browser.ldb-public.ldb-configured-columns .ldb-column-published, .ldb-browser.ldb-public.ldb-configured-columns .ldb-date { display: var(--ldb-published-display); }
+.ldb-browser.ldb-public.ldb-configured-columns .ldb-column-status, .ldb-browser.ldb-public.ldb-configured-columns .ldb-reading { display: var(--ldb-status-display); }
+.ldb-browser.ldb-public.ldb-configured-columns .ldb-column-priority, .ldb-browser.ldb-public.ldb-configured-columns .ldb-priority { display: var(--ldb-priority-display) !important; }
+
+@container ldb-browser (max-width: 800px) {
+ .ldb-browser.ldb-public.ldb-configured-columns .ldb-columns, .ldb-browser.ldb-public.ldb-configured-columns .ldb-row { grid-template-columns: var(--ldb-user-grid-compact); }
+ .ldb-browser.ldb-public.ldb-configured-columns .ldb-column-priority, .ldb-browser.ldb-public.ldb-configured-columns .ldb-priority { display: none !important; }
+}
+.ldb-mobile.ldb-public.ldb-configured-columns .ldb-columns, .ldb-mobile.ldb-public.ldb-configured-columns .ldb-row { grid-template-columns: var(--ldb-user-grid-compact); }
+.ldb-mobile.ldb-public.ldb-configured-columns .ldb-column-priority, .ldb-mobile.ldb-public.ldb-configured-columns .ldb-priority { display: none !important; }
+@container ldb-mobile-list (min-width: 560px) {
+ .ldb-mobile.ldb-public.ldb-configured-columns .ldb-columns, .ldb-mobile.ldb-public.ldb-configured-columns .ldb-row { grid-template-columns: var(--ldb-user-grid-wide); }
+ .ldb-mobile.ldb-public.ldb-configured-columns .ldb-column-priority, .ldb-mobile.ldb-public.ldb-configured-columns .ldb-priority { display: var(--ldb-priority-display) !important; }
+}
+
+.ldb-deepseek-remember { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
+
+.ldb-deepseek-model-row { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 18px; }
+.ldb-deepseek-model-row > button { flex: none; min-height: 34px; }
+.modal.ldb-dialog .ldb-actions, .ldb-deepseek-footer, .ldb-deepseek-result-heading { gap: 12px; row-gap: 10px; }
+.modal.ldb-dialog .ldb-actions { margin-top: 18px; }
+.modal.ldb-dialog .ldb-actions > button { margin: 0; min-height: 34px; height: auto; padding: 7px 14px; }
+.ldb-map-node.is-editor { gap: 6px; }
+.ldb-map-node.is-editor input { min-width: 0; }
+.is-mobile .modal.ldb-dialog .ldb-actions > button { min-height: 44px; }
+@media (max-width: 440px) {
+ .ldb-deepseek-model-row { flex-wrap: wrap; }
+ .ldb-deepseek-model-row .ldb-deepseek-field { flex-basis: 100%; }
+ .ldb-deepseek-model-row > button { margin-left: auto; }
+ .ldb-deepseek-footer { flex-wrap: wrap; }
+}
