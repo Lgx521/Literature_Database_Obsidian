@@ -2,7 +2,7 @@
 // Loaded only when the user opens DeepSeek Beta. No SDK, background service,
 // embedding index, startup work, or background scan. The model proposes data;
 // only the guarded, explicit Apply path below can change the vault.
-module.exports=function({Engine,Collections,TagTree,Organization,Sha256,CitationMetadata,SourceTransaction,loadPdfJs,requestUrl,tr,desktop=false,nodeRequire=null}){
+module.exports=function({Plan,Engine,Collections,TagTree,Organization,Sha256,CitationMetadata,SourceTransaction,loadPdfJs,requestUrl,tr,desktop=false,nodeRequire=null}){
  const ENDPOINT='https://api.deepseek.com/chat/completions';
  const MAX_PAGES=12,MAX_CHARS=48000,MAX_BYTES=30*1024*1024;
  const fail=key=>{throw Error(tr(key));};
@@ -68,7 +68,7 @@ module.exports=function({Engine,Collections,TagTree,Organization,Sha256,Citation
    this.busy=true;const generation=++this.generation,check=()=>{if(this.closed||this.plugin.stopped||this.plugin.settings?.deepSeekBetaEnabled===false||generation!==this.generation||!this.enabled)fail('已取消');};
    try{return await action(check);}finally{this.busy=false;}
   }
-  async extract(file,check,start=1){
+  async extract(file,check,start=1,limits={}){
    this.onPhase?.('reading');
    return this.plugin.pdfWork.run(async work=>{
     check();work.check();await this.confined(file.path);const before=revision(file),pdfjs=await loadPdfJs();check();work.check();
@@ -77,7 +77,7 @@ module.exports=function({Engine,Collections,TagTree,Organization,Sha256,Citation
     const task=pdfjs.getDocument({data:new Uint8Array(bytes),isEvalSupported:false,useSystemFonts:true});const off=work.onCancel(()=>task.destroy?.());
     try{
      const doc=await task.promise;check();work.check();if(!Number.isInteger(start)||start<1||start>doc.numPages)fail('页码超出 PDF 范围');
-     const numbers=Array.from({length:Math.min(MAX_PAGES,doc.numPages-start+1)},(_,i)=>start+i),pages=[];let remaining=MAX_CHARS;
+     const numbers=Array.from({length:Math.min(limits.pages||MAX_PAGES,doc.numPages-start+1)},(_,i)=>start+i),pages=[];let remaining=limits.chars||MAX_CHARS;
      for(const n of numbers){check();work.check();const page=await doc.getPage(n);try{const content=await page.getTextContent();check();work.check();const value=content.items.map(i=>i.str||'').join(' ').slice(0,Math.min(8000,remaining));pages.push({page:n,text:value});remaining-=value.length;}finally{page.cleanup();}if(remaining<=0)break;}
      check();work.check();if(revision(file)!==before)fail('PDF 已改变或不在公开文献库中');if(!pages.some(p=>p.text.trim()))fail('PDF 没有可提取文本，未发送请求');
      return {pages,total:doc.numPages,revision:before};
@@ -93,7 +93,7 @@ module.exports=function({Engine,Collections,TagTree,Organization,Sha256,Citation
     const data=await this.http({url:'https://api.deepseek.com/models',method:'GET'},check,20000);
     if(!Array.isArray(data.data)||data.data.length>100)fail('模型列表无效，请刷新重试');
     const seen=new Set(),models=[];
-    for(const m of data.data){if(!m||typeof m.id!=='string'||!/^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,127}$/.test(m.id)||seen.has(m.id)||m.input_modalities&&(!Array.isArray(m.input_modalities)||!m.input_modalities.includes('text'))||m.output_modalities&&(!Array.isArray(m.output_modalities)||!m.output_modalities.includes('text')))continue;seen.add(m.id);models.push({id:m.id,name:typeof m.name==='string'?m.name.slice(0,120):m.id,maxOutput:Number.isInteger(m.max_output_tokens)&&m.max_output_tokens>0?m.max_output_tokens:1800});}
+    for(const m of data.data){if(!m||typeof m.id!=='string'||!/^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,127}$/.test(m.id)||seen.has(m.id)||m.input_modalities&&(!Array.isArray(m.input_modalities)||!m.input_modalities.includes('text'))||m.output_modalities&&(!Array.isArray(m.output_modalities)||!m.output_modalities.includes('text')))continue;seen.add(m.id);models.push({id:m.id,name:typeof m.name==='string'?m.name.slice(0,120):m.id,maxOutput:Number.isInteger(m.max_output_tokens)&&m.max_output_tokens>0?m.max_output_tokens:6000});}
     if(!models.length)fail('没有可用的文本模型');check();this.models=models;
     if(!this.modelId)this.modelId=models[0].id;return models;
    });
@@ -111,18 +111,54 @@ module.exports=function({Engine,Collections,TagTree,Organization,Sha256,Citation
    }catch(error){check();if([tr('请求超时；本次不会写入文献'),tr('DeepSeek 密钥无效或无权限'),tr('DeepSeek 余额不足'),tr('DeepSeek 请求过多，请稍后重试'),tr('DeepSeek 请求失败，请稍后重试'),tr('AI 返回格式无效，请重试')].includes(error.message))throw error;fail('网络请求失败，请检查连接后重试');}
    finally{clearTimeout(timer);this.cancelRequest=null;}
   }
-  async request(messages,check){
+  async request(messages,check,maxTokens=1800){
    this.onPhase?.('request');const model=this.selectedModel();if(!model)fail('请选择 API 返回的模型');
-   const envelope=await this.http({url:ENDPOINT,method:'POST',contentType:'application/json',body:JSON.stringify({model:model.id,thinking:{type:'disabled'},stream:false,response_format:{type:'json_object'},max_tokens:Math.min(1800,model.maxOutput),messages})},check);
-   const choice=envelope.choices?.[0],content=choice?.message?.content;if(choice?.finish_reason!=='stop'||typeof content!=='string'||content.length>16000)fail('AI 返回不完整，未应用结果');
+   const envelope=await this.http({url:ENDPOINT,method:'POST',contentType:'application/json',body:JSON.stringify({model:model.id,thinking:{type:'disabled'},stream:false,response_format:{type:'json_object'},max_tokens:Math.min(maxTokens,model.maxOutput),messages})},check);
+   const choice=envelope.choices?.[0],content=choice?.message?.content;if(choice?.finish_reason!=='stop'||typeof content!=='string'||content.length>(maxTokens>1800?48000:16000))fail('AI 返回不完整，未应用结果');
    let value;try{value=JSON.parse(content.replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i,'$1'));}catch(_){fail('AI 返回格式无效，请重试');}
    const usage=envelope.usage||{};return {value,usage:{input:Number(usage.prompt_tokens)||0,output:Number(usage.completion_tokens)||0}};
   }
-  async organize(path,language){return this.run(async check=>{
+  planBase(data){return {categories:catalog(data).map(({name,subgroups})=>({name,subgroups})),tags:vocabulary(data)};}
+  planFingerprint(data){return Sha256(JSON.stringify(this.planBase(data)));}
+  async planInbox(paths,language,progress=()=>{}){return this.run(async check=>{
+   this.writable();if(!this.selectedModel())fail('请选择 API 返回的模型');
+   const batch=[...new Set(paths)];if(!batch.length||batch.length>20||batch.some(p=>typeof p!=='string'||!p.startsWith('temp/')))fail('请选择最多 20 篇收件箱文献');
+   const data=await this.sources(),base=this.planBase(data),papers=[],excerpts=[];
+   for(const [index,path] of batch.entries()){
+    check();progress(index,batch.length,path);const file=this.file(path,data);let excerpt;
+    try{excerpt=await this.extract(file,check,1,{pages:2,chars:5500});}catch(error){check();throw Error(file.name+': '+error.message);}check();
+    papers.push({index,path,filename:file.name,fileRevision:excerpt.revision});excerpts.push({index,filename:file.name,pages:excerpt.pages});
+   }
+   let response;try{response=await this.request(Plan.messages(base,excerpts,language),check,6000);}finally{excerpts.length=0;}
+   check();const result=Plan.normalize(response.value,base,papers);
+   const plan={...result,base,fingerprint:this.planFingerprint(data),usage:response.usage};await this.checkPlan(plan);check();return plan;
+  });}
+  async checkPlan(plan){
+   this.writable();const data=await this.sources();if(this.planFingerprint(data)!==plan.fingerprint)fail('分类或标签已改变，请重新规划');
+   for(const p of plan.papers)if(revision(this.file(p.path,data))!==p.fileRevision)fail('收件箱文件已改变，请重新规划');return data;
+  }
+  async approvePlan(plan,edits={}){
+   if(this.busy||this.wire)fail('请等待当前请求结束');await this.checkPlan(plan);
+   const approved={...Plan.edit(plan,edits),base:plan.base,fingerprint:plan.fingerprint};
+   // Approval is session-only and cannot be forged by passing a JSON object.
+   this.approvedPlans??=new WeakSet();this.approvedPlans.add(approved);return approved;
+  }
+  async organize(path,language,approved=null){return this.run(async check=>{
+
    this.writable();if(!this.selectedModel())fail('请选择 API 返回的模型');const data=await this.sources(),row=data.rows.find(r=>r.path===path);if(row?.organizing==='人工完成')fail('此文献已人工完成，Agent 不可修改');
+   let assignment=null,input=data;
+   if(approved){
+    if(!this.approvedPlans?.has(approved))fail('请先确认分类方案');
+    await this.checkPlan(approved);assignment=approved.papers.find(p=>p.path===path);if(!assignment)fail('分类方案无效，请重新规划');
+    const groups=[...data.groups];for(const category of approved.categories)if(!groups.some(g=>g.scope==='library'&&g.name===category.name))groups.push({scope:'library',name:category.name,subgroups:[],members:[]});
+    input={...data,groups,rows:[...data.rows,{tags:approved.tags.map(t=>t.tag).join(' ')}]};
+   }
    const file=this.file(path,data),excerpt=await this.extract(file,check);check();
-   const {value,usage}=await this.request(prompt(data,excerpt.pages,language),check);check();validate(value,['title','tldr','tags','placement','uncertainty','novelty']);
-   const title=text(value.title,600),tldr=text(value.tldr,1500),uncertainty=text(value.uncertainty,600),known=vocabulary(data);
+   const messages=approved?Plan.paperMessages(vocabulary(input),excerpt.pages,assignment,language):prompt(data,excerpt.pages,language);
+   const response=await this.request(messages,check);let {value,usage}=response;
+   if(approved){validate(value,['title','tldr','tags','uncertainty']);value={...value,placement:{category:catalog(input).findIndex(c=>c.name===assignment.category),subgroup:''},novelty:{tags:[],categoryReason:'',subgroupReason:''}};}
+   check();validate(value,['title','tldr','tags','placement','uncertainty','novelty']);
+   const title=text(value.title,600),tldr=text(value.tldr,1500),uncertainty=text(value.uncertainty,600),known=vocabulary(input);
    const novelty=value.novelty||{tags:[],categoryReason:'',subgroupReason:''};validate(novelty,['tags','categoryReason','subgroupReason']);
    const newTags=novelty.tags||[];if(!Array.isArray(newTags)||newTags.length>3)fail('AI 返回了无效的新建建议');
    for(const item of newTags){validate(item,['tag','reason']);if(!TagTree.validTag(item.tag)||!text(item.reason,400)||!value.tags?.includes(item.tag))fail('AI 返回了无效的新建建议');}
@@ -131,10 +167,16 @@ module.exports=function({Engine,Collections,TagTree,Organization,Sha256,Citation
    let target=null;if(value.placement!==null){
     validate(value.placement,['category','subgroup','name']);let g;
     if(value.placement.category===null){const name=text(value.placement.name,80),reason=text(novelty.categoryReason,400);if(!reason)fail('新分类需要说明原因');g=data.groups.find(g=>g.scope==='library'&&g.name.toLocaleLowerCase()===name.toLocaleLowerCase());if(!g){Collections.add(data.collections,'library',name);g={name,subgroups:[]};taxonomy.category={name,reason};}}
-    else{g=catalog(data)[value.placement.category];if(!Number.isInteger(value.placement.category)||!g)fail('AI 返回了不存在的分类');}
+    else{g=catalog(input)[value.placement.category];if(!Number.isInteger(value.placement.category)||!g)fail('AI 返回了不存在的分类');}
     const subgroup=text(value.placement.subgroup,80);
     if(subgroup&&!g.subgroups.includes(subgroup)){const reason=text(novelty.subgroupReason,400);if(!reason)fail('新子类需要说明原因');let source=data.collections;if(taxonomy.category)source=Collections.add(source,'library',g.name);Collections.addChild(source,'library',g.name,subgroup);taxonomy.subgroup={category:g.name,name:subgroup,reason};}
     target={scope:'library',name:g.name,subgroup};
+   }
+   if(approved){
+    if(!target||target.name!==assignment.category||newTags.length||taxonomy.category||taxonomy.subgroup)fail('AI 偏离已确认方案，请重新整理');
+    const category=approved.categories.find(c=>c.name===target.name);
+    if(!data.groups.some(g=>g.scope==='library'&&g.name===target.name))taxonomy.category={name:target.name,reason:category.reason};
+    const original=vocabulary(data);taxonomy.tags=value.tags.filter(t=>!original.includes(t)).map(tag=>{const planned=approved.tags.find(t=>t.tag===tag);if(!planned)fail('AI 偏离已确认方案，请重新整理');return {tag,reason:planned.reason};});
    }
    const changes={},base=row||{};
    if((!row||Organization.temporaryTitle(row))&&title&&CitationMetadata.verifiedTitle(title,{pages:[excerpt.pages[0].text]}))changes.title=title;
@@ -146,7 +188,7 @@ module.exports=function({Engine,Collections,TagTree,Organization,Sha256,Citation
    if(!row&&uncertainty)target=null;
    const placements=data.groups.filter(g=>g.scope==='library'&&g.members.some(m=>m.path===path)).map(g=>({scope:'library',name:g.name,subgroup:g.members.find(m=>m.path===path).subgroup||''}));
    const preview={title:changes.title||base.title||file.name,tldr:changes.tldr||base.tldr||'',tags:changes.tags??base.tags??'',placements:placements.length?placements:target?[target]:[]};
-   return {path,filename:file.name,changes,target,preview,taxonomy,titleVerified:!!changes.title||!!row&&!Organization.temporaryTitle(row),uncertainty,usage,coverage:{pages:excerpt.pages.map(p=>p.page),total:excerpt.total},fileRevision:excerpt.revision,rowRevision:row?Sha256(JSON.stringify(row.cells)):null,membership:membership(data.groups,path)};
+   return {path,filename:file.name,changes,target,preview,taxonomy,planHumanTags:approved?.humanTags?.filter(t=>value.tags.includes(t))||[],titleVerified:!!changes.title||!!row&&!Organization.temporaryTitle(row),uncertainty,usage,coverage:{pages:excerpt.pages.map(p=>p.page),total:excerpt.total},fileRevision:excerpt.revision,rowRevision:row?Sha256(JSON.stringify(row.cells)):null,membership:membership(data.groups,path)};
   });}
   review(proposal,edits={}){return review(proposal,edits);}
   async apply(proposal,edits={}){
@@ -165,6 +207,8 @@ module.exports=function({Engine,Collections,TagTree,Organization,Sha256,Citation
    const known=new Set([...vocabulary(data),...String(row?.tags||'').split(/\s+/)]);if(changes.tags?.split(/\s+/).some(t=>!known.has(t)&&!proposal.taxonomy?.tags?.some(x=>x.tag===t&&TagTree.validTag(t)&&x.reason)))fail('标签已改变，请重新生成建议');
    if(!proposal.uncertainty)changes.organizing='AI 已整理';
    const human={...prepared.edits};delete human.placements;delete human.tagAdditions;
+   const plannedHuman=new Set((proposal.planHumanTags||[]).filter(t=>prepared.values.tags.split(/\s+/).includes(t)));
+   if(plannedHuman.size&&changes.tags){changes.tags=changes.tags.split(/\s+/).filter(t=>!plannedHuman.has(t)).join(' ');human.tags=prepared.values.tags;}
    const p=this.plugin,vault=p.app.vault;
    return p.recordAction(async()=>{
     let destination=proposal.path;const moved=[];

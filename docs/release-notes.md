@@ -1,13 +1,10 @@
-Literature Database 4.9.0 brings AI-assisted paper organization into the regular release, alongside customizable fields and a streamlined workspace.
+Literature Database 4.9.1 adds batch-first Inbox organization, helping new libraries build a consistent taxonomy before papers are filed.
 
-- **DeepSeek Beta, included and enabled by default.** Use your own API key and choose a model fetched from DeepSeek. Organize Inbox PDFs or library papers with missing information into editable title, TL;DR, tag and category previews. Apply individually or as a batch; review proposed new taxonomy through the tag mind map. Generation starts only when requested, and library changes require Apply. The feature can be turned off in settings.
-- **Visible progress and reusable credentials.** Continue a batch with its panel closed, reopen pending edits, or stop processing. Remember the key securely on supported devices and optionally sync an encrypted copy between devices.
-- **Custom fields.** Rename built-in labels and choices, hide fields, or add text and single-choice fields. Personal values and existing citation metadata remain preserved during AI organization.
-- **Tag editing.** Rename or delete tag branches with guarded source updates. Inline editors have Save and Cancel controls on desktop and mobile.
-- **Simpler navigation.** Keep the library heading fixed while the sidebar scrolls. AI tools and Trash live in the sidebar. Agent MCP has been removed; external agents use the vault workspace and its AGENTS.md.
-- **Less repeated work.** Cache candidate and preview checks, coalesce rendering per frame, retain unchanged controls, and release dialog resources on close. Paper filtering reuses search text and a shared title collator.
-- **Shorter README**, updated library screenshots and a new AI organization preview.
+- **Plan the batch first.** Read up to 20 Inbox PDFs together, propose shared categories and tags, and preview every paper’s assignment. Existing names are preferred.
+- **Review and merge.** Edit suggestion names to combine similar categories or tags. Confirm the plan before per-paper title, TL;DR and tag generation; Apply remains a separate step.
+- **Consistent assignments.** Confirmed categories are fixed by the plugin, and subsequent AI results use only existing or approved tags. Human tag edits retain their own provenance.
+- **Resume the preview.** Closing and reopening the panel preserves the current session’s plan and edits. Mobile confirmation controls stay visible while the plan scrolls.
 
-Requires Obsidian 1.8.7+. Existing disabled AI preferences are respected. PDF filenames, annotations, Notes, protected fields and citation provenance are retained.
+Validation: 54 offline regression suites on macOS, plus an isolated live test with six public papers and a second two-paper batch that reused the existing taxonomy. PDF filenames and contents were preserved. Requires Obsidian 1.8.7+.
 
-Validation: 53 offline regression suites on macOS, including AI request/apply boundaries, credentials, custom fields, tag changes, mobile execution and UI cleanup. Demo checks cover retained drafts, lifecycle cleanup and phone/tablet emulation. Release CI tests macOS/Linux and rebuilds the locked citation dependencies before publishing. See [AI usage](https://github.com/Lgx521/Literature_Database_Obsidian/blob/4.9.0/docs/deepseek-beta.md) and [performance measurements](https://github.com/Lgx521/Literature_Database_Obsidian/blob/4.9.0/docs/performance.md).
+[AI organization guide](https://github.com/Lgx521/Literature_Database_Obsidian/blob/4.9.1/docs/deepseek-beta.md)

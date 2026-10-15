@@ -32,6 +32,7 @@ pdf_work = (root / 'scripts/pdf-work.js').read_text()
 title_export = (root / 'scripts/title-export.js').read_text()
 snapshot_cache = (root / 'scripts/snapshot-cache.js').read_text()
 deepseek = (root / 'scripts/deepseek-beta.js').read_text()
+deepseek_plan = (root / 'scripts/deepseek-plan.js').read_text()
 deepseek_secret = (root / 'scripts/deepseek-secret.js').read_text()
 deepseek_work = (root / 'scripts/deepseek-work.js').read_text()
 deepseek_view = (root / 'scripts/deepseek-view.js').read_text()
@@ -61,8 +62,8 @@ deepseek_view = (root / 'scripts/deepseek-view.js').read_text()
     'const InboxImport = ((require) => { const module = { exports: {} };\n' + inbox + '\nreturn module.exports; })(ldbRequire);\n'
     'const MobileImport = ((require) => { const module = { exports: {} };\n' + mobile_import + '\nreturn module.exports; })(ldbRequire);\n'
     'const TrashStore = ((require) => { const module = { exports: {} };\n' + trash + '\nreturn module.exports; })(ldbRequire);\n'
-    'let deepSeekModule,deepSeekSecret; function ldbDeepSeek(plugin){if(!deepSeekModule){const module={exports:{}};\n' + deepseek + '\ndeepSeekModule=module.exports({Engine,Collections,TagTree,Organization,Sha256,CitationMetadata,SourceTransaction,loadPdfJs,requestUrl,tr,desktop:Platform.isDesktopApp&&!Platform.isMobile,nodeRequire:require});} return plugin.deepSeek??=new deepSeekModule.Service(plugin);}\n'
-    'function getDeepSeekSecret(){if(!deepSeekSecret){const module={exports:{}};\n' + deepseek_secret + '\ndeepSeekSecret=module.exports;}return deepSeekSecret;}\n'
-    'let deepSeekWorkClass; function getDeepSeekWork(){if(!deepSeekWorkClass){const module={exports:{}};\n' + deepseek_work + '\ndeepSeekWorkClass=module.exports;}return deepSeekWorkClass;}\n'
+    'let deepSeekModule,deepSeekSecret; function ldbDeepSeek(plugin){if(!deepSeekModule){const Plan=(()=>{const module={exports:{}};\n' + deepseek_plan + '\nreturn module.exports({TagTree,Collections,tr});})();const module={exports:{}};\n' + deepseek + '\ndeepSeekModule=module.exports({Plan,Engine,Collections,TagTree,Organization,Sha256,CitationMetadata,SourceTransaction,loadPdfJs,requestUrl,tr,desktop:Platform.isDesktopApp&&!Platform.isMobile,nodeRequire:require});} return plugin.deepSeek??=new deepSeekModule.Service(plugin);}\n'
+    'function getDeepSeekSecret(){if(!deepSeekSecret){const Plan=(()=>{const module={exports:{}};\n' + deepseek_plan + '\nreturn module.exports({TagTree,Collections,tr});})();const module={exports:{}};\n' + deepseek_secret + '\ndeepSeekSecret=module.exports;}return deepSeekSecret;}\n'
+    'let deepSeekWorkClass; function getDeepSeekWork(){if(!deepSeekWorkClass){const Plan=(()=>{const module={exports:{}};\n' + deepseek_plan + '\nreturn module.exports({TagTree,Collections,tr});})();const module={exports:{}};\n' + deepseek_work + '\ndeepSeekWorkClass=module.exports;}return deepSeekWorkClass;}\n'
     + splitter + '\n' + view + '\n' + tag_view + '\n' + tag_filter + '\n' + collection_view + '\n' + setup + '\n' + field_settings + '\n' + deepseek_view + '\n' + tail)
 (root / 'styles.css').write_text((root / 'scripts/library-view.css').read_text())

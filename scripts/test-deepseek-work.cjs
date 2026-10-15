@@ -19,5 +19,12 @@ const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve
  // An already-started atomic apply completes on Stop; later writes don't run.
  w.items=[{proposal:{path:'papers/a.pdf'},filename:'a.pdf'},{proposal:{path:'papers/b.pdf'},filename:'b.pdf'}];let write=deferred(),writes=0;service.apply=async()=>{writes++;await write.promise;};const applying=w.apply(w.ready);w.stop();write.resolve();await applying;assert.equal(writes,1);assert(w.items[0].applied);assert.equal(w.phase,'stopped');
  const unloading=w.organize(['temp/a.pdf','temp/b.pdf']);w.close();await unloading;assert.equal(w.items.length,0);assert.equal(w.listeners.size,0);assert.equal(service.onPhase,null);assert.equal(service.onIdle,null);assert.deepEqual(w.draft,{});
+ // Planning stops at a human gate; no per-paper call until confirmation.
+ const planDeferred=deferred();let organized=0,applied=0,approved=0;
+ const ps={enabled:true,cancel(){},planInbox:()=>planDeferred.promise,approvePlan:async p=>{approved++;return p;},organize:async(path,language,plan)=>{assert(plan);organized++;return {path,filename:path};},apply:async()=>applied++,review:()=>({error:''})};
+ const first=new Work(ps),planning=first.planInbox(['temp/one.pdf','temp/two.pdf']);first.subscribe(()=>{} )();planDeferred.resolve({papers:[{path:'temp/one.pdf'},{path:'temp/two.pdf'}]});await planning;
+ assert.equal(first.phase,'plan');assert.equal(organized,0);assert.equal(applied,0);assert(first.plan);let count=0;const reopened=first.subscribe(()=>count++);first.emit();assert.equal(count,1);reopened();
+ await Promise.all([first.confirmPlan(),first.confirmPlan()]);assert.equal(approved,1,'Double click does not confirm twice');assert.equal(organized,2);assert.equal(applied,0);assert.equal(first.plan,null);assert.equal(first.pending.length,2);
+ first.clear();assert.equal(first.pending.length,0);assert.deepEqual(first.planEdits,{});first.close();assert.equal(first.plan,null);
  console.log('DeepSeek task lifecycle: hidden continuation, reopen, explicit cancellation, atomic writes and teardown passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

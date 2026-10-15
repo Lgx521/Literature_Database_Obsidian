@@ -637,3 +637,24 @@ body:not(.is-mobile) .workspace-split.mod-left-split:not(.is-sidedock-collapsed)
  .ldb-deepseek-model-row > button { margin-left: auto; }
  .ldb-deepseek-footer { flex-wrap: wrap; }
 }
+
+/* The first-run plan is a bounded, editable preview; no source writes here. */
+.ldb-deepseek-plan { border-top: 1px solid var(--background-modifier-border); padding-top: 16px; }
+.ldb-deepseek-plan-intro { color: var(--text-muted); line-height: 1.5; margin: 8px 0 18px; }
+.ldb-deepseek-plan-section h4 { font-size: var(--font-ui-small); margin: 16px 0 8px; }
+.ldb-deepseek-plan-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px 12px; }
+.ldb-deepseek-plan-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ldb-deepseek-plan-row input { width: 100%; min-width: 0; flex: 1; }
+.ldb-deepseek-plan-count { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.ldb-deepseek-plan-badge { flex: none; font-size: var(--font-ui-smaller); color: var(--text-accent); }
+.ldb-deepseek-plan-badge.is-existing { color: var(--text-muted); }
+.ldb-deepseek-plan-papers { margin: 20px 0; }
+.ldb-deepseek-plan-papers summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
+.ldb-deepseek-plan-paper { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 12px; padding: 10px 0; border-bottom: 1px solid var(--background-modifier-border); }
+.ldb-deepseek-plan-title { font-weight: 500; overflow-wrap: anywhere; }
+.ldb-deepseek-plan-category { color: var(--text-accent); font-size: var(--font-ui-small); max-width: 160px; overflow-wrap: anywhere; }
+.ldb-deepseek-plan-paper-tags { grid-column: 1 / -1; color: var(--text-muted); font-size: var(--font-ui-small); }
+@media (max-width: 600px) { .ldb-deepseek-plan-grid { grid-template-columns: minmax(0,1fr); } }
+
+.ldb-deepseek-footer .ldb-deepseek-plan-actions { margin: 0; }
+.ldb-deepseek-plan-actions[hidden] { display: none; }

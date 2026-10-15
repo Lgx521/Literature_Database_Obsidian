@@ -85,3 +85,7 @@ The optional `tags.md` stores only visual tag groups and canonical tag names, no
 ## Custom fields (4.9.0)
 
 Preserve the optional 15th `自定义字段` column. It holds an HTML-escaped JSON object from stable `custom-` field IDs to text or option IDs; do not edit it as an agent. New records leave it empty. Field labels/options are in plugin settings `libraryFields`; renaming/hiding labels does not change stored values. Reading and priority may include user-defined `custom-` option IDs. Existing canonical organization states and manually complete protection still apply. Use current helpers so all 15 columns survive enrichment and trash/restore.
+
+## Inbox planning (4.9.1)
+
+DeepSeek Inbox batches first propose a shared category/tag plan for up to 20 public PDFs. Existing canonical names take priority. Human confirmation starts per-paper enrichment using fixed approved categories and allowed tags; Apply remains a separate action. Renaming a draft suggestion merges this batch only, never renames global taxonomy. Planning and preview generation do not move files or write source tables. Keep citation fields, human content and annotation companions protected.

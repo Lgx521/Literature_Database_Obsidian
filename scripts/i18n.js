@@ -1,6 +1,23 @@
 'use strict';
 // Source table values and user content are never translated in storage.
 const english = {
+  "分类方案无效，请重新规划": "Invalid taxonomy plan. Plan the batch again.",
+  "已确认的整批分类方案": "Approved batch taxonomy",
+  "请选择最多 20 篇收件箱文献": "Select up to 20 inbox papers.",
+  "分类或标签已改变，请重新规划": "Categories or tags changed. Plan the batch again.",
+  "收件箱文件已改变，请重新规划": "An inbox file changed. Plan the batch again.",
+  "请先确认分类方案": "Confirm the taxonomy plan first.",
+  "AI 偏离已确认方案，请重新整理": "The AI deviated from the approved plan. Organize again.",
+  "分类方案待确认": "Taxonomy plan ready",
+  "规划收件箱": "Plan inbox",
+  "先统一规划本批分类与标签，确认后再逐篇整理。": "Plan categories and tags for this batch, then confirm to organize each paper.",
+  "整批分类方案": "Batch taxonomy plan",
+  "确认后补充篇名与 TL;DR，沿用本方案。相同名称会合并；已有分类和标签不会被重命名。": "Confirm to organize titles and TL;DRs using this plan. Matching names merge suggestions; existing taxonomy stays unchanged.",
+  "复用": "Reuse",
+  "文献归属": "Paper assignments",
+  "确认方案并逐篇整理": "Confirm plan and organize",
+  "放弃方案": "Discard plan",
+
   "AI 工具": "AI tools",
   "获取中…": "Loading…",
   "删除": "Delete",

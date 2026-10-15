@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.9.1 — 2026-10-15
+
+- Plan Inbox categories and tags across a batch before per-paper enrichment, reusing existing canonical names.
+- Review assignments, merge draft names, and explicitly confirm the taxonomy before generating editable metadata previews.
+- Keep confirmed category assignments fixed in code; reject unapproved tags and stale plans. Preserve human tag provenance and guarded Apply transactions.
+- Retain session plans across panel close/reopen and keep mobile confirmation controls visible.
+- Validate with 54 offline suites and two public-paper demo batches.
+
 ## 4.8.0 — 2026-10-14
 
 - Add a two-sided editable tag map with inline group/tag/child creation, independent checkboxes, search, folding, pan and zoom. Keep paper assignments and provenance in the canonical library row.
