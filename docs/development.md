@@ -13,7 +13,7 @@ npm test
 
 The build assembles source modules into `main.js` and copies the plugin CSS to `styles.css`. The test runner exercises parsing, collections, deadlines, citation handling, clipboard import, trash, batch operations and view controls. Removal tests cover last-membership prompts, local/global scope, mixed batches, native checkbox and keyboard paths, changed memberships/project notes, and cancellation. The two macOS filesystem/clipboard suites are explicitly skipped on other systems; that does not establish compatibility on those platforms.
 
-`scripts/vendor/citation-engine.cjs` is a vendored dependency build. To change citation formatting, follow its [locked dependency rebuild instructions](../scripts/vendor/THIRD-PARTY.md), then rebuild and test the plugin. Keep all original license notices. `scripts/migrate-collections.cjs` is a pure migration function, not an automatic migration of a user's files.
+`scripts/vendor/citation-engine.cjs` is a vendored dependency build. To change citation formatting, follow its [locked dependency rebuild instructions](../scripts/vendor/THIRD-PARTY.md), then rebuild and test the plugin. The bundle also embeds local citation helpers and `i18n.js`; rebuild it whenever those inputs change, even when dependency versions stay the same. Run this rebuild before the release tests so CI can reproduce the committed bundle byte for byte. Keep all original license notices. `scripts/migrate-collections.cjs` is a pure migration function, not an automatic migration of a user's files.
 
 ## Source map
 
