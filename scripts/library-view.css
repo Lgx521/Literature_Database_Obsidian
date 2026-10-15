@@ -207,9 +207,19 @@
 .ldb-row[draggable="true"] { cursor: grab; }
 .ldb-row.is-dragging { opacity: .45; cursor: grabbing; }
 .ldb-drop-hint { flex: 0 0 auto; padding: 6px 12px; color: var(--text-muted); font-size: 11px; border-bottom: 1px dashed var(--background-modifier-border); }
-.ldb-nav-bottom { margin-top: auto; padding: 24px 7px 6px; }
-.ldb-nav-bottom button { width: 100%; font-size: 11px; box-shadow: none; }
-.ldb-nav-bottom .ldb-trash-link { margin-top: 8px; background: transparent; color: var(--text-muted); }
+.ldb-nav-bottom { margin-top: auto; padding: 24px 7px 6px; display: flex; align-items: center; gap: 8px; }
+.ldb-nav-bottom button { flex: 1; min-width: 0; width: auto; font-size: 12px; box-shadow: none; background: transparent; color: var(--text-normal); }
+.ldb-nav-bottom .ldb-trash-link { color: var(--text-error); }
+.ldb-nav-bottom button:hover { background: var(--background-modifier-hover); }
+.ldb-agent-modal { width: min(620px, 94vw); }
+.ldb-agent-modal .modal-content { line-height: 1.6; }
+.ldb-agent-steps { padding-inline-start: 24px; }
+.ldb-agent-steps li { margin-bottom: 6px; }
+.ldb-agent-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.ldb-agent-connection input { width: 100%; font-family: var(--font-monospace); font-size: 12px; }
+.ldb-agent-proposal { padding: 12px 0; border-top: 1px solid var(--background-modifier-border); }
+.ldb-agent-modal summary { cursor: pointer; }
+.ldb-agent-hint { font-size: var(--font-ui-small); color: var(--text-muted); line-height: 1.5; }
 .ldb-notes-input { display: block; width: 100%; resize: vertical; min-height: 130px; line-height: 1.7; margin: 8px 0; padding: 9px; font-size: 12px; }
 .ldb-browser .ldb-toolbar { padding: 9px 12px; gap: 12px; }
 .ldb-browser .ldb-details { padding: 15px; }

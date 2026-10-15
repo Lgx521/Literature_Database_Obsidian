@@ -33,6 +33,8 @@ Do not remove a paper's last category/project membership on its own. The UI offe
 
 Agent work is manually triggered. Do not add scheduled runs, background metadata scans, or uploads of notes/manuscripts. Report what changed and what remains unresolved; a local file's existence does not prove another device finished syncing.
 
+When connected through Agent MCP, read `library://guide` and `library_context` first. Use the bounded tools and returned revisions rather than bypassing them with direct filesystem writes. Read PDFs before enrichment; preserve manually completed records, personal fields and existing bibliography. Global tag renames are proposals until the user applies them in Obsidian. Zotero export migration reads actual exported bibliography deterministically; never submit generated bibliography as metadata. Existing memberships and subcategory placements are not an invitation to reorganize them. MCP exposes only public papers/inbox, not review/submission manuscripts, and does not launch an agent or schedule work.
+
 Interface language (Chinese/English) is independent of storage. Keep schema headings, status values, markers and personal content unchanged when switching language. Do not recreate legacy Chinese source filenames.
 
 ## Organization state and provenance (4.4.0)

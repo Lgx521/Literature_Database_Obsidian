@@ -19,6 +19,12 @@ collections = (root / 'scripts/collections.js').read_text()
 sharing = (root / 'scripts/deadline-sharing.js').read_text()
 collection_view = (root / 'scripts/collection-view.js').read_text()
 tag_tree = (root / 'scripts/tag-tree.js').read_text()
+transaction = (root / 'scripts/source-transaction.js').read_text()
+tag_rename = (root / 'scripts/tag-rename.js').read_text()
+mcp = (root / 'scripts/agent-mcp.js').read_text()
+agent_migration = (root / 'scripts/agent-migration.js').read_text()
+agent_service = (root / 'scripts/agent-service.js').read_text()
+agent_guide = (root / 'scripts/agent-guide-view.js').read_text()
 tag_view = (root / 'scripts/tag-map-view.js').read_text()
 tag_filter = (root / 'scripts/tag-filter-view.js').read_text()
 splitter = (root / 'scripts/pane-splitter.js').read_text()
@@ -37,10 +43,14 @@ metadata = (root / 'scripts/citation-metadata.js').read_text()
     'const Engine = ((require) => { const module = { exports: {} };\n' + engine + '\nreturn module.exports; })(ldbRequire);\n'
     'const Collections = ((require) => { const module = { exports: {} };\n' + collections + '\nreturn module.exports; })(ldbRequire);\n'
     'const TagTree = ((require) => { const module = { exports: {} };\n' + tag_tree + '\nreturn module.exports; })(ldbRequire);\n'
+    'const SourceTransaction = (() => { const module = { exports: {} };\n' + transaction + '\nreturn module.exports; })();\n'
+    'const TagRename = (() => { const module = { exports: {} };\n' + tag_rename + '\nreturn module.exports(Engine,TagTree,Organization); })();\n'
+    'const AgentMcp = ((require) => { const module = { exports: {} };\n' + mcp + '\nreturn module.exports; })(ldbRequire);\n'
+    'const AgentMigration = ((require) => { const module = { exports: {} };\n' + agent_migration + '\nreturn module.exports; })(ldbRequire);\n'
     'const DeadlineSharing = ((require) => { const module = { exports: {} };\n' + sharing + '\nreturn module.exports(Engine,Collections); })(ldbRequire);\n'
     'let citationEngine; function getCitations(){ if (!citationEngine) {const module={exports:{}};\n' + citations + '\ncitationEngine=module.exports;citationEngine.setTranslator(tr);} return citationEngine; }\n'
     'const CitationMetadata = ((require) => { const module = { exports: {} };\n' + metadata + '\nreturn module.exports; })(ldbRequire);\n'
     'const InboxImport = ((require) => { const module = { exports: {} };\n' + inbox + '\nreturn module.exports; })(ldbRequire);\n'
     'const MobileImport = ((require) => { const module = { exports: {} };\n' + mobile_import + '\nreturn module.exports; })(ldbRequire);\n'
-    'const TrashStore = ((require) => { const module = { exports: {} };\n' + trash + '\nreturn module.exports; })(ldbRequire);\n' + splitter + '\n' + view + '\n' + tag_view + '\n' + tag_filter + '\n' + collection_view + '\n' + setup + '\n' + tail)
+    'const TrashStore = ((require) => { const module = { exports: {} };\n' + trash + '\nreturn module.exports; })(ldbRequire);\n' + splitter + '\n' + view + '\n' + tag_view + '\n' + tag_filter + '\n' + collection_view + '\n' + setup + '\n' + agent_service + '\n' + agent_guide + '\n' + tail)
 (root / 'styles.css').write_text((root / 'scripts/library-view.css').read_text())

@@ -52,6 +52,26 @@ function addTag(model,group,parent,value){
  g.tags.push(tag);validate(next);return {model:next,tag};
 }
 function moveFamily(model,tag,to){const next=clone(model),target=next.groups.find(g=>g.name===to);if(!target)throw Error(tr('标签分组已改变，请重新打开'));const key=fold(family(tag));for(const g of next.groups){if(g===target)continue;target.tags.push(...g.tags.filter(t=>fold(family(t))===key));g.tags=g.tags.filter(t=>fold(family(t))!==key);}return validate(next);}
+function rename(model,node,value){
+ const next=clone(model);
+ if(node.kind==='group'){
+  const group=next.groups.find(g=>g.name===node.group);if(!group)throw Error(tr('标签分组已改变，请重新打开'));
+  group.name=groupName(value);return {model:validate(next),mapping:{},key:'group:'+group.name};
+ }
+ // Rename one segment, retaining its prefix and all descendants. Never merge implicitly.
+ const name=String(value).trim().replace(/\s+/g,'-').toLocaleLowerCase();
+ if(!name||/[\/#]/.test(name))throw Error(tr('请输入单个标签名称，不含斜杠'));
+ const from=node.tag,to=from.slice(0,from.lastIndexOf('/')+1)+(from.includes('/')?'':'#')+name;
+ if(!validTag(to))throw Error(tr('标签只能包含文字、数字、连字符、下划线和斜杠'));
+ const matches=t=>fold(t)===fold(from)||fold(t).startsWith(fold(from)+'/');
+ const tags=next.groups.flatMap(g=>g.tags),affected=tags.filter(matches);
+ if(!affected.length)throw Error(tr('标签分支已改变，请重新打开'));
+ const outside=tags.filter(t=>!matches(t));
+ if(fold(from)!==fold(to)&&outside.some(t=>fold(t)===fold(to)||fold(t).startsWith(fold(to)+'/')))throw Error(tr('目标标签分支已存在，不能隐式合并'));
+ const mapping=Object.fromEntries(affected.map(t=>[t,to+t.slice(from.length)]));
+ for(const g of next.groups)g.tags=g.tags.map(t=>mapping[t]||t);
+ return {model:validate(next),mapping,from,to,key:'tag:'+fold(to)};
+}
 function tree(model){
  return {key:'root',kind:'root',label:tr('标签库'),children:model.groups.map(g=>{
   const root={key:'group:'+g.name,kind:'group',label:g.name,group:g.name,children:[]},nodes=new Map();
@@ -80,11 +100,12 @@ function layout(tree,{collapsed=new Set(),editor=null,sides=new Map()}={}){
  for(const group of groups.filter(g=>!sides.has(g.key)).sort((a,b)=>weight(b)-weight(a))){const side=loads.right<=loads.left?'right':'left';sides.set(group.key,side);loads[side]+=weight(group);}
  const visible=[],widths={left:[],right:[]};
  const walk=(node,depth,parent,side)=>{
-  const width=node.kind==='editor'?234:Math.min(260,Math.max(node.kind==='root'?106:128,58+[...node.label].reduce((sum,c)=>sum+(/[\u2e80-\uffff]/.test(c)?14:7.8),0)));
-  const n={...node,depth,parent,side,width,children:[]};visible.push(n);
+  const renaming=editor?.renameKey===node.key;
+  const width=node.kind==='editor'||renaming?234:Math.min(260,Math.max(node.kind==='root'?106:128,58+[...node.label].reduce((sum,c)=>sum+(/[\u2e80-\uffff]/.test(c)?14:7.8),0)));
+  const n={...node,...(renaming?{key:'editor',kind:'editor'}:{}),depth,parent,side,width,children:[]};visible.push(n);
   if(side)widths[side][depth]=Math.max(widths[side][depth]||0,width);
   if(!collapsed.has(node.key))n.children=node.children.map(c=>walk(c,depth+1,n,side||sides.get(c.key)));
-  if(editor?.parent===node.key){const editorSide=side||'right';n.children.push(walk({key:'editor',kind:'editor',label:'',children:[]},depth+1,n,editorSide));}
+  if(!editor?.renameKey&&editor?.parent===node.key){const editorSide=side||'right';n.children.push(walk({key:'editor',kind:'editor',label:'',children:[]},depth+1,n,editorSide));}
   return n;
  };
  const root=walk(tree,0,null,null),heights={left:0,right:0};root.x=0;
@@ -102,4 +123,4 @@ function layout(tree,{collapsed=new Set(),editor=null,sides=new Map()}={}){
  for(const n of visible){n.x-=left;n.y+=12;}
  return {nodes:visible,width:right-left,height:height+60};
 }
-module.exports={FILE,START,END,parse,serialize,validate,validTag,label,family,effective,addGroup,addTag,moveFamily,tree,layout,read,save,fold};
+module.exports={FILE,START,END,parse,serialize,validate,validTag,label,family,effective,addGroup,addTag,moveFamily,rename,tree,layout,read,save,fold};

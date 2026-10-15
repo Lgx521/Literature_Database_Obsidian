@@ -83,19 +83,37 @@ class TagMapModal extends Modal {
       const box=el.createEl('input',{type:'checkbox',attr:{'aria-label':TagTree.label(n.tag)}});el.ldbCheck=box;box.addEventListener('change',()=>this.toggle(el.ldbNode,box.checked));
       const label=el.createEl('button',{cls:'ldb-map-node-label',text:n.label});label.addEventListener('click',()=>this.toggle(el.ldbNode,!box.checked));el.ldbLabel=label;
       el.title=TagTree.label(n.tag);
-      el.addEventListener('contextmenu',e=>{e.preventDefault();if(this.busy||this.editor)return;const menu=new Menu().setUseNativeMenu(!Platform?.isMobile);menu.addItem(i=>i.setTitle(tr('移动标签分支到…')).setIsLabel(true));for(const g of this.model.groups)menu.addItem(i=>i.setTitle(g.name).setChecked(g.name===el.ldbNode.group).onClick(()=>this.move(el.ldbNode,g.name)));const r=el.getBoundingClientRect();menu.showAtPosition({x:r.left,y:r.bottom},this.mapDoc);});
     }else el.ldbLabel=el.createSpan({cls:'ldb-map-node-label',text:n.label});
+    if(n.kind!=='root')el.addEventListener('contextmenu',e=>{
+      e.preventDefault();if(this.busy||this.editor)return;const node=el.ldbNode,menu=new Menu().setUseNativeMenu(!Platform?.isMobile);
+      menu.addItem(i=>i.setTitle(tr('重命名')).setIcon('pencil').onClick(()=>this.beginRename(node)));
+      if(node.kind==='tag'){menu.addSeparator();menu.addItem(i=>i.setTitle(tr('移动标签分支到…')).setIsLabel(true));for(const g of this.model.groups)menu.addItem(i=>i.setTitle(g.name).setChecked(g.name===node.group).onClick(()=>this.move(node,g.name)));}
+      const r=el.getBoundingClientRect();menu.showAtPosition({x:r.left,y:r.bottom},this.mapDoc);
+    });
     el.ldbPlus=this.icon(el,'plus',tr(n.kind==='root'?'新建标签分组':n.kind==='group'?'新建标签':'新建子标签'),()=>this.beginEditor(el.ldbNode),'ldb-map-add');
     return el;
   }
   beginEditor(node){
     if(this.busy)return;if(this.editor?.value?.trim()){this.editor.input.focus();return;}this.editor={parent:node.key,kind:node.kind==='root'?'group':'tag',group:node.group,tag:node.kind==='tag'?node.tag:null,value:''};this.collapsed.delete(node.key);this.nodes.get('editor')?.remove();this.nodes.delete('editor');this.render();this.focusNode('editor');this.editor.input.focus();
   }
+  beginRename(node){
+    if(this.busy||this.editor)return;
+    this.editor={renameKey:node.key,node,parent:node.key,kind:node.kind,group:node.group,value:node.label};
+    this.render();this.focusNode('editor');this.editor.input.focus();this.editor.input.select();
+  }
   cancelEditor(){if(this.busy)return;const parent=this.editor?.parent;this.editor=null;this.render();this.nodes.get(parent)?.ldbPlus?.focus({preventScroll:true});}
   async store(model){const text=await TagTree.save(this.plugin,this.catalogText,model);if(this.closed)return;this.catalogText=text;this.model=model;this.tree=TagTree.tree(model);}
   async commitEditor(){
     if(!this.editor||this.busy)return;const draft=this.editor;this.busy=true;draft.input.readOnly=true;this.error.hidden=true;this.syncChecked();
-    try{const change=draft.kind==='group'?{model:TagTree.addGroup(this.model,draft.value)}:TagTree.addTag(this.model,draft.group,draft.tag,draft.value);await this.store(change.model);if(this.closed)return;this.editor=null;this.render();this.busy=false;this.syncChecked();const key=change.tag?'tag:'+TagTree.fold(change.tag):'group:'+draft.value.trim();this.focusNode(key);const el=this.nodes.get(key);el?.classList.add('is-new');el?.addEventListener('animationend',()=>el.classList.remove('is-new'),{once:true});(el?.ldbCheck||el?.ldbPlus)?.focus({preventScroll:true});}
+    try{
+      let change;
+      if(draft.renameKey){
+        change=await this.plugin.renameTagBranch(draft.node,draft.value,this.catalogText,this.view);
+        this.catalogText=change.after['tags.md'];this.model=change.model;this.tree=TagTree.tree(change.model);
+        if(this.branchSides.has(draft.renameKey))this.branchSides.set(change.key,this.branchSides.get(draft.renameKey));
+        if(this.collapsed.delete(draft.renameKey))this.collapsed.add(change.key);
+      }else{change=draft.kind==='group'?{model:TagTree.addGroup(this.model,draft.value)}:TagTree.addTag(this.model,draft.group,draft.tag,draft.value);await this.store(change.model);}
+      if(this.closed)return;this.editor=null;this.render();this.busy=false;this.syncChecked();const key=change.key||(change.tag?'tag:'+TagTree.fold(change.tag):'group:'+draft.value.trim());this.focusNode(key);const el=this.nodes.get(key);el?.classList.add('is-new');el?.addEventListener('animationend',()=>el.classList.remove('is-new'),{once:true});(el?.ldbCheck||el?.ldbPlus)?.focus({preventScroll:true});}
     catch(e){this.showError(e);if(!this.closed){draft.input.readOnly=false;draft.input.setAttribute('aria-invalid','true');draft.input.focus();}}
     finally{this.busy=false;this.syncChecked();}
   }

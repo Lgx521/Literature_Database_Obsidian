@@ -171,7 +171,7 @@ class LibraryNavigation extends ItemView {
       }
     }
     const footer=root.createDiv('ldb-nav-bottom');
-    ldbButton(footer,tr('交给 Agent 整理…'),()=>new AgentHandoffModal(this.plugin).open());
+    ldbButton(footer,'Agent MCP',()=>new AgentMcpModal(this.plugin).open(),'ldb-agent-link');
     ldbButton(footer,tr('回收站'),()=>new TrashModal(this.plugin).open(),'ldb-trash-link');
     if(this.plugin.lastError)root.createDiv({cls:'ldb-form-error',text:this.plugin.lastError});
     this.updateCountdowns();
@@ -390,18 +390,6 @@ class VenueDeadlineModal extends Modal {
     const save=ldbButton(actions,tr('保存'),async()=>{
       save.disabled=true;try{await this.plugin.setVenueDeadline(scope,name,readValue(),before,entry?.key||'');this.close();new Notice(tr('截止时间已更新'));}catch(e){error.setText(e.message);save.disabled=false;}
     },'mod-cta');ldbButton(actions,tr('取消'),()=>this.close());
-  }
-  onClose(){this.contentEl.empty();}
-}
-class AgentHandoffModal extends Modal {
-  constructor(plugin){super(plugin.app);this.plugin=plugin;}
-  onOpen(){
-    this.titleEl.setText(tr('手动交给 Agent 整理'));
-    this.contentEl.createEl('p',{text:tr('复制指令，粘贴到 Codex 执行。')});
-    const base=this.app.vault.adapter.getBasePath?.()||this.app.vault.getName();
-    const prompt=tr`请整理论文库 ${base}。先读根目录 AGENTS.md。处理 temp 收件箱，以及 library.md 中待整理、自动整理或元信息不完整且未标为人工完成的文献。PDF 原文件名永远不改；同名文件放不同子目录，保留 PDF、Skim 批注和扩展属性。核实真实篇名后写入篇名列，保留已选集合。补齐空缺的篇名、标签、TL;DR；保留人工及未知来源的已有内容、Notes、阅读状态、优先级、书签和项目备注。人工完成的条目跳过；通过带 actor 的 updateLibraryEntry 记录每个字段和标签来源（kind: ai，name: 实际 Agent 名，如 Codex），读取 PDF 后标为 AI 已整理，无法确认的字段留空并报告。核实重复与版本，不擅自合并。严禁生成或修改 BibTeX、引用来源、引用键、作者、DOI 等引用字段；新条目这些字段留空。只处理公开文献，不搜索或上传审稿、投稿材料。先备份，检查并发修改，最后验证源表、集合和附件。仅执行本次手动整理，不创建定时任务。`;
-    const area=this.contentEl.createEl('textarea',{attr:{rows:'10','aria-label':tr('Agent 整理指令')}});area.value=prompt;area.addClass('ldb-full-width');
-    ldbButton(this.contentEl,tr('复制整理指令'),async()=>{try{await navigator.clipboard.writeText(area.value);new Notice(tr('已复制，请粘贴到 Codex 执行'));this.close();}catch(e){area.focus();area.select();new Notice(tr('请按 ⌘C 复制'));}},'mod-cta');
   }
   onClose(){this.contentEl.empty();}
 }
@@ -765,7 +753,7 @@ class LiteratureBrowser extends ItemView {
     this.filterbar.hidden=!this.isPublic();this.exportEl.hidden=!this.isPublic();
     this.venueDeadlineEl.hidden=!(TRACK_FILES[this.scope]||this.scope==='projects')||!this.filters.category||(!!TRACK_FILES[this.scope]&&Engine.isStagingGroup(this.filters.category));
     if(!this.venueDeadlineEl.hidden)this.venueDeadlineEl.setText('DDL '+Engine.displayDeadline(data.deadlines?.[this.scope]?.[this.filters.category]||'—'));
-    this.actionEl.setText(this.scope==='library'?tr('新建分类'):this.scope==='projects'?tr('新建项目'):this.scope==='inbox'?tr('交给 Agent 整理…'):'＋ Venue');
+    this.actionEl.setText(this.scope==='library'?tr('新建分类'):this.scope==='projects'?tr('新建项目'):this.scope==='inbox'?'Agent MCP':'＋ Venue');
     const labels=this.isPublic()?[tr('篇名'),tr('发表'),tr('阅读'),tr('优先')]:this.scope==='inbox'?[tr('待整理 PDF'),tr('放入日期'),tr('状态'),tr('大小')]:[tr('稿件 / 文件名'),tr('截止时间'),tr('状态'),tr('venue / 轮次')];
     this.sortButtons.forEach((b,i)=>b.dataset.label=labels[i]);this.syncControls();this.renderList();
     if(this.pendingDraft&&!this.dirty()){
@@ -780,7 +768,7 @@ class LiteratureBrowser extends ItemView {
     }
     this.plugin.navigation={scope:this.scope,category:this.filters.category,status:this.filters.status,bookmarked:this.filters.bookmarked,subgroup:this.filters.subgroup};this.plugin.renderNavigation();
   }
-  primaryAction(){if(this.dirty()){new Notice(tr('请先保存或取消编辑'));return;}if(this.isPublic())new CategoryModal(this.plugin,this.scope).open();else if(this.scope==='inbox')new AgentHandoffModal(this.plugin).open();else new VenueModal(this.plugin,this.scope).open();}
+  primaryAction(){if(this.dirty()){new Notice(tr('请先保存或取消编辑'));return;}if(this.isPublic())new CategoryModal(this.plugin,this.scope).open();else if(this.scope==='inbox')new AgentMcpModal(this.plugin).open();else new VenueModal(this.plugin,this.scope).open();}
   renderList(reset=false){
     if(!this.listEl)return;const scroll=reset?0:this.listEl.scrollTop,keepVisible=!reset&&!this.dirty()&&this.selectionVisible();
     if(this.isPublic())this.visibleRows=Engine.filterLibrary(this.rows,{...this.filters,bookmarked:this.filters.bookmarked||this.filters.bookmarkOnly,category:this.scope==='projects'?'':this.filters.category});
@@ -951,7 +939,7 @@ class LiteratureBrowser extends ItemView {
     if(this.isPublic()){title.title=this.sourceLabel(row,'title');this.detailEl.createDiv({cls:'ldb-original-filename',text:row.filename,attr:{title:tr('文件名')}});}
     if(this.scope==='inbox'||this.isPublic()||row.pdfPath)this.button(this.detailEl,'Open ↗',()=>this.openPDF(this.detailRow),'mod-cta');
     if(this.scope==='inbox'){
-      this.button(this.detailEl,tr('复制 Agent 整理指令'),()=>new AgentHandoffModal(this.plugin).open());return;
+      this.button(this.detailEl,'Agent MCP',()=>new AgentMcpModal(this.plugin).open());return;
     }
     const meta=this.detailEl.createEl('dl',{cls:'ldb-metadata'});
     const pairs=this.isPublic()?[[tr('发表时间'),tr(row.published)]]:[...(this.scope==='reviews'?[]:[[tr('状态'),tr(row.status)]]),...(!this.filters.category?[[tr('截止时间'),Engine.displayDeadline(row.published)]]:[])];

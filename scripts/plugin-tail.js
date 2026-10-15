@@ -5,6 +5,7 @@ module.exports=class LiteratureManager extends Plugin {
     // The file index can still be empty in onload, even for an existing vault.
     this.layoutReady=false;this.ready=false;this.setupNeeded=false;
     this.settings={language:'auto',...saved};
+    this.agentMcp=new AgentMcpService(this);
     LdbI18n.setLanguage(this.settings.language,require('obsidian').getLanguage?.()||'en');
     this.stopped=false;this.snapshot=null;this.navigation={scope:'library',category:'',status:''};this.lastError='';this.timer=null;this.loading=null;
     this.citationQueue=Promise.resolve();this.citationErrors=new Map();this.citationKnown=null;
@@ -40,7 +41,7 @@ module.exports=class LiteratureManager extends Plugin {
       finally{this.migrating=false;}
       await this.refresh();
       if(this.stopped)return;
-      this.ready=true;if(this.settings.openOnStartup)await this.openLibrary();
+      this.ready=true;await this.agentMcp.resume();if(this.settings.openOnStartup)await this.openLibrary();
     });
   }
   registerCommands(){
@@ -48,7 +49,7 @@ module.exports=class LiteratureManager extends Plugin {
     this.addCommand({id:'open-library',name:tr('打开文献管理器'),callback:()=>this.openLibrary()});
     this.addCommand({id:'open-inbox',name:tr('打开收件箱'),callback:()=>this.openLibrary({scope:'inbox'})});
     this.addCommand({id:'new-category',name:tr('新建分类'),callback:()=>new CategoryModal(this).open()});
-    this.addCommand({id:'agent-inbox',name:tr('复制 Agent 整理指令'),callback:()=>new AgentHandoffModal(this).open()});
+    this.addCommand({id:'agent-inbox',name:'Agent MCP',callback:()=>new AgentMcpModal(this).open()});
     this.addCommand({id:'refresh-citations',name:tr('重新识别缺失引用'),callback:()=>this.ensureCitationRows(this.snapshot?.library||[]).then(rows=>new Notice(tr('引用识别完成：')+rows.filter(r=>r.bibtex).length+' / '+rows.length)).catch(e=>new Notice(e.message,8000))});
     this.addCommand({id:'refresh',name:tr('重新读取本地数据'),callback:()=>this.refresh(true)});
   }
@@ -389,6 +390,28 @@ module.exports=class LiteratureManager extends Plugin {
     await vault.process(file,current=>{if(current!==before)throw new Error(tr('备份期间文件发生变化，请重试；草稿已保留'));return after;});
     await this.refresh();
   }
+  async renameTagBranch(node,name,expectedCatalog,origin=null){
+    const views=this.app.workspace.getLeavesOfType(LIBRARY_VIEW).map(l=>l.view);
+    if(this.stopped||this.recordBusy||this.importing||this.lastError||views.some(v=>v.editing||v.saving||(v!==origin&&v.dirty?.())))throw Error(tr('请先保存或取消编辑，并等待当前操作结束'));
+    this.recordBusy=true;if(origin)origin.saving=true;
+    try{
+      const vault=this.app.vault,library=await vault.read(vault.getAbstractFileByPath(LIBRARY_SOURCE)),catalog=await TagTree.read(vault);
+      if(catalog.text!==expectedCatalog)throw Error(tr('标签目录已改变，请重新打开；输入已保留'));
+      if(origin?.dirty?.()){
+        const fresh=Engine.parseLibrary(library).find(r=>r.path===origin.detailRow?.path);
+        if(JSON.stringify(fresh?.cells)!==JSON.stringify(origin.detailRow?.cells))throw Error(tr('源表发生并发修改，请重试'));
+      }
+      const change=TagRename.plan(library,catalog.text,node,name);
+      await SourceTransaction.write(vault,change.before,change.after,'tag-rename');
+      const updated=Engine.parseLibrary(change.after[LIBRARY_SOURCE]),mapping=new Map(Object.entries(change.mapping).map(([a,b])=>[TagTree.fold(a),b]));
+      for(const view of views){
+        if(view.filters?.tags)view.filters.tags=view.filters.tags.map(t=>mapping.get(TagTree.fold(t))||t);
+        if(view===origin&&view.detailRow){const row=updated.find(r=>r.path===view.detailRow.path);if(row){view.detailRow=view.notesBase=row;view.renderTags();}}
+        view.remember?.();
+      }
+      this.tagFilterMenu?.close();await this.refresh();return change;
+    }finally{this.recordBusy=false;if(origin)origin.saving=false;}
+  }
   async mutateDeadlineSources(transform,names=[COLLECTION_SOURCE,TRACK_FILES.submissions],label='ddl'){
     if(this.lastError)throw new Error(tr('源数据不完整，暂不能保存'));
     const vault=this.app.vault,files=names.map(n=>vault.getAbstractFileByPath(n));
@@ -533,5 +556,5 @@ module.exports=class LiteratureManager extends Plugin {
       else await this.app.workspace.getLeaf('tab').openFile(file);
     }catch(e){new Notice(e.message,8000);}
   }
-  onunload(){this.stopped=true;this.tagFilterMenu?.close();this.tagMap?.close(true);this.membershipMenu?.close();this.removalModal?.close();clearTimeout(this.timer);for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))leaf.view.stopCountdowns?.();this.endPaperDrag();this.endGroupDrag();}
+  onunload(){this.stopped=true;this.agentGuide?.close();this.agentMcp?.stop(false).catch(()=>{});this.tagFilterMenu?.close();this.tagMap?.close(true);this.membershipMenu?.close();this.removalModal?.close();clearTimeout(this.timer);for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))leaf.view.stopCountdowns?.();this.endPaperDrag();this.endGroupDrag();}
 };

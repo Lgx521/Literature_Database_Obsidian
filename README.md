@@ -16,6 +16,8 @@ A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Bro
 
 ## Features
 
+**Development preview (not released):** Rename tag branches and visual groups in place, preserving per-tag provenance. The new **Agent MCP** guide sits beside **Trash** and connects a local agent to controlled library tools: inbox filing, incomplete-paper enrichment, Zotero export migration, tag proposals, audits and citation export. No agent launcher or schedule. See [setup, tools and current limits](docs/agent-mcp.md).
+
 **New in 4.8.4:** Touch-drag the divider immediately without opening Obsidian's side drawers; its highlight clears when you lift your finger. Mobile paper lists show Priority when the list has at least 560px of available width, including after resizing or changing split-screen size.
 
 **4.8.3:** Drag the divider to resize the paper list and details with a mouse or touch. Hover or press to highlight it; sizes are remembered in the workspace, with minimum sizes for both panes. Mobile sidebar names save on Done or an outside tap, and tag creation has a visible cancel button.
@@ -92,7 +94,7 @@ Keep review tasks and your own submissions in separate trackers. Drop PDFs into 
 - **PDF inbox:** drag from Finder or right-click the empty inbox area and choose **Paste** on macOS. Original files and matching annotation sidecars are preserved.
 - **Recoverable trash:** multi-select, batch restore and batch permanent deletion with one confirmation. File collisions are never overwritten.
 - **English and Chinese:** switch from the sidebar or follow Obsidian's language; your paper titles and notes are not translated.
-- **Manual agent handoff:** copy organization instructions when you want help. No scheduled agent runs, per-paper Markdown files or second JSON metadata database.
+- **Agent assistance:** the development preview uses an opt-in local MCP connection; 4.8.4 uses copied organization instructions. No scheduled agent runs, per-paper Markdown files or second JSON metadata database.
 - **Portable storage:** metadata and memberships live in Markdown; PDFs and Skim sidecars remain ordinary vault files. File syncing is handled by your vault's storage provider.
 
 ## Try the current version
@@ -131,7 +133,7 @@ The plugin makes local backups before edits, checks for concurrent changes and k
 
 **Outside-vault access:** when you explicitly drop or paste local PDFs on macOS, the importer reads those files and matching annotation sidecars and copies them into the vault using `ditto`, preserving extended attributes. It reads the clipboard only when Paste is chosen. Opening a PDF invokes the default desktop application (`/usr/bin/open` on macOS). The plugin does not change your default PDF application.
 
-No account, payment or analytics is required by the plugin. The optional agent button copies instructions; it does not itself launch an AI model or send your library to one.
+No account, payment or analytics is required by the plugin. The development preview's optional MCP server exposes public paper text and controlled tools only to an authenticated local client, which may use a remote model according to that client's settings. Export-folder access requires selecting a folder in Obsidian. It does not launch a model. The published 4.8.4 agent button only copies instructions. See the [MCP access boundaries](docs/agent-mcp.md).
 
 ## License and attribution
 
