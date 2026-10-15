@@ -76,6 +76,8 @@ Codex setup is project-scoped: an explicit Prepare action adds the managed MCP b
 
 ## Performance contract
 
+Sidebar names, deadline countdowns and paper counts occupy separate flex items. Truncate only long names, never shrink the countdown or paper count. The desktop library sidebar has a 220px / 14em minimum; preserve native collapse and leave the mobile drawer width under Obsidian's control.
+
 Coalesce source events with explicit writes, validate incomplete sync against the last good snapshot, and drain changes arriving during asynchronous refresh. Only parse changed canonical tables; manual refresh still verifies all required files. Keep row/group DOM keyed by scope and paper path, including duplicate visual copies in bookmarks, preserving selection, focus, scroll and drafts. Hidden views defer painting and resume after the host makes them visible. Map pan/zoom updates are frame-coalesced; culling must retain focused nodes/editors. Closing releases native menu callbacks, listeners, observers, frames, DOM and model/layout references; retain only primitive view preferences.
 
 All metadata and MCP PDF extraction shares one cancellable serial queue. Read bytes only inside an active job, release loading tasks/pages in finally blocks and cancel on unload/disconnect. Never overlap buffers to work around a slow cancellation. Title export remains independent of PDF recognition and heavy citation formatting; keep export fixtures byte-for-byte compatible. Benchmark only synthetic demo data. Report JS heap and total process memory separately; do not claim a 200 MB whole-app ceiling from renderer-only measurements. See docs/performance.md.

@@ -35,7 +35,8 @@ const plugin={snapshot:{library:[],inbox:[],reviews:[],submissions:[],categories
   const first=nav.countdowns[0];assert.equal(first.name,'Project');
   assert.equal(first.badge.textContent,'12d');assert.equal(first.badge.title,'截止：2026-10-21 23:59 AoE');
   assert.equal(first.button.querySelector('.ldb-nav-count').textContent,'0');
-  assert.equal(first.button.querySelector('.ldb-nav-label').children[0],first.badge,'Badge is next to the name, separate from paper count.');
+  assert.equal(first.button.querySelector('.ldb-nav-label').children[0].textContent,'Project');
+  assert.equal(first.button.querySelector('.ldb-nav-label').children[1],first.badge,'Name can truncate independently; deadline and paper count remain separate.');
   assert.equal(timers.size,1);assert.equal([...timers.values()][0].delay,60000);
   nav.renaming={scope:'reviews',name:'Review'};now=end-12*3600000;
   nav.updateCountdowns();assert.equal(first.badge.textContent,'12h');assert.equal(nav.renaming.name,'Review');

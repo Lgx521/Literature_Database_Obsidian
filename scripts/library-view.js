@@ -133,7 +133,7 @@ class LibraryNavigation extends ItemView {
     const add=(label,icon,nav,count,child=false)=>{
       const b=ldbButton(root,'',()=>this.plugin.openLibrary(nav),'ldb-nav-item'+(child?' is-child':''));
       b.setAttribute('aria-label',label);setIcon(b.createSpan('ldb-nav-icon'),icon);
-      b.createSpan({cls:'ldb-nav-label',text:label});if(count!==undefined)b.createSpan({cls:'ldb-nav-count',text:String(count)});
+      b.createSpan('ldb-nav-label').createSpan({cls:'ldb-nav-name',text:label});if(count!==undefined)b.createSpan({cls:'ldb-nav-count',text:String(count)});
       const selected=active.scope===nav.scope&&(active.category||'')===(nav.category||'')&&(active.status||'')===(nav.status||'')&&!!active.bookmarked===!!nav.bookmarked&&(active.subgroup??null)===(nav.subgroup??null);
       b.toggleClass('is-active',selected);b.setAttribute('aria-current',selected?'page':'false');return b;
     };
