@@ -8,10 +8,25 @@ class AgentMcpService {
   async start(){
     if(Platform.isMobile||!Platform.isDesktopApp)throw Error(tr('MCP 服务需要桌面端 Obsidian'));
     if(this.running)return;if(this.starting)throw Error(tr('请等待当前操作完成'));this.starting=true;this.closed=false;
-    try{const config=this.config();this.running=await AgentMcp.start({port:config.port||0,token:config.token,version:this.plugin.manifest.version,call:(name,args)=>this.call(name,args)});if(this.closed){await this.running.stop();this.running=null;return;}this.saveConfig({enabled:true,port:this.running.port,token:this.running.token});}
+    try{
+      const config=this.config(),server=await AgentMcp.start({port:config.port||0,token:config.token,version:this.plugin.manifest.version,call:(name,args)=>this.call(name,args)});
+      if(this.closed){await server.stop();return;}this.running=server;
+      this.saveConfig({...config,enabled:true,port:server.port,token:server.token});
+      if(config.codex){this.codexRegistration=await AgentCodex.publish(this.plugin.app.vault.adapter.getBasePath(),server,AGENT_CODEX_BRIDGE);if(this.closed)await AgentCodex.revoke(this.codexRegistration);}
+    }
+    catch(e){const server=this.running;this.running=null;if(server)await server.stop();throw e;}
     finally{this.starting=false;}
   }
-  async stop(disable=true){this.closed=true;if(disable)this.saveConfig({...this.config(),enabled:false});const server=this.running;this.running=null;this.grant=null;this.evidence.clear();this.proposals=[];if(server)await server.stop();}
+  async prepareCodex(){
+    if(Platform.isMobile||!Platform.isDesktopApp)throw Error(tr('MCP 服务需要桌面端 Obsidian'));
+    if(this.preparing)throw Error(tr('请等待当前操作完成'));this.preparing=true;
+    try{await this.start();if(this.closed||!this.running)throw Error(tr('请先开启 MCP'));this.codexRegistration=await AgentCodex.prepare(this.plugin.app.vault.adapter.getBasePath(),this.running,AGENT_CODEX_BRIDGE);if(this.closed){await AgentCodex.revoke(this.codexRegistration);return;}this.saveConfig({...this.config(),codex:true});}
+    finally{this.preparing=false;}
+  }
+  async stop(disable=true){
+    this.closed=true;if(disable)this.saveConfig({...this.config(),enabled:false});const server=this.running;this.running=null;this.grant=null;this.evidence.clear();this.proposals=[];
+    try{await AgentCodex.revoke(this.codexRegistration);this.codexRegistration=null;}finally{if(server)await server.stop();}
+  }
   async resume(){if(Platform?.isDesktopApp&&!Platform.isMobile&&this.config().enabled)try{await this.start();}catch(e){new Notice(tr('Agent MCP 未启动：')+e.message,8000);}}
   async chooseExport(){
     if(Platform.isMobile)throw Error(tr('迁移目录需要在桌面端选择'));

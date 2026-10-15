@@ -23,6 +23,8 @@ transaction = (root / 'scripts/source-transaction.js').read_text()
 tag_rename = (root / 'scripts/tag-rename.js').read_text()
 mcp = (root / 'scripts/agent-mcp.js').read_text()
 agent_migration = (root / 'scripts/agent-migration.js').read_text()
+agent_codex = (root / 'scripts/agent-codex.js').read_text()
+agent_codex_bridge = (root / 'scripts/agent-codex-bridge.cjs').read_text()
 agent_service = (root / 'scripts/agent-service.js').read_text()
 agent_guide = (root / 'scripts/agent-guide-view.js').read_text()
 tag_view = (root / 'scripts/tag-map-view.js').read_text()
@@ -47,6 +49,8 @@ metadata = (root / 'scripts/citation-metadata.js').read_text()
     'const TagRename = (() => { const module = { exports: {} };\n' + tag_rename + '\nreturn module.exports(Engine,TagTree,Organization); })();\n'
     'const AgentMcp = ((require) => { const module = { exports: {} };\n' + mcp + '\nreturn module.exports; })(ldbRequire);\n'
     'const AgentMigration = ((require) => { const module = { exports: {} };\n' + agent_migration + '\nreturn module.exports; })(ldbRequire);\n'
+    'const AgentCodex = ((require) => { const module = { exports: {} };\n' + agent_codex + '\nreturn module.exports; })(ldbRequire);\n'
+    'const AGENT_CODEX_BRIDGE = ' + json.dumps(agent_codex_bridge) + ';\n'
     'const DeadlineSharing = ((require) => { const module = { exports: {} };\n' + sharing + '\nreturn module.exports(Engine,Collections); })(ldbRequire);\n'
     'let citationEngine; function getCitations(){ if (!citationEngine) {const module={exports:{}};\n' + citations + '\ncitationEngine=module.exports;citationEngine.setTranslator(tr);} return citationEngine; }\n'
     'const CitationMetadata = ((require) => { const module = { exports: {} };\n' + metadata + '\nreturn module.exports; })(ldbRequire);\n'

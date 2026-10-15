@@ -14,7 +14,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),fsp=fs.promises
  class Plugin{constructor(){this.app={vault,workspace};this.manifest={version:'test'};}registerView(){}addRibbonIcon(){}addCommand(){}registerObsidianProtocolHandler(){}registerEvent(){}}
  let extracted=0;
  const api={Plugin,TFile,ItemView:class{},Modal:class{},Notice:class{},Platform:{isDesktopApp:true,isMacOS:process.platform==='darwin',isMobile:false},loadPdfJs:async()=>({getDocument:()=>({promise:Promise.resolve({numPages:1,getPage:async()=>({getTextContent:async()=>{extracted++;return {items:[{str:'Synthetic Evidence Title. This is the actual paper text.'}]};},cleanup(){}})}),destroy:async()=>{}})})};
- const context={module:{exports:{}},console,TextEncoder,TextDecoder,URL,setTimeout,clearTimeout,require:n=>n==='obsidian'?api:require(n)};
+ const deviceHome=path.join(root,'.test-device');await fsp.mkdir(deviceHome);const preferences=new Map();
+ const context={module:{exports:{}},Buffer,process,console,TextEncoder,TextDecoder,URL,setTimeout,clearTimeout,localStorage:{getItem:k=>preferences.get(k),setItem:(k,v)=>preferences.set(k,v)},require:n=>n==='obsidian'?api:n==='node:os'?{...os,homedir:()=>deviceHome}:require(n)};
  vm.runInNewContext(fs.readFileSync('main.js','utf8')+'\nmodule.exports.test={AgentMcpService,AgentMigration,Engine,Collections,Organization};',context);
  const Manager=context.module.exports,{Engine:E,Collections:C,Organization:O}=Manager.test;
  await write('collections.md',C.add(await vault.read(files.get('collections.md')),'library','Research'));
@@ -58,6 +59,13 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),fsp=fs.promises
   }
   p.recordBusy=true;await assert.rejects(call('enrich_paper',{path:row.path,revision:row.revision,tldr:'busy'}),/Save open edits/);p.recordBusy=false;
   await s.stop();await assert.rejects(call('library_context'),/initialized/);
+  // Explicit project setup starts only this synthetic vault. Reload keeps the
+  // connection ID/config and restores this device's descriptor; disable revokes it.
+  await s.prepareCodex();assert(s.running&&s.codexRegistration);const configured=await fsp.readFile(path.join(root,'.codex/config.toml'),'utf8'),descriptor=s.codexRegistration.file;
+  assert(!configured.includes(s.running.token));assert.equal(s.config().codex,true);
+  await s.stop(false);await assert.rejects(fsp.stat(descriptor),{code:'ENOENT'});assert.equal(s.config().enabled,true);
+  await s.resume();assert(s.running&&s.codexRegistration);assert.equal(await fsp.readFile(path.join(root,'.codex/config.toml'),'utf8'),configured);
+  await s.stop();await s.resume();assert(!s.running);assert.equal(s.config().enabled,false);
  }finally{p.onunload();await fsp.rm(root,{recursive:true,force:true});}
  console.log('PASS: real vault-backed MCP filing, PDF evidence, AI enrichment, human/manual/citation protection, stale revisions, proposals, export and lifecycle.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

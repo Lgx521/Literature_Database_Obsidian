@@ -35,6 +35,8 @@ Agent work is manually triggered. Do not add scheduled runs, background metadata
 
 When connected through Agent MCP, read `library://guide` and `library_context` first. Use the bounded tools and returned revisions rather than bypassing them with direct filesystem writes. Read PDFs before enrichment; preserve manually completed records, personal fields and existing bibliography. Global tag renames are proposals until the user applies them in Obsidian. Zotero export migration reads actual exported bibliography deterministically; never submit generated bibliography as metadata. Existing memberships and subcategory placements are not an invitation to reorganize them. MCP exposes only public papers/inbox, not review/submission manuscripts, and does not launch an agent or schedule work.
 
+For Codex, the user selects **Prepare Codex connection** in Agent MCP once per desktop, then opens and trusts this vault folder in a new local Codex session. `.codex/config.toml` registers the tools; this AGENTS.md alone does not. Node.js 20+ and an open Obsidian vault with MCP enabled are required. If the tools are unavailable, explain setup/restart steps rather than modifying global Codex settings, granting trust, or bypassing the MCP write protections. Connection secrets remain outside the synced vault.
+
 Interface language (Chinese/English) is independent of storage. Keep schema headings, status values, markers and personal content unchanged when switching language. Do not recreate legacy Chinese source filenames.
 
 ## Organization state and provenance (4.4.0)

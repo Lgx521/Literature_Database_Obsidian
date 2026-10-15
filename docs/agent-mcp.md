@@ -2,11 +2,23 @@
 
 Open **Agent MCP** next to **Trash** at the bottom of the sidebar. The panel is a short setup guide, not an agent launcher. These changes are not in the published 4.8.4 release yet.
 
-1. On desktop, enable MCP and keep this vault open in Obsidian.
-2. In a client supporting **Streamable HTTP**, add the displayed URL and a Bearer token. Copy them individually, or copy the generic `mcpServers` JSON configuration if your client accepts that format. Client configuration formats differ; a local HTTP connection cannot be used directly by a remote/cloud-only agent.
+1. On desktop, select **Prepare Codex connection** once per computer and keep this vault open in Obsidian. The local Codex host needs **Node.js 20+** available as `node`.
+2. Open the **vault folder** as your Codex project, trust it when prompted, and start a new local session. Codex loads the project's MCP configuration automatically; no Codex plugin or pasted URL/token is required. An already running session needs a restart to load a newly added server.
 3. Tell the connected agent what you want, for example: “Organize the inbox into Research,” “Fill missing TL;DRs and tags,” or “Check duplicate titles and propose clearer tag names.” The maintenance contract and tools are discoverable through MCP; no long prompt is needed.
 
 The server is off by default. Once enabled, it resumes on this device while the vault is open. Its random Bearer token, port and enabled preference stay in device-local application storage, outside the synced vault. Disabling MCP closes connections and revokes the current export-folder grant. Closing or unloading the plugin also stops the server. No model, Codex launcher, background library scan or scheduled task is started. Phones and tablets display this guide and can receive the resulting Markdown/PDF changes through the user's existing sync provider; they do not host the server. A desktop test cannot establish that another device has finished syncing.
+
+### How Codex discovers this vault
+
+Setup adds one managed `mcp_servers.literature_database` block to **`.codex/config.toml` in the vault**, preserving other configuration and backing up an existing file before the first change. Edited/conflicting managed blocks and symlink configuration paths are rejected. It does not edit `~/.codex/config.toml`, grant project trust, or launch Codex. `AGENTS.md` provides instructions; it does not register MCP tools by itself. See [OpenAI's project-scoped MCP configuration](https://learn.chatgpt.com/docs/extend/mcp) and [trusted project configuration](https://learn.chatgpt.com/docs/config-file/config-advanced).
+
+The synced block contains only a connection ID and a portable Node command. The bundled stdio adapter and a private connection descriptor live under `~/.literature-database/agent-mcp/<id>/` on each computer. The descriptor contains that computer's vault path, loopback URL and token, with owner-only access; none of these values enter the synced config. The adapter checks that Codex is running inside the connected vault and relays requests to the existing Obsidian service. It performs no library reads or edits independently. Closing or disabling the service removes the descriptor; requests then fail with instructions to enable it again. On another Mac, select **Prepare Codex connection** once to create its own local files. No always-running helper is installed.
+
+If the tools are missing, check that Node is available to Codex, this exact vault is open in Obsidian with MCP enabled, the Codex project is trusted, and the Codex session was restarted after setup. Project configuration does not apply to cloud-only tasks. Opening a folder without first preparing its configuration does not discover a server automatically.
+
+### Other MCP clients
+
+Expand **Other agents / manual connection** for the Streamable HTTP URL and token controls. You can enable MCP here without preparing Codex. Add the displayed URL and Bearer token to a compatible local client; the generic JSON is not Codex's TOML format. A remote/cloud-only agent cannot connect directly to this loopback endpoint.
 
 ## Available tools
 

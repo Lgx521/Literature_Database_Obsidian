@@ -16,7 +16,7 @@ A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Bro
 
 ## Features
 
-**Development preview (not released):** Rename tag branches and visual groups in place, preserving per-tag provenance. The new **Agent MCP** guide sits beside **Trash** and connects a local agent to controlled library tools: inbox filing, incomplete-paper enrichment, Zotero export migration, tag proposals, audits and citation export. No agent launcher or schedule. See [setup, tools and current limits](docs/agent-mcp.md).
+**Development preview (not released):** Rename tag branches and visual groups in place, preserving per-tag provenance. **Agent MCP**, beside **Trash**, prepares project-scoped Codex access: open and trust the vault folder in a new local Codex session to use inbox filing, incomplete-paper enrichment, Zotero export migration, tag proposals, audits and citation export. Prepare once per computer; Node.js 20+ is required. No extra Codex plugin, agent launcher or schedule. Other local MCP clients can use the manual connection. See [setup, tools and current limits](docs/agent-mcp.md).
 
 **New in 4.8.4:** Touch-drag the divider immediately without opening Obsidian's side drawers; its highlight clears when you lift your finger. Mobile paper lists show Priority when the list has at least 560px of available width, including after resizing or changing split-screen size.
 

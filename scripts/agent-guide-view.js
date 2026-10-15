@@ -9,16 +9,22 @@ class AgentMcpModal extends Modal {
     if(Platform.isMobile)el.createEl('p',{text:tr('手机和平板通过同步查看结果。MCP 服务在电脑上运行；本页不会启动 Agent。')});
     else{
       const steps=el.createEl('ol',{cls:'ldb-agent-steps'});
-      for(const text of ['在电脑上开启 MCP，并保持此 Obsidian 文献库打开。','在支持 Streamable HTTP 的 Agent 中添加下方地址和 Bearer 密钥。配置格式以该客户端为准。','让 Agent 整理收件箱、补全空缺 TL;DR，或检查标签与重复文献。无需复制长指令。'])steps.createEl('li',{text:tr(text)});
+      for(const text of ['在这台电脑上点「准备 Codex 接入」，并保持此 Obsidian 文献库打开。','在 Codex 中打开文献库文件夹，信任此项目并开始新会话，工具会自动加载。','让 Agent 整理收件箱、补全空缺 TL;DR，或检查标签与重复文献。无需复制长指令。'])steps.createEl('li',{text:tr(text)});
       const row=el.createDiv('ldb-agent-controls');row.createSpan({text:tr(s.running?'已开启，仅本机可连接':'尚未开启')});
-      this.button(row,s.running?'关闭 MCP':'开启 MCP',()=>s.running?s.stop():s.start(),s.running?'':'mod-cta');
-      if(s.running){
-        const connection=el.createDiv('ldb-agent-connection'),address=connection.createEl('input',{type:'text',attr:{readonly:'','aria-label':tr('MCP 地址')}});address.value=s.running.url;
+      this.button(row,'准备 Codex 接入',()=>s.prepareCodex(),'mod-cta');
+      if(s.running)this.button(row,'关闭 MCP',()=>s.stop());
+      if(s.codexRegistration&&s.running)el.createEl('p',{text:tr('已准备好。请在 Codex 中打开此文献库；已有会话需重新启动才能加载工具。')});
+      el.createEl('p',{text:tr('需要本机 Node.js 20 或更新版本。仅生成本库 .codex/config.toml，不改 Codex 全局设置。每台 Mac 准备一次，密钥不随 iCloud 同步。'),cls:'ldb-agent-hint'});
+      const advanced=el.createEl('details');advanced.createEl('summary',{text:tr('其他 Agent / 手动连接')});
+      advanced.createEl('p',{text:tr('在支持 Streamable HTTP 的 Agent 中添加下方地址和 Bearer 密钥。配置格式以该客户端为准。')});
+      if(!s.running)this.button(advanced,'开启 MCP',()=>s.start());
+      else{
+        const connection=advanced.createDiv('ldb-agent-connection'),address=connection.createEl('input',{type:'text',attr:{readonly:'','aria-label':tr('MCP 地址')}});address.value=s.running.url;
         const actions=connection.createDiv('ldb-agent-controls');
         this.button(actions,'复制地址',()=>navigator.clipboard.writeText(s.running.url));
         this.button(actions,'复制密钥',()=>navigator.clipboard.writeText(s.running.token));
         this.button(actions,'复制 JSON 配置',()=>navigator.clipboard.writeText(JSON.stringify({mcpServers:{'literature-database':{url:s.running.url,headers:{Authorization:'Bearer '+s.running.token}}}},null,2)));
-        el.createEl('p',{text:tr('密钥仅保存在这台设备，不随 iCloud 同步。分享配置前请移除密钥；关闭 MCP 会断开连接。'),cls:'ldb-agent-hint'});
+        advanced.createEl('p',{text:tr('密钥仅保存在这台设备，不随 iCloud 同步。分享配置前请移除密钥；关闭 MCP 会断开连接。'),cls:'ldb-agent-hint'});
       }
     }
     el.createEl('h3',{text:tr('可以让 Agent 做什么')});const examples=el.createEl('ul');
