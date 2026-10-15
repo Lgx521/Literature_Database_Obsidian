@@ -1,6 +1,6 @@
-# Performance work after 4.8.5
+# Performance in 4.8.6
 
-These changes are a development preview, not a new published release. They preserve the Markdown schema, filenames, citation output and existing layout.
+Version 4.8.6 includes these changes. They preserve the Markdown schema, filenames, citation output and existing layout.
 
 ## Refresh and views
 
@@ -26,9 +26,9 @@ MCP first-page evidence is bounded to 64 papers and file-revision hashes to 256 
 
 ## Validation and measurements
 
-An isolated macOS Obsidian demo vault was populated with 1,000 synthetic paper rows and 1,000 tags in ten groups. The released 4.8.5 bundle and development build used the same data. Measurements ran inside the actual Obsidian renderer through its CLI; no personal vault was modified for the benchmark. Refresh and map-render times below are medians of five calls, with the map expanded.
+An isolated macOS Obsidian demo vault was populated with 1,000 synthetic paper rows and 1,000 tags in ten groups. The released 4.8.5 bundle and the build prepared for 4.8.6 used the same data. Measurements ran inside the actual Obsidian renderer through its CLI; no personal vault was modified for the benchmark. Refresh and map-render times below are medians of five calls, with the map expanded.
 
-| Operation | Released 4.8.5 | Development preview |
+| Operation | Released 4.8.5 | 4.8.6 |
 | --- | ---: | ---: |
 | Unchanged manual refresh | 28.1 ms | 0.8 ms |
 | Expanded tag-map render | 53.3 ms | 1.7 ms |
@@ -40,7 +40,7 @@ An isolated macOS Obsidian demo vault was populated with 1,000 synthetic paper r
 
 Both versions preserved selection, focus, scroll and an unsaved Notes draft in this scenario. A closed map retaining a node-map entry does not by itself prove a permanent leak; teardown is now explicit even if the host retains a menu or modal reference.
 
-After three warm-up map open/close cycles, diagnostic garbage collection measured the preview's **whole renderer JavaScript heap** at 21,815 KiB, then 21,961 KiB after ten more cycles and 21,973 KiB after twenty. Forced GC was used only for this isolated diagnostic, never by the plugin. These are not plugin-only allocations or total Obsidian memory. Electron, GPU, other plugins, PDF content and allocator caches remain outside this measurement; a total application budget of 200 MB is not established by these results.
+After three warm-up map open/close cycles, diagnostic garbage collection measured the 4.8.6 build's **whole renderer JavaScript heap** at 21,815 KiB, then 21,961 KiB after ten more cycles and 21,973 KiB after twenty. Forced GC was used only for this isolated diagnostic, never by the plugin. These are not plugin-only allocations or total Obsidian memory. Electron, GPU, other plugins, PDF content and allocator caches remain outside this measurement; a total application budget of 200 MB is not established by these results.
 
 The automated suites cover cache invalidation and failed-sync recovery, changes arriving during refresh/unload, retained selection and controls, map culling/focus and teardown, queue serialization/cancellation/timeouts, and mobile execution without Node/Electron imports. Citation fixtures compare title lists, BibTeX, APA and IEEE text/HTML and missing-entry reports byte-for-byte against 4.8.5 using synthetic bibliography records.
 
