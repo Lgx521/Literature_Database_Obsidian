@@ -32,6 +32,9 @@ tag_filter = (root / 'scripts/tag-filter-view.js').read_text()
 splitter = (root / 'scripts/pane-splitter.js').read_text()
 citations = (root / 'scripts/vendor/citation-engine.cjs').read_text()
 metadata = (root / 'scripts/citation-metadata.js').read_text()
+pdf_work = (root / 'scripts/pdf-work.js').read_text()
+title_export = (root / 'scripts/title-export.js').read_text()
+snapshot_cache = (root / 'scripts/snapshot-cache.js').read_text()
 (root / 'main.js').write_text(
     '/*! Literature Database — Copyright (c) 2026 shengzhegan\n'
     'Source: https://github.com/Lgx521/Literature_Database_Obsidian\n' + notices.replace('*/', '* /') + '\n*/\n'
@@ -52,6 +55,10 @@ metadata = (root / 'scripts/citation-metadata.js').read_text()
     'const AgentCodex = ((require) => { const module = { exports: {} };\n' + agent_codex + '\nreturn module.exports; })(ldbRequire);\n'
     'const AGENT_CODEX_BRIDGE = ' + json.dumps(agent_codex_bridge) + ';\n'
     'const DeadlineSharing = ((require) => { const module = { exports: {} };\n' + sharing + '\nreturn module.exports(Engine,Collections); })(ldbRequire);\n'
+    'const PdfWorkQueue = (() => { const module = { exports: {} };\n' + pdf_work + '\nreturn module.exports; })();\n'
+    'const SnapshotCache = (() => { const module = { exports: {} };\n' + snapshot_cache + '\nreturn module.exports; })();\n'
+    'const TitleExport = ((require) => { const module = { exports: {} };\n' + title_export + '\nreturn module.exports; })(ldbRequire);\n'
+    'function ldbExportReferences(rows,format,title){return format==="titles"?TitleExport.exportTitles(rows,raw=>getCitations().parseEntry(raw)):getCitations().exportRows(rows,format,title); }\n'
     'let citationEngine; function getCitations(){ if (!citationEngine) {const module={exports:{}};\n' + citations + '\ncitationEngine=module.exports;citationEngine.setTranslator(tr);} return citationEngine; }\n'
     'const CitationMetadata = ((require) => { const module = { exports: {} };\n' + metadata + '\nreturn module.exports; })(ldbRequire);\n'
     'const InboxImport = ((require) => { const module = { exports: {} };\n' + inbox + '\nreturn module.exports; })(ldbRequire);\n'

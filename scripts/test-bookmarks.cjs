@@ -39,6 +39,7 @@ class Element{
  constructor(o={}){if(typeof o==='string')o={cls:o};this.children=[];this.events={};this.value=o.value||'';this.textContent=o.text||'';this.attributes={...o.attr};this.classes=new Set((o.cls||'').split(' ').filter(Boolean));this.dataset={};this.scrollTop=0;this.id=o.attr?.id;}
  createEl(tag,o){const e=new Element(o);e.tag=tag;e.parentElement=this;this.children.push(e);return e;}createDiv(o){return this.createEl('div',o);}createSpan(o){return this.createEl('span',o);}
  querySelector(s){return this.querySelectorAll(s)[0]||null;}querySelectorAll(s){const all=this.children.flatMap(e=>[e,...e.querySelectorAll('*')]);return s==='*'?all:all.filter(e=>s.startsWith('.')&&e.classes.has(s.slice(1)));}remove(){if(this.parentElement)this.parentElement.children=this.parentElement.children.filter(e=>e!==this);}
+ insertBefore(e,b){e.remove();e.parentElement=this;this.children.splice(b?this.children.indexOf(b):this.children.length,0,e);return e;}
  addEventListener(n,f){this.events[n]=f;}addClass(c){this.classes.add(c);}removeClass(c){this.classes.delete(c);}toggleClass(c,v){v?this.addClass(c):this.removeClass(c);}setAttribute(k,v){this.attributes[k]=v;}removeAttribute(k){delete this.attributes[k];}setText(t){this.textContent=t;}empty(){this.children=[];}scrollIntoView(){this.scrolled=true;}
 }
 class ItemView{constructor(leaf){this.leaf=leaf;this.app={workspace:{requestSaveLayout(){}}};}async setState(){}}

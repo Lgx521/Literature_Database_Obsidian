@@ -5,9 +5,11 @@ const section=name=>'## '+name+'\r\n截止时间：2026-11-01 23:59 -12:00\r\n\r
 const original=section('Venue A')+'\r\n'+section('Venue B')+'\r\n<!-- tracking:end -->\r\nUSER FOOTER';
 const testDocument={addEventListener(){},removeEventListener(){},defaultView:{addEventListener(){},removeEventListener(){}}};
 class Element{
-  constructor(options={}){this.children=[];this.events={};this.dataset={};this.scrollTop=0;this.value=options.value||'';this.textContent=options.text||'';this.attributes=options.attr||{};this.hidden=false;this.ownerDocument=testDocument;}
+  constructor(options={}){if(typeof options==='string')options={cls:options};this.classes=new Set((options.cls||'').split(' '));this.id=options.attr?.id;this.children=[];this.events={};this.dataset={};this.scrollTop=0;this.value=options.value||'';this.textContent=options.text||'';this.attributes=options.attr||{};this.hidden=false;this.ownerDocument=testDocument;}
   get selectedOptions(){return this.children.filter(e=>e.tag==='option'&&e.value===this.value);}
-  createEl(tag,o){const e=new Element(o);e.tag=tag;this.children.push(e);return e;}createDiv(o){return this.createEl('div',o);}createSpan(o){return this.createEl('span',o);}
+  createEl(tag,o){const e=new Element(o);e.tag=tag;e.parentElement=this;this.children.push(e);return e;}createDiv(o){return this.createEl('div',o);}createSpan(o){return this.createEl('span',o);}
+  querySelector(s){return this.querySelectorAll(s)[0]||null;}querySelectorAll(s){const all=this.children.flatMap(e=>[e,...e.querySelectorAll('*')]);return s==='*'?all:all.filter(e=>s.startsWith('.')&&e.classes.has(s.slice(1)));}
+  remove(){if(this.parentElement)this.parentElement.children=this.parentElement.children.filter(e=>e!==this);}insertBefore(e,b){e.remove();e.parentElement=this;this.children.splice(b?this.children.indexOf(b):this.children.length,0,e);return e;}
   addEventListener(n,f){this.events[n]=f;}removeEventListener(){}removeClass(){}toggleClass(){}removeAttribute(k){delete this.attributes[k];}addClass(name){(this.classes??=new Set()).add(name);}setAttribute(k,v){this.attributes[k]=v;}setText(t){this.textContent=t;}empty(){this.children=[];}
 }
 class ItemView{constructor(leaf){this.leaf=leaf;this.contentEl=new Element();this.app={workspace:{requestSaveLayout(){}}};}registerDomEvent(){}}

@@ -1,8 +1,9 @@
 // Editable tag vocabulary. Paper assignments stay in library.md; no PDF reads or network calls.
+function ldbMapAction(slot){return (...args)=>slot.run?.(...args);}
 class TagMapModal extends Modal {
-  constructor(view){super(view.app);this.view=view;this.plugin=view.plugin;this.closed=false;this.busy=false;this.nodes=new Map();this.collapsed=new Set();this.branchSides=new Map();this.zoom=1;this.pan={x:24,y:24};this.cleanups=[];this.pointers=new Map();this.scope=new Scope(view.app.scope);this.scope.register([], 'Escape', e=>{e.preventDefault();if(this.editor)this.cancelEditor();else this.close();return false;});}
+  constructor(view){super(view.app);this.view=view;this.plugin=view.plugin;this.closed=false;this.busy=false;this.nodes=new Map();this.collapsed=new Set();this.branchSides=new Map();this.zoom=1;this.pan={x:24,y:24};this.cleanups=[];this.pointers=new Map();this.scope=new Scope(view.app.scope);this.escapeKey=this.scope.register([], 'Escape', e=>{e.preventDefault();if(this.editor)this.cancelEditor();else this.close();return false;});}
   listen(el,type,fn,options){el.addEventListener(type,fn,options);this.cleanups.push(()=>el.removeEventListener(type,fn,options));}
-  icon(parent,icon,label,action,cls=''){const b=ldbButton(parent,'',action,'ldb-map-icon '+cls);setIcon(b,icon);b.title=label;b.setAttribute('aria-label',label);return b;}
+  icon(parent,icon,label,action,cls=''){const b=ldbButton(parent,'',(...args)=>{if(!this.closed)action(...args);},'ldb-map-icon '+cls);setIcon(b,icon);b.title=label;b.setAttribute('aria-label',label);return b;}
   onOpen(){
     this.modalEl.addClass('ldb-tag-map-modal');this.titleEl.setText(tr('标签思维导图'));
     this.titleEl.title=this.view.detailTitle(this.view.detailRow);
@@ -35,21 +36,26 @@ class TagMapModal extends Modal {
     for(const type of ['pointerup','pointercancel','lostpointercapture'])this.listen(this.viewport,type,release);
     this.listen(this.viewport,'keydown',e=>{if(e.target!==this.viewport)return;const delta={ArrowLeft:[35,0],ArrowRight:[-35,0],ArrowUp:[0,35],ArrowDown:[0,-35]}[e.key];if(delta){e.preventDefault();this.pan.x+=delta[0];this.pan.y+=delta[1];this.transform();}});
     if(this.mapWin.ResizeObserver){this.observer=new this.mapWin.ResizeObserver(()=>this.transform());this.observer.observe(this.viewport);}
+    this.listen(this.mapDoc,'visibilitychange',()=>{if(this.mapDoc.hidden){if(this.frame)this.mapWin.cancelAnimationFrame(this.frame);this.frame=null;}else{if(this.catalogPending){this.catalogPending=false;this.load();}this.transform();}});
     this.load(true);
   }
   async load(initial=false){
     try{
       const source=await TagTree.read(this.plugin.app.vault);if(this.closed)return;
       this.catalogText=source.text;this.model=TagTree.effective(source.model,this.plugin.snapshot.library);this.tree=TagTree.tree(this.model);
-      if(initial){const selected=this.selected();for(const group of this.tree.children)if(!this.descendants(group).some(n=>n.tag&&selected.has(TagTree.fold(n.tag))))this.collapsed.add(group.key);}
-      this.error.hidden=true;this.render();if(initial){this.fit();if(this.viewport.clientWidth<600){this.zoom=1;const selected=this.selected(),focus=this.descendants(this.tree).find(n=>n.tag&&selected.has(TagTree.fold(n.tag)));this.focusNode(focus?.key||'root');}}
+      if(initial&&this.view.tagMapState){const saved=this.view.tagMapState,keys=new Set(this.descendants(this.tree).map(n=>n.key));this.collapsed=new Set(saved.collapsed.filter(k=>keys.has(k)));this.branchSides=new Map(saved.sides.filter(([k])=>keys.has(k)));this.zoom=saved.zoom;this.pan={...saved.pan};this.search.value=saved.search||'';}
+      if(initial&&!this.view.tagMapState){const selected=this.selected();for(const group of this.tree.children)if(!this.descendants(group).some(n=>n.tag&&selected.has(TagTree.fold(n.tag))))this.collapsed.add(group.key);}
+      this.error.hidden=true;this.render();if(initial&&!this.view.tagMapState){this.fit();if(this.viewport.clientWidth<600){this.zoom=1;const selected=this.selected(),focus=this.descendants(this.tree).find(n=>n.tag&&selected.has(TagTree.fold(n.tag)));this.focusNode(focus?.key||'root');}}
     }catch(e){this.showError(e);}
   }
   descendants(node){return [node,...(node.children||[]).flatMap(n=>this.descendants(n))];}
-  selected(){return new Set(String(this.view.detailRow?.tags||'').split(/\s+/).map(TagTree.fold));}
+  selected(){return new Set(String(this.view?.detailRow?.tags||'').split(/\s+/).map(TagTree.fold));}
   showError(error){if(this.closed)return;this.error.setText(error.message||String(error));this.error.hidden=false;}
-  catalogChanged(){if(this.closed||this.busy||this.editor)return;clearTimeout(this.refreshTimer);this.refreshTimer=setTimeout(()=>{if(!this.closed&&!this.busy&&!this.editor)this.load();},180);}
-  transform(){if(!this.stage)return;this.stage.style.transform=`translate(${this.pan.x}px, ${this.pan.y}px) scale(${this.zoom})`;this.zoomLabel.setText(Math.round(this.zoom*100)+'%');}
+  catalogChanged(){if(this.closed)return;if(this.mapDoc?.hidden){this.catalogPending=true;return;}if(this.busy||this.editor)return;clearTimeout(this.refreshTimer);this.refreshTimer=setTimeout(()=>{if(!this.closed&&!this.busy&&!this.editor)this.load();},180);}
+  transform(){
+    if(this.closed||!this.stage||this.mapDoc?.hidden||this.frame)return;
+    this.frame=this.mapWin.requestAnimationFrame(()=>{this.frame=null;this.paint();});
+  }
   zoomAt(value,x,y){const r=this.viewport.getBoundingClientRect(),point={x:(x??r.left+r.width/2)-r.left,y:(y??r.top+r.height/2)-r.top},next=Math.max(.35,Math.min(1.7,value));this.pan={x:point.x-(point.x-this.pan.x)*next/this.zoom,y:point.y-(point.y-this.pan.y)*next/this.zoom};this.zoom=next;this.transform();}
   fit(){if(!this.layout)return;const r=this.viewport.getBoundingClientRect();this.zoom=Math.max(.35,Math.min(1,(r.width-56)/this.layout.width,(r.height-56)/this.layout.height));this.pan={x:Math.max(20,(r.width-this.layout.width*this.zoom)/2),y:Math.max(20,(r.height-this.layout.height*this.zoom)/2)};this.transform();}
   focusNode(key){const n=this.positions?.get(key);if(!n)return;const r=this.viewport.getBoundingClientRect();this.pan={x:r.width/2-(n.x+n.width/2)*this.zoom,y:r.height/2-(n.y+18)*this.zoom};this.transform();}
@@ -59,15 +65,40 @@ class TagMapModal extends Modal {
     this.layout=TagTree.layout(this.tree,{collapsed:this.collapsed,editor:this.editor,sides:this.branchSides});
     const visible=this.layout.nodes;this.positions=new Map(visible.map(n=>[n.key,n]));
     const root=this.positions.get('root');if(oldRoot){this.pan.x+=(oldRoot.x-root.x)*this.zoom;this.pan.y+=(oldRoot.y-root.y)*this.zoom;}
-    this.stage.style.width=this.layout.width+'px';this.stage.style.height=this.layout.height+'px';this.lines.setAttribute('width',this.layout.width);this.lines.setAttribute('height',this.layout.height);this.lines.replaceChildren();
-    const alive=new Set(visible.map(n=>n.key));for(const [key,el]of this.nodes)if(!alive.has(key)){el.remove();this.nodes.delete(key);}
-    for(const n of visible){
-      if(n.parent){const p=n.parent,left=n.side==='left',direction=left?-1:1,x=left?p.x:p.x+p.width,y=p.y+18,to=left?n.x+n.width:n.x,ty=n.y+18,path=this.mapDoc.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('d',`M ${x} ${y} C ${x+28*direction} ${y}, ${to-28*direction} ${ty}, ${to} ${ty}`);this.lines.appendChild(path);}
-      let el=this.nodes.get(n.key);if(!el){el=this.createNode(n);this.nodes.set(n.key,el);this.stage.appendChild(el);}el.ldbNode=n;el.classList.toggle('is-left',n.side==='left');el.style.left=n.x+'px';el.style.top=n.y+'px';el.style.width=n.width+'px';
-      if(n.kind!=='editor'){el.ldbLabel.setText(n.label);const hasChildren=!!this.descendants(this.tree).find(x=>x.key===n.key)?.children.length;el.ldbFold.hidden=!hasChildren;el.ldbFold.setAttribute('aria-expanded',String(!this.collapsed.has(n.key)));el.ldbFold.title=tr(this.collapsed.has(n.key)?'展开':'收起');el.ldbFold.setAttribute('aria-label',el.ldbFold.title);setIcon(el.ldbFold,this.collapsed.has(n.key)?(n.side==='left'?'chevron-left':'chevron-right'):'chevron-down');}
-    }
-    this.syncChecked();this.transform();
+    this.stage.style.width=this.layout.width+'px';this.stage.style.height=this.layout.height+'px';this.lines.setAttribute('width',this.layout.width);this.lines.setAttribute('height',this.layout.height);
+    this.paint();
   }
+  paint(){
+    if(this.closed||!this.layout||this.mapDoc?.hidden)return;
+    this.stage.style.transform=`translate(${this.pan.x}px, ${this.pan.y}px) scale(${this.zoom})`;
+    const zoomText=Math.round(this.zoom*100)+'%';if(this.zoomLabel.textContent!==zoomText)this.zoomLabel.setText(zoomText);
+    const buffer=240/this.zoom,left=(-this.pan.x)/this.zoom-buffer,top=(-this.pan.y)/this.zoom-buffer,right=left+(this.viewport.clientWidth+480)/this.zoom,bottom=top+(this.viewport.clientHeight+480)/this.zoom;
+    const intersects=(x,y,w,h)=>x+w>=left&&x<=right&&y+h>=top&&y<=bottom;
+    const cull=this.layout.nodes.length>250,focus=this.mapDoc.activeElement,alive=new Set(),edgeAlive=new Set();this.edges??=new Map();
+    for(const n of this.layout.nodes){
+      if(n.parent){const p=n.parent,isLeft=n.side==='left',direction=isLeft?-1:1,x=isLeft?p.x:p.x+p.width,y=p.y+18,to=isLeft?n.x+n.width:n.x,ty=n.y+18;
+        if(!cull||intersects(Math.min(x,to),Math.min(y,ty),Math.abs(to-x),Math.abs(ty-y))){
+          let path=this.edges.get(n.key);if(!path){path=this.mapDoc.createElementNS('http://www.w3.org/2000/svg','path');this.lines.appendChild(path);this.edges.set(n.key,path);}
+          path.setAttribute('d',`M ${x} ${y} C ${x+28*direction} ${y}, ${to-28*direction} ${ty}, ${to} ${ty}`);edgeAlive.add(n.key);
+        }
+      }
+      let el=this.nodes.get(n.key);
+      if(cull&&n.kind!=='editor'&&!el?.contains(focus)&&!intersects(n.x,n.y,n.width,36))continue;
+      alive.add(n.key);if(!el){el=this.createNode(n);this.nodes.set(n.key,el);this.stage.appendChild(el);}el.ldbNode=n;el.classList.toggle('is-left',n.side==='left');el.style.left=n.x+'px';el.style.top=n.y+'px';el.style.width=n.width+'px';
+      if(n.kind!=='editor'){
+        if(el.ldbLabel.textContent!==n.label)el.ldbLabel.setText(n.label);el.ldbFold.hidden=!n.hasChildren;
+        const folded=this.collapsed.has(n.key),icon=folded?(n.side==='left'?'chevron-left':'chevron-right'):'chevron-down';
+        el.ldbFold.setAttribute('aria-expanded',String(!folded));el.ldbFold.title=tr(folded?'展开':'收起');el.ldbFold.setAttribute('aria-label',el.ldbFold.title);
+        if(el.ldbFold.dataset.icon!==icon){setIcon(el.ldbFold,icon);el.ldbFold.dataset.icon=icon;}
+        const q=TagTree.fold(this.search?.value?.trim()||'');el.classList.toggle('is-match',!!q&&!!n.tag&&TagTree.fold(TagTree.label(n.tag)).includes(q));
+      }
+    }
+    for(const [key,el] of this.nodes)if(!alive.has(key)){el.remove();this.nodes.delete(key);}
+    for(const [key,edge] of this.edges)if(!edgeAlive.has(key)){edge.remove();this.edges.delete(key);}
+    this.syncChecked();
+  }
+  clearMenu(){this.contextMenu?.hide();this.contextMenu=null;for(const slot of this.menuActions||[])slot.run=null;this.menuActions=[];}
+  menuAction(run){const slot={run};(this.menuActions??=[]).push(slot);return ldbMapAction(slot);}
   createNode(n){
     const el=this.mapDoc.createElement('div');el.className='ldb-map-node is-'+n.kind;
     if(n.kind==='editor'){
@@ -85,9 +116,9 @@ class TagMapModal extends Modal {
       el.title=TagTree.label(n.tag);
     }else el.ldbLabel=el.createSpan({cls:'ldb-map-node-label',text:n.label});
     if(n.kind!=='root')el.addEventListener('contextmenu',e=>{
-      e.preventDefault();if(this.busy||this.editor)return;const node=el.ldbNode,menu=new Menu().setUseNativeMenu(!Platform?.isMobile);
-      menu.addItem(i=>i.setTitle(tr('重命名')).setIcon('pencil').onClick(()=>this.beginRename(node)));
-      if(node.kind==='tag'){menu.addSeparator();menu.addItem(i=>i.setTitle(tr('移动标签分支到…')).setIsLabel(true));for(const g of this.model.groups)menu.addItem(i=>i.setTitle(g.name).setChecked(g.name===node.group).onClick(()=>this.move(node,g.name)));}
+      e.preventDefault();if(this.closed||this.busy||this.editor)return;this.clearMenu();const node=el.ldbNode,menu=this.contextMenu=new Menu().setUseNativeMenu(!Platform?.isMobile);
+      menu.addItem(i=>i.setTitle(tr('重命名')).setIcon('pencil').onClick(this.menuAction(()=>this.beginRename(node))));
+      if(node.kind==='tag'){menu.addSeparator();menu.addItem(i=>i.setTitle(tr('移动标签分支到…')).setIsLabel(true));for(const g of this.model.groups)menu.addItem(i=>i.setTitle(g.name).setChecked(g.name===node.group).onClick(this.menuAction(()=>this.move(node,g.name))));}
       const r=el.getBoundingClientRect();menu.showAtPosition({x:r.left,y:r.bottom},this.mapDoc);
     });
     el.ldbPlus=this.icon(el,'plus',tr(n.kind==='root'?'新建标签分组':n.kind==='group'?'新建标签':'新建子标签'),()=>this.beginEditor(el.ldbNode),'ldb-map-add');
@@ -109,16 +140,18 @@ class TagMapModal extends Modal {
       let change;
       if(draft.renameKey){
         change=await this.plugin.renameTagBranch(draft.node,draft.value,this.catalogText,this.view);
+        if(this.closed)return;
         this.catalogText=change.after['tags.md'];this.model=change.model;this.tree=TagTree.tree(change.model);
         if(this.branchSides.has(draft.renameKey))this.branchSides.set(change.key,this.branchSides.get(draft.renameKey));
         if(this.collapsed.delete(draft.renameKey))this.collapsed.add(change.key);
       }else{change=draft.kind==='group'?{model:TagTree.addGroup(this.model,draft.value)}:TagTree.addTag(this.model,draft.group,draft.tag,draft.value);await this.store(change.model);}
-      if(this.closed)return;this.editor=null;this.render();this.busy=false;this.syncChecked();const key=change.key||(change.tag?'tag:'+TagTree.fold(change.tag):'group:'+draft.value.trim());this.focusNode(key);const el=this.nodes.get(key);el?.classList.add('is-new');el?.addEventListener('animationend',()=>el.classList.remove('is-new'),{once:true});(el?.ldbCheck||el?.ldbPlus)?.focus({preventScroll:true});}
+      if(this.closed)return;this.editor=null;this.render();this.busy=false;this.syncChecked();const key=change.key||(change.tag?'tag:'+TagTree.fold(change.tag):'group:'+draft.value.trim());this.focusNode(key);this.paint();const el=this.nodes.get(key);el?.classList.add('is-new');el?.addEventListener('animationend',()=>el.classList.remove('is-new'),{once:true});(el?.ldbCheck||el?.ldbPlus)?.focus({preventScroll:true});}
     catch(e){this.showError(e);if(!this.closed){draft.input.readOnly=false;draft.input.setAttribute('aria-invalid','true');draft.input.focus();}}
     finally{this.busy=false;this.syncChecked();}
   }
   async move(node,group){if(node.group===group||this.busy)return;this.busy=true;try{await this.store(TagTree.moveFamily(this.model,node.tag,group));if(this.closed)return;this.collapsed.delete('group:'+group);this.render();this.focusNode(node.key);}catch(e){this.showError(e);}finally{this.busy=false;this.syncChecked();}}
   syncChecked(){
+    if(this.closed)return;
     const selected=this.selected();for(const el of this.nodes.values()){const n=el.ldbNode;if(!n||n.kind==='editor')continue;if(el.ldbCheck){const checked=selected.has(TagTree.fold(n.tag));el.ldbCheck.checked=checked;el.ldbCheck.disabled=this.busy||!!this.editor;el.classList.toggle('is-checked',checked);const actual=String(this.view.detailRow.tags||'').split(/\s+/).find(t=>TagTree.fold(t)===TagTree.fold(n.tag));el.classList.toggle('is-human',!!actual&&Organization.source(this.view.detailRow,actual,true).kind==='human');}if(el.ldbPlus)el.ldbPlus.disabled=this.busy;}
   }
   async toggle(node,checked){
@@ -136,11 +169,20 @@ class TagMapModal extends Modal {
     let first=null;const walk=(node,ancestors)=>{if(node.kind==='tag'&&TagTree.fold(TagTree.label(node.tag)).includes(q)){for(const parent of ancestors)this.collapsed.delete(parent);first??=node.key;}for(const child of node.children)walk(child,[...ancestors,node.key]);};walk(this.tree,[]);this.render();
     for(const el of this.nodes.values())el.classList.toggle('is-match',!!el.ldbNode?.tag&&TagTree.fold(TagTree.label(el.ldbNode.tag)).includes(q));if(first)this.focusNode(first);
   }
-  close(force=false){if(this.busy&&!this.plugin.stopped&&!force)return;super.close();}
+  close(force=false){if(this.closed)return;if(this.busy&&!this.plugin?.stopped&&!force)return;super.close();}
   onClose(){
-    this.closed=true;clearTimeout(this.refreshTimer);this.observer?.disconnect();for(const off of this.cleanups)off();this.pointers.clear();
-    if(this.view.tagMap===this)this.view.tagMap=null;if(this.plugin.tagMap===this)this.plugin.tagMap=null;
-    if(!this.plugin.stopped&&!this.view.closed){this.view.lockFilters(this.view.dirty());if(!this.view.dirty())this.view.reload();}
-    this.contentEl.empty();
+    if(this.closed)return;this.closed=true;
+    const view=this.view,plugin=this.plugin;
+    view.tagMapState={collapsed:[...this.collapsed],sides:[...this.branchSides],zoom:this.zoom,pan:{...this.pan},search:this.search?.value||''};
+    clearTimeout(this.refreshTimer);if(this.frame)this.mapWin?.cancelAnimationFrame(this.frame);this.frame=null;
+    this.observer?.disconnect();this.observer=null;this.clearMenu();this.scope.unregister?.(this.escapeKey);
+    for(const off of this.cleanups)off();this.cleanups.length=0;
+    for(const id of this.pointers.keys())if(this.viewport?.hasPointerCapture?.(id))this.viewport.releasePointerCapture(id);
+    this.pointers.clear();this.nodes.clear();this.edges?.clear();this.positions?.clear();this.collapsed.clear();this.branchSides.clear();
+    this.layout=this.tree=this.model=this.catalogText=this.editor=null;
+    this.contentEl.empty();this.stage=this.lines=this.viewport=this.search=this.zoomLabel=this.error=null;this.mapDoc=this.mapWin=null;
+    if(view.tagMap===this)view.tagMap=null;if(plugin.tagMap===this)plugin.tagMap=null;
+    if(!plugin.stopped&&!view.closed){view.lockFilters(view.dirty());if(!view.dirty())view.reload();}
+    this.view=this.plugin=null;
   }
 }

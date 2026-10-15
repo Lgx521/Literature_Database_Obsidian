@@ -66,7 +66,7 @@ async function start({port=0,token,version,call,guide=INSTRUCTIONS}){
    if(message.method==='tools/call'){
     const tool=tools.find(t=>t.name===params.name);
     if(!tool)return send(200,{jsonrpc:'2.0',id:message.id,error:{code:-32602,message:'Unknown tool'}});
-    try{validate(params.arguments||{},tool.inputSchema);const data=await call(tool.name,params.arguments||{});return result({content:[{type:'text',text:JSON.stringify(data)}]});}
+    try{validate(params.arguments||{},tool.inputSchema);const data=await call(tool.name,params.arguments||{},{cancelled:()=>stopped||res.destroyed});return result({content:[{type:'text',text:JSON.stringify(data)}]});}
     catch(error){return result({isError:true,content:[{type:'text',text:error.message||'Tool failed'}]});}
    }
    return send(200,{jsonrpc:'2.0',id:message.id,error:{code:-32601,message:'Unsupported method or resource'}});

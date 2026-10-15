@@ -95,6 +95,7 @@ function ldbGroupReorderTarget(element,plugin,scope,name,parent){
 function ldbButton(parent,text,action,cls='') {
   const b=parent.createEl('button',{text,cls,attr:{type:'button'}}); b.addEventListener('click',action); return b;
 }
+function ldbViewVisible(view){return !view.contentEl?.ownerDocument?.hidden&&view.containerEl?.isShown?.()!==false;}
 class LibraryNavigation extends ItemView {
   constructor(leaf,plugin){super(leaf);this.plugin=plugin;this.collapsed=new Set();}
   getState(){return {collapsed:[...this.collapsed]};}
@@ -103,11 +104,11 @@ class LibraryNavigation extends ItemView {
   getDisplayText(){return tr('文献分类');}
   getIcon(){return 'library';}
   async onOpen(){
-    this.closed=false;
+    this.closed=false;this.renderKey=null;
     this.contentEl.addClass('ldb-navigation');
     if(Platform?.isMobile)this.contentEl.addClass('ldb-mobile-navigation');
     const doc=this.contentEl.ownerDocument;
-    this.registerDomEvent(doc,'visibilitychange',()=>this.updateCountdowns());
+    this.registerDomEvent(doc,'visibilitychange',()=>{if(this.pendingRender&&ldbViewVisible(this))this.render();this.updateCountdowns();});
     this.registerDomEvent(doc.defaultView,'focus',()=>this.updateCountdowns());
     this.register(()=>this.stopCountdowns());
     const isGroup=e=>Array.from(e.dataTransfer?.types||[]).includes(GROUP_DRAG);
@@ -117,6 +118,13 @@ class LibraryNavigation extends ItemView {
   }
   render(){
     if(this.closed||this.plugin.stopped||this.renaming||this.plugin.groupDrag)return;
+    if(!ldbViewVisible(this)){this.pendingRender=true;this.stopCountdowns();return;}this.pendingRender=false;
+    const snapshot=this.plugin.snapshot;
+    const key=JSON.stringify([LdbI18n.getLanguage(),this.plugin.navigation,this.plugin.lastError,[...this.collapsed],snapshot&&[
+      snapshot.library.map(r=>[r.path,r.status,r.bookmarked,r.categories,r.projects]),snapshot.inbox.length,
+      snapshot.collections?.map(g=>[g.scope,g.name,g.subgroups,g.members.map(m=>[m.path,m.subgroup])]),snapshot.categories,snapshot.groups,snapshot.deadlines,
+      snapshot.reviews.map(r=>r.category),snapshot.submissions.map(r=>r.category)]]);
+    if(key===this.renderKey){this.updateCountdowns();return;}this.renderKey=key;
     this.stopCountdowns();this.countdowns=[];
     const root=this.contentEl;root.empty(); const data=this.plugin.snapshot;
     const top=root.createDiv('ldb-nav-heading');top.createEl('strong',{text:'Literature Database'});
@@ -184,7 +192,7 @@ class LibraryNavigation extends ItemView {
   stopCountdowns(){clearTimeout(this.countdownTimer);this.countdownTimer=null;}
   updateCountdowns(){
     this.stopCountdowns();
-    if(this.closed||this.plugin.stopped||this.contentEl.ownerDocument.hidden)return;
+    if(this.closed||this.plugin.stopped||!ldbViewVisible(this))return;
     const now=Date.now();let pending=false;
     for(const {badge,button,name,due} of this.countdowns||[]){
       if(!badge.isConnected)continue;
@@ -198,7 +206,7 @@ class LibraryNavigation extends ItemView {
     // Only update visible countdown text; never reload metadata or redraw an editor.
     if(pending)this.countdownTimer=setTimeout(()=>this.updateCountdowns(),60000);
   }
-  async onClose(){this.closed=true;this.mobileRenameCleanup?.();this.renaming=null;this.stopCountdowns();this.countdowns=[];}
+  async onClose(){this.closed=true;this.mobileRenameCleanup?.();this.renaming=null;this.renderKey=null;this.stopCountdowns();this.countdowns=[];}
   mobileRenameCommit(input,save){
     if(!Platform?.isMobile)return save;
     this.mobileRenameCleanup?.();
@@ -284,7 +292,7 @@ class LibraryNavigation extends ItemView {
     const input=editor.createEl('input',{type:'text',cls:'ldb-nav-rename-input',attr:{'aria-label':tr(child===null?'新建子类':'重命名子类'),placeholder:tr('子类名称')}});input.value=child||'';
     if(child===null)button.after(editor);else button.replaceWith(editor);
     let saving=false,finished=false;
-    const finish=()=>{if(finished)return;finished=true;this.mobileRenameCleanup?.();this.renaming=null;this.collapsed.delete(JSON.stringify([scope,parent]));this.render();};
+    const finish=()=>{if(finished)return;finished=true;this.mobileRenameCleanup?.();this.renaming=null;this.renderKey=null;this.collapsed.delete(JSON.stringify([scope,parent]));this.render();};
     const save=async()=>{if(saving||finished)return;const to=input.value.trim();if(to===child||(!to&&(child===null||Platform?.isMobile))){finish();return;}saving=true;input.readOnly=true;
       try{await this.plugin.editChild(child===null?'add':'rename',scope,parent,child,to,expected);finish();}
       catch(error){saving=false;input.readOnly=false;input.setAttribute('aria-invalid','true');input.title=error.message;new Notice(error.message,8000);input.focus();}
@@ -301,7 +309,7 @@ class LibraryNavigation extends ItemView {
     setIcon(editor.createSpan('ldb-nav-icon'),'folder');
     const input=editor.createEl('input',{type:'text',cls:'ldb-nav-rename-input',attr:{'aria-label':scope==='library'?tr('重命名分类'):scope==='projects'?tr('重命名项目'):tr('重命名 Venue')}});input.value=name;
     button.replaceWith(editor);let saving=false,finished=false;
-    const finish=()=>{if(finished)return;finished=true;this.mobileRenameCleanup?.();this.renaming=null;this.render();};
+    const finish=()=>{if(finished)return;finished=true;this.mobileRenameCleanup?.();this.renaming=null;this.renderKey=null;this.render();};
     const save=async()=>{
       if(saving||finished)return;
       const to=input.value.trim();if(to===name||(Platform?.isMobile&&!to)){finish();return;}
@@ -592,8 +600,9 @@ class LiteratureBrowser extends ItemView {
     return true;
   }
   async onOpen(){
-    this.tagFilterMenu?.close();this.paneSplitter?.destroy();this.closed=false;this.detailRenderKey=this.listRenderKey=null;const root=this.contentEl;root.empty();root.addClass('ldb-browser');root.lang=LdbI18n.getLanguage();
+    this.tagFilterMenu?.close();this.paneSplitter?.destroy();this.closed=false;this.detailRenderKey=this.listRenderKey=null;this.listGroups=new Map();this.renderedRows=[];const root=this.contentEl;root.empty();root.addClass('ldb-browser');root.lang=LdbI18n.getLanguage();
     if(Platform?.isMobile)root.addClass('ldb-mobile');
+    this.registerDomEvent?.(root.ownerDocument,'visibilitychange',()=>{if(this.pendingReload&&ldbViewVisible(this))this.reload();});
     const toolbar=root.createDiv('ldb-toolbar');
     if(Platform?.isMobile)this.mobileIcon(toolbar,'panel-left',tr('文献分类'),()=>this.plugin.showNavigation());
     const brand=toolbar.createDiv('ldb-brand');this.headingEl=brand.createEl('strong',{text:tr('文献库')});this.countEl=brand.createSpan('ldb-count');
@@ -737,6 +746,7 @@ class LiteratureBrowser extends ItemView {
   }
   async reload(){
     if(this.closed||!this.listEl)return;
+    if(!ldbViewVisible(this)){this.pendingReload=true;return;}this.pendingReload=false;
     const data=this.plugin.snapshot;
     if(!data){this.errorEl.hidden=false;this.errorEl.setText(this.plugin.lastError||tr('正在读取本地文献…'));return;}
     this.errorEl.hidden=!this.plugin.lastError;this.errorEl.setText(this.plugin.lastError||'');this.readError=!!this.plugin.lastError;
@@ -766,7 +776,7 @@ class LiteratureBrowser extends ItemView {
       if(!this.notesDirty){this.selectedPath=draft.base.path;this.renderDetail(draft.base);}
       if(this.venueInput){this.venueInput.hidden=false;this.venueInput.value=this.venueDraft=draft.value;this.lockFilters(true);this.remember();}
     }
-    this.plugin.navigation={scope:this.scope,category:this.filters.category,status:this.filters.status,bookmarked:this.filters.bookmarked,subgroup:this.filters.subgroup};this.plugin.renderNavigation();
+    if(!this.app.workspace.activeLeaf||this.app.workspace.activeLeaf===this.leaf){this.plugin.navigation={scope:this.scope,category:this.filters.category,status:this.filters.status,bookmarked:this.filters.bookmarked,subgroup:this.filters.subgroup};this.plugin.renderNavigation();}
   }
   primaryAction(){if(this.dirty()){new Notice(tr('请先保存或取消编辑'));return;}if(this.isPublic())new CategoryModal(this.plugin,this.scope).open();else if(this.scope==='inbox')new AgentMcpModal(this.plugin).open();else new VenueModal(this.plugin,this.scope).open();}
   renderList(reset=false){
@@ -783,7 +793,7 @@ class LiteratureBrowser extends ItemView {
     if(collection&&this.filters.subgroup!==null){const paths=new Set(collection.members.filter(m=>(m.subgroup||'')===this.filters.subgroup).map(m=>m.path));this.visibleRows=this.visibleRows.filter(r=>paths.has(r.path));}
     if(this.pendingRevealPaths?.length){const reveal=this.pendingRevealPaths.flatMap(path=>this.visibleRows.filter(r=>(r.pdfPath||r.path)===path));if(reveal.length){this.selectedPath=reveal[0].path;this.selectedPaths=new Set(reveal.map(r=>r.path));}}
     if(!this.dirty()&&!this.visibleRows.some(r=>r.path===this.selectedPath))this.selectedPath=this.visibleRows[0]?.path||'';
-    this.selectedPaths=new Set([...this.selectedPaths].filter(path=>this.visibleRows.some(r=>r.path===path)));if(!this.selectedPaths.size&&this.selectedPath)this.selectedPaths.add(this.selectedPath);
+    const visiblePaths=new Set(this.visibleRows.map(r=>r.path));this.selectedPaths=new Set([...this.selectedPaths].filter(path=>visiblePaths.has(path)));if(!this.selectedPaths.size&&this.selectedPath)this.selectedPaths.add(this.selectedPath);
     this.countEl.setText(tr`${this.visibleRows.length} 篇`);this.clearEl.hidden=!this.filters.tags?.length&&!['query','status','organizing','bookmarkOnly'].some(k=>this.filters[k]);this.syncFilterControls();
     for(const b of this.sortButtons){const on=b.dataset.sort===this.filters.sort;b.setText(b.dataset.label+(on?(this.filters.descending?' ↓':' ↑'):''));}
     const childGrouped=!!collection&&this.filters.subgroup===null,grouped=this.filters.bookmarked||childGrouped;
@@ -800,32 +810,51 @@ class LiteratureBrowser extends ItemView {
       }
       if(reset)this.listEl.scrollTop=0;this.syncMobileControls();this.updateSelection();if(!this.dirty())this.renderDetail();this.remember();return;
     }
-    this.listDropController?.end();this.listRenderKey=listKey;this.listEl.empty();this.rowEls=new Map();this.renderedRows=[];
-    for(const group of groups){
-      let container=this.listEl;
-      if(grouped){
-        const label=group.kind==='ungrouped'||group.name===Engine.UNFILED_CATEGORY?tr(group.name):group.name;
-        container=this.listEl.createDiv({cls:'ldb-bookmark-group',attr:{role:'group','aria-label':label}});
-        const heading=container.createDiv({cls:'ldb-group-heading',attr:{role:'presentation'}});
-        heading.createSpan({text:label});
-        heading.createSpan({cls:'ldb-group-count',text:String(group.rows.length)});
-        if(childGrouped)container.dataset.dropSubgroup=group.subgroup;
-      }
-      for(const r of group.rows){
-        const i=this.renderedRows.length;
-        const row=container.createDiv({cls:'ldb-row',attr:{role:'option','aria-selected':String(this.selectedPaths.has(r.path)),id:`ldb-${this.leaf.id}-${i}`}});row.dataset.paperPath=r.path;row.title=this.detailTitle(r);
-        row.draggable=this.scope!=='inbox';
-        const name=row.createSpan('ldb-filename'),icon=name.createSpan('ldb-pdf-icon');setIcon(icon,'file-text');
-        if(this.isPublic()&&r.bookmarked){const badge=icon.createSpan({cls:'ldb-bookmark-badge',attr:{'aria-label':tr('已加书签')}});setIcon(badge,'bookmark');}
-        name.createSpan({cls:'ldb-filename-text',text:this.detailTitle(r)});
-        row.createSpan({cls:'ldb-date',text:TRACK_FILES[this.scope]?Engine.displayDeadline(r.published):tr(r.published),attr:{title:TRACK_FILES[this.scope]?Engine.displayDeadline(r.published):tr(r.published)}});row.createSpan({cls:'ldb-reading',text:tr(r.status),attr:{'data-status':r.status}});row.createSpan({cls:'ldb-priority',text:TRACK_FILES[this.scope]?(r.category===this.plugin.stagingGroup(this.scope)?tr('暂存区'):r.priority):tr(r.priority),attr:{'data-priority':r.priority}});
-        if(!this.rowEls.has(r.path))this.rowEls.set(r.path,row);
-        this.renderedRows.push({row:r,el:row});
-      }
-    }
-    if(!this.visibleRows.length&&!childGrouped)this.listEl.createDiv({cls:'ldb-empty',text:this.scope==='inbox'||TRACK_FILES[this.scope]?tr(Platform?.isMobile?'点击 ＋ 导入 PDF':'拖入 PDF'):tr('暂无文献')});
+    this.listRenderKey=listKey;
+    this.patchList(groups,grouped,childGrouped);
     this.syncMobileControls();
     this.listEl.scrollTop=scroll;this.updateSelection();if(keepVisible)this.revealSelection();if(!this.dirty()){this.renderDetail();}this.remember();
+  }
+  patchList(groups,grouped,childGrouped){
+    const oldRows=new Map((this.renderedRows||[]).map(item=>[item.key,item])),oldGroups=this.listGroups||new Map(),nextGroups=new Map();
+    this.emptyRow?.remove();this.emptyRow=null;this.rowEls=new Map();this.renderedRows=[];
+    const place=(parent,el,index)=>{const before=parent.children[index];if(before!==el)parent.insertBefore(el,before||null);};
+    const text=(el,value)=>{value=String(value??'');if(el.textContent!==value)el.setText(value);};
+    let groupIndex=0;
+    for(const group of groups){
+      let container=this.listEl,offset=0;
+      const groupKey=JSON.stringify([this.scope,grouped,childGrouped,group.name]);
+      if(grouped){
+        container=oldGroups.get(groupKey);oldGroups.delete(groupKey);
+        if(!container){container=this.listEl.createDiv({cls:'ldb-bookmark-group',attr:{role:'group'}});const heading=container.createDiv({cls:'ldb-group-heading',attr:{role:'presentation'}});heading.createSpan();heading.createSpan({cls:'ldb-group-count'});}
+        const label=group.kind==='ungrouped'||group.name===Engine.UNFILED_CATEGORY?tr(group.name):group.name;
+        container.setAttribute('aria-label',label);text(container.children[0].children[0],label);text(container.children[0].children[1],group.rows.length);
+        if(childGrouped)container.dataset.dropSubgroup=group.subgroup;else delete container.dataset.dropSubgroup;
+        nextGroups.set(groupKey,container);place(this.listEl,container,groupIndex++);offset=1;
+      }
+      for(const [index,r] of group.rows.entries()){
+        const key=JSON.stringify([groupKey,r.path]),old=oldRows.get(key);oldRows.delete(key);
+        let row=old?.el;
+        if(!row){
+          row=container.createDiv({cls:'ldb-row',attr:{role:'option',id:`ldb-${this.leaf.id}-${this.rowSerial=(this.rowSerial||0)+1}`}});
+          const name=row.createSpan('ldb-filename'),icon=name.createSpan('ldb-pdf-icon');setIcon(icon,'file-text');name.createSpan({cls:'ldb-filename-text'});
+          row.createSpan('ldb-date');row.createSpan('ldb-reading');row.createSpan('ldb-priority');
+        }
+        row.dataset.paperPath=r.path;row.title=this.detailTitle(r);row.draggable=this.scope!=='inbox';
+        const icon=row.querySelector('.ldb-pdf-icon'),badge=icon.querySelector('.ldb-bookmark-badge');
+        if(this.isPublic()&&r.bookmarked&&!badge){const marker=icon.createSpan({cls:'ldb-bookmark-badge',attr:{'aria-label':tr('已加书签')}});setIcon(marker,'bookmark');if(old)this.detailMotion?.animate(marker,'in');}
+        else if(!r.bookmarked&&badge)badge.remove();
+        text(row.querySelector('.ldb-filename-text'),this.detailTitle(r));
+        const date=row.querySelector('.ldb-date'),reading=row.querySelector('.ldb-reading'),priority=row.querySelector('.ldb-priority');
+        text(date,TRACK_FILES[this.scope]?Engine.displayDeadline(r.published):tr(r.published));date.title=date.textContent;
+        text(reading,tr(r.status));reading.dataset.status=r.status;
+        text(priority,TRACK_FILES[this.scope]?(r.category===this.plugin.stagingGroup(this.scope)?tr('暂存区'):r.priority):tr(r.priority));priority.dataset.priority=r.priority;
+        place(container,row,index+offset);if(!this.rowEls.has(r.path))this.rowEls.set(r.path,row);this.renderedRows.push({key,row:r,el:row});
+      }
+    }
+    if(oldRows.size||oldGroups.size)this.listDropController?.end();
+    for(const item of oldRows.values())item.el.remove();for(const group of oldGroups.values())group.remove();this.listGroups=nextGroups;
+    if(!this.visibleRows.length&&!childGrouped)this.emptyRow=this.listEl.createDiv({cls:'ldb-empty',text:this.scope==='inbox'||TRACK_FILES[this.scope]?tr(Platform?.isMobile?'点击 ＋ 导入 PDF':'拖入 PDF'):tr('暂无文献')});
   }
   selectionElement(){return this.renderedRows?.find(r=>r.el?.id===this.activeRowId&&r.row.path===this.selectedPath)?.el||this.rowEls?.get(this.selectedPath);}
   selectionVisible(){const row=this.selectionElement();if(!row?.getBoundingClientRect||!this.listEl?.getBoundingClientRect)return false;const r=row.getBoundingClientRect(),b=this.listEl.getBoundingClientRect();return r.bottom>b.top&&r.top<b.bottom;}

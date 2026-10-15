@@ -5,10 +5,15 @@ function setTranslator(translate){tr=translate;}
 // Only BibTeX and CSL plugins are registered. No DOI/URL lookup plugin.
 const {Cite,plugins}=require('@citation-js/core');
 require('@citation-js/plugin-bibtex');
-require('@citation-js/plugin-csl');
-const config=plugins.config.get('@csl');
-config.styles.add('ldb-apa',require('./vendor/styles/apa.csl'));
-config.styles.add('ldb-ieee',require('./vendor/styles/ieee.csl'));
+let formatterReady=false;
+function loadFormatter(){
+  if(formatterReady)return;
+  require('@citation-js/plugin-csl');
+  const config=plugins.config.get('@csl');
+  config.styles.add('ldb-apa',require('./vendor/styles/apa.csl'));
+  config.styles.add('ldb-ieee',require('./vendor/styles/ieee.csl'));
+  formatterReady=true;
+}
 function parseEntry(raw){
   if(typeof raw!=='string'||raw.length>100000)throw new Error(tr('BibTeX 内容过长或无效'));
   let records;try{records=new Cite(raw,{forceType:'@bibtex/text'}).data;}catch(e){throw new Error(tr('BibTeX 解析失败：')+e.message);}
@@ -37,6 +42,7 @@ function safeHtml(html){
 function documentHtml(title,bibliography){return '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>'+escape(title)+'</title><style>body{max-width:900px;margin:48px auto;padding:0 24px;font:16px/1.6 Georgia,serif}h1{font:600 20px/1.4 system-ui}.csl-entry{margin:0 0 14px 2em;text-indent:-2em}.csl-left-margin{float:left;min-width:2em}.csl-right-inline{margin-left:2em;text-indent:0}a{color:inherit}</style></head><body><h1>'+escape(title)+'</h1>'+safeHtml(bibliography)+'</body></html>';}
 function exportRows(rows,format,title='References'){
   if(!['apa','ieee','bibtex','titles'].includes(format))throw new Error(tr('无效导出格式'));
+  if(format==='titles')return require('./title-export').exportTitles(rows,parseEntry,tr);
   const missing=[],ready=[];const seenPaths=new Set();
   for(const row of rows){
     if(seenPaths.has(row.path))continue;seenPaths.add(row.path);
@@ -44,22 +50,15 @@ function exportRows(rows,format,title='References'){
     try{const entry=parseEntry(row.bibtex);if(entry.issues.length)missing.push({row,reason:tr('缺少')+entry.issues.join('、')});else ready.push({row,...entry});}
     catch(error){missing.push({row,reason:error.message});}
   }
-  const collision=new Set();for(const entry of ready){const others=ready.filter(e=>e.key===entry.key);if(others.length>1)for(const e of others)collision.add(e);}
+  const counts=new Map();for(const entry of ready)counts.set(entry.key,(counts.get(entry.key)||0)+1);
+  const collision=new Set(ready.filter(entry=>counts.get(entry.key)>1));
   const entries=ready.filter(entry=>{if(!collision.has(entry))return true;missing.push({row:entry.row,reason:tr('重复引用键 ')+entry.key});return false;});
   const report=missing.map(({row,reason})=>row.filename+'\n  '+reason+'\n  '+row.path+(row.citationSource?tr('\n  来源：')+row.citationSource:'')).join('\n\n');
-  if(format==='titles'){
-    const titles=[],missing=[];
-    for(const row of [...new Map(rows.map(row=>[row.path,row])).values()]){
-      let title=row.title?.trim()||'';try{if(!title&&row.bibtex)title=parseEntry(row.bibtex).data.title||'';}catch(_){}
-      if(title&&!/\.pdf$/i.test(title))titles.push(title.replace(/\s+/g,' '));
-      else missing.push({row,reason:tr('尚未取得论文篇名')});
-    }
-    const text=titles.join('\n');return {text,content:text?(text+'\n'):'',extension:'txt',ready:titles.length,missing,report:missing.map(({row,reason})=>row.path+'\n  '+reason).join('\n\n')};
-  }
   if(!entries.length)return {text:'',content:'',extension:format==='bibtex'?'bib':'html',ready:0,missing,report};
   if(format==='bibtex'){
     const text=entries.map(e=>e.raw).join('\n\n')+'\n';return {text,content:text,extension:'bib',ready:entries.length,missing,report};
   }
+  loadFormatter();
   const cite=new Cite(entries.map(e=>e.data)),options={style:'ldb-'+format,lang:'en-US'};
   const text=cite.format('bibliography',{...options,format:'text'}),html=cite.format('bibliography',{...options,format:'html'});
   return {text,html:safeHtml(html),content:documentHtml(title,html),extension:'html',ready:entries.length,missing,report};

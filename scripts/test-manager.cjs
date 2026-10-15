@@ -36,13 +36,22 @@ const store=new Map([['library.md',source],['reviews.md',empty],['submissions.md
 const opened=[],events=[],notices=[];let race=false;
 const files=new Map([...store.keys(),'papers/One.pdf','temp/1234.56789v1.pdf'].map(n=>[n,new TFile(n)]));
 const vault={getAbstractFileByPath:n=>files.get(n),getFiles:()=>[...files.values()],read:async f=>store.get(f.path),on:(...a)=>events.push(a),process:async(f,fn)=>store.set(f.path,fn(store.get(f.path))),adapter:{getBasePath:()=>'/tmp/vault $ literal',exists:async()=>true,mkdir:async()=>{},write:async(n,t)=>{store.set(n,t);if(race)store.set('library.md',E.updateLibraryEntry(store.get('library.md'),E.parseLibrary(store.get('library.md'))[0],{tldr:'external'}));}}};
-const workspace={getLeavesOfType:()=>[],on:()=>{},onLayoutReady(callback){this.startup=callback;},getLeaf:()=>{throw new Error('Must not embed PDF');}};
+const workspaceEvents=new Map();
+const workspace={getLeavesOfType:()=>[],on:(type,fn)=>workspaceEvents.set(type,fn),onLayoutReady(callback){this.startup=callback;},getLeaf:()=>{throw new Error('Must not embed PDF');}};
 class Plugin{constructor(){this.app={vault,workspace};}registerView(){}addRibbonIcon(){}addCommand(){}registerObsidianProtocolHandler(){}registerEvent(){}}
 const mock={Plugin,ItemView:class{},Modal:class{},Platform:{isDesktopApp:true,isMacOS:true},Notice:class{constructor(s){notices.push(s);}},TFile,setIcon(){}};
 const bundle=fs.readFileSync(path.join(__dirname,'../main.js'),'utf8');
 const context={module:{exports:{}},require:n=>n==='obsidian'?mock:n==='child_process'?{execFile:(bin,args,cb)=>{opened.push({bin,args});cb(null);}}:require(n),setTimeout,clearTimeout,console};vm.runInNewContext(bundle,context);
 (async()=>{
  const plugin=new context.module.exports();plugin.loadData=async()=>({language:'zh',openOnStartup:false});await plugin.onload();await workspace.startup();assert.equal(plugin.snapshot.library.length,1);assert.equal(plugin.snapshot.inbox.length,1);
+ // Tab activation precedes the host's visibility update; coalesce both events
+ // and resume only after the frame, without painting other hidden tabs.
+ const normalLeaves=workspace.getLeavesOfType,frames=new Map();let shown=false,resumed=0,frameId=0;
+ const win={requestAnimationFrame:fn=>{frames.set(++frameId,fn);return frameId;},cancelAnimationFrame:id=>frames.delete(id)};
+ const view={pendingReload:true,contentEl:{ownerDocument:{hidden:false,defaultView:win}},containerEl:{isShown:()=>shown},reload(){resumed++;this.pendingReload=false;}};
+ workspace.getLeavesOfType=type=>type==='literature-database-browser'?[{view}]:[];
+ workspaceEvents.get('active-leaf-change')();workspaceEvents.get('layout-change')();assert.equal(frames.size,1);assert.equal(resumed,0);
+ shown=true;[...frames.values()][0]();frames.clear();assert.equal(resumed,1);assert.equal(plugin.resumeFrames.size,0);workspace.getLeavesOfType=normalLeaves;
  const before=store.get('library.md');await plugin.mutate('library.md',t=>E.updateLibraryEntry(t,E.parseLibrary(t)[0],{notes:'user notes'}));
  assert([...store.entries()].some(([n,v])=>n.startsWith('.maintenance-backups/library-edit-')&&v===before));
  assert.equal(store.get('首页.md'),'unchanged home');assert.equal(store.get('阅读队列.md'),'unchanged queue');

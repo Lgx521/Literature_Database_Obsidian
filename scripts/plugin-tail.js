@@ -5,7 +5,7 @@ module.exports=class LiteratureManager extends Plugin {
     // The file index can still be empty in onload, even for an existing vault.
     this.layoutReady=false;this.ready=false;this.setupNeeded=false;
     this.settings={language:'auto',...saved};
-    this.agentMcp=new AgentMcpService(this);
+    this.pdfWork=new PdfWorkQueue();this.agentMcp=new AgentMcpService(this);
     LdbI18n.setLanguage(this.settings.language,require('obsidian').getLanguage?.()||'en');
     this.stopped=false;this.snapshot=null;this.navigation={scope:'library',category:'',status:''};this.lastError='';this.timer=null;this.loading=null;
     this.citationQueue=Promise.resolve();this.citationErrors=new Map();this.citationKnown=null;
@@ -16,10 +16,25 @@ module.exports=class LiteratureManager extends Plugin {
     this.addSettingTab?.(ldbSettingsTab(this));
     this.ribbon=this.addRibbonIcon('library',tr('打开文献管理器'),()=>this.openLibrary());
     this.registerObsidianProtocolHandler('literature-database',params=>this.openLibrary(params.category?{scope:'library',category:params.category}:undefined));
-    const relevant=p=>['library.md','reviews.md','submissions.md','collections.md'].includes(p)||p.startsWith('temp/');
-    const changed=(file,old)=>{if(file.path===TagTree.FILE||old===TagTree.FILE){this.tagMap?.catalogChanged();return;}if(this.migrating)return;if(relevant(file.path)||(old&&relevant(old)))this.schedule();};
+    const relevant=p=>['library.md','reviews.md','submissions.md','collections.md'].includes(p)||p==='temp'||p.startsWith('temp/');
+    const changed=(file,old)=>{if(file.path===TagTree.FILE||old===TagTree.FILE){this.tagMap?.catalogChanged();return;}if(this.migrating)return;if(relevant(file.path)||(old&&relevant(old)))this.schedule([file.path,old].filter(Boolean));};
     for(const event of ['modify','create','delete','rename'])this.registerEvent(this.app.vault.on(event,changed));
     this.registerEvent(this.app.workspace.on('file-open',file=>{if(file&&this.ready&&this.settings.redirectSourceFiles)this.redirectLegacy(file.path);}));
+    // Workspace activation can fire before Obsidian shows the new tab. Check
+    // visibility on the next frame, once per window, rather than missing resume.
+    this.resumeFrames=new Map();
+    const resumeViews=()=>{
+      const views=[...this.app.workspace.getLeavesOfType(LIBRARY_VIEW),...this.app.workspace.getLeavesOfType(NAV_VIEW)].map(l=>l.view);
+      for(const win of new Set(views.filter(v=>v.pendingReload||v.pendingRender).map(v=>v.contentEl?.ownerDocument?.defaultView))){
+        if(!win||this.resumeFrames.has(win))continue;
+        this.resumeFrames.set(win,win.requestAnimationFrame(()=>{
+          this.resumeFrames.delete(win);if(this.stopped)return;
+          for(const leaf of this.app.workspace.getLeavesOfType(LIBRARY_VIEW)){const v=leaf.view;if(v.pendingReload&&v.contentEl?.ownerDocument?.defaultView===win&&ldbViewVisible(v))v.reload();}
+          for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW)){const v=leaf.view;if(v.pendingRender&&v.contentEl?.ownerDocument?.defaultView===win&&ldbViewVisible(v))v.render();}
+        }));
+      }
+    };
+    for(const event of ['active-leaf-change','layout-change'])this.registerEvent(this.app.workspace.on(event,resumeViews));
     this.app.workspace.onLayoutReady(async()=>{
       if(this.stopped)return;
       this.setupNeeded=!ldbHasSourceFiles(this.app.vault);
@@ -51,6 +66,7 @@ module.exports=class LiteratureManager extends Plugin {
     this.addCommand({id:'new-category',name:tr('新建分类'),callback:()=>new CategoryModal(this).open()});
     this.addCommand({id:'agent-inbox',name:'Agent MCP',callback:()=>new AgentMcpModal(this).open()});
     this.addCommand({id:'refresh-citations',name:tr('重新识别缺失引用'),callback:()=>this.ensureCitationRows(this.snapshot?.library||[]).then(rows=>new Notice(tr('引用识别完成：')+rows.filter(r=>r.bibtex).length+' / '+rows.length)).catch(e=>new Notice(e.message,8000))});
+    this.addCommand({id:'cancel-pdf-work',name:tr('取消 PDF 识别与读取'),callback:()=>{this.citationGeneration=(this.citationGeneration||0)+1;this.pdfWork?.cancelAll();new Notice(tr('已取消 PDF 任务'));}});
     this.addCommand({id:'refresh',name:tr('重新读取本地数据'),callback:()=>this.refresh(true)});
   }
   showLanguageMenu(event){
@@ -106,9 +122,13 @@ module.exports=class LiteratureManager extends Plugin {
     let leaf=this.app.workspace.getLeavesOfType(LIBRARY_VIEW)[0];
     if(!leaf){leaf=this.app.workspace.getLeaf('tab');await leaf.setViewState({type:LIBRARY_VIEW,state:{scope:'library',category:this.snapshot?.categories[0]||''},active:true});}
     if(leaf.isDeferred)await leaf.loadIfDeferred();
-    if(nav&&leaf.view instanceof LiteratureBrowser)await leaf.view.navigate(nav);
     if(Platform.isMobile)this.app.workspace.leftSplit?.collapse();else await this.showNavigation();
     await this.app.workspace.revealLeaf(leaf);
+    this.app.workspace.setActiveLeaf?.(leaf,{focus:true});
+    if(leaf.view instanceof LiteratureBrowser){
+      if(nav)await leaf.view.navigate(nav);
+      else if(leaf.view.pendingReload)await leaf.view.reload();
+    }
     if(nav?.revealPaths?.length&&leaf.view instanceof LiteratureBrowser){
       const view=leaf.view;view.contentEl.ownerDocument.defaultView.requestAnimationFrame(()=>{
         if(view.closed||view.dirty())return;
@@ -350,35 +370,29 @@ module.exports=class LiteratureManager extends Plugin {
     input.addEventListener('change',()=>{const files=Array.from(input.files||[]);cleanup();if(files.length&&!this.stopped)this.importDroppedFiles(files,nav).catch(e=>new Notice(e.message,10000));},{once:true});
     this.register?.(cleanup);input.click();
   }
-  schedule(){if(this.stopped)return;clearTimeout(this.timer);this.timer=setTimeout(()=>this.refresh(),300);}
-  async refresh(notify=false){
-    if(this.stopped||this.layoutReady===false||this.setupNeeded||this.ddlWriting||this.migrating||this.migrationFailed)return;
-    if(this.loading){this.again=true;return this.loading;}
-    this.loading=this.loadSnapshot();
-    try{await this.loading;if(notify&&!this.lastError)new Notice(tr('本地列表已更新'));}finally{this.loading=null;if(this.again){this.again=false;this.schedule();}}
+  schedule(paths=['*']){
+    if(this.stopped)return;this.refreshDirty??=new Set();for(const path of paths)this.refreshDirty.add(path);
+    clearTimeout(this.timer);this.timer=setTimeout(()=>{this.timer=null;this.refresh(false,[]);},300);
   }
-  async loadSnapshot(){
+  async refresh(notify=false,paths=['*']){
+    if(this.stopped||this.layoutReady===false||this.setupNeeded||this.ddlWriting||this.migrating||this.migrationFailed)return;
+    clearTimeout(this.timer);this.timer=null;this.refreshDirty??=new Set();for(const path of paths)this.refreshDirty.add(path);
+    if(this.loading)return this.loading;
+    this.loading=(async()=>{do{const dirty=this.refreshDirty;this.refreshDirty=new Set();await this.loadSnapshot(dirty);}while(!this.stopped&&this.refreshDirty.size);})();
+    try{await this.loading;if(notify&&!this.lastError)new Notice(tr('本地列表已更新'));}finally{this.loading=null;}
+  }
+  async loadSnapshot(dirty=new Set(['*'])){
+    const previous=this.snapshot,previousError=this.lastError;
     try{
-      const names=['library.md','reviews.md','submissions.md'],files=names.map(n=>this.app.vault.getAbstractFileByPath(n));
-      if(files.some(f=>!(f instanceof TFile)))throw new Error(tr('源文件尚未同步齐全'));
-      const texts=await Promise.all(files.map(f=>this.app.vault.read(f)));
-      let library=Engine.parseLibrary(texts[0]);
-      let collections=null,collectionText='';
-      if(texts[0].includes('<!-- library:collections -->')){
-        const file=this.app.vault.getAbstractFileByPath(COLLECTION_SOURCE);if(!(file instanceof TFile))throw new Error(tr('集合尚未同步齐全'));
-        collectionText=await this.app.vault.read(file);collections=Collections.parse(collectionText).groups;library=Collections.decorate(library,collections);
-      }
-      const reviews=Engine.parseTracker(texts[1],'审稿'),submissions=Engine.parseTracker(texts[2],'投稿');
-      const inbox=this.app.vault.getFiles().filter(f=>f.path.startsWith('temp/')&&f.extension.toLowerCase()==='pdf').map(f=>({path:f.path,filename:f.name,category:'',published:new Date(f.stat.ctime).toLocaleDateString('sv-SE'),mtime:f.stat.ctime,fileMtime:f.stat.mtime,fileSize:f.stat.size,status:'待整理',priority:(f.stat.size/1024/1024).toFixed(1)+' MB',tags:'',notes:'',tldr:''}));
-      const deadlines={reviews:Object.fromEntries(Engine.trackerGroups(texts[1]).map(name=>[name,Engine.trackerDeadline(texts[1],name)])),submissions:Object.fromEntries(Engine.trackerGroups(texts[2]).map(name=>[name,Engine.trackerDeadline(texts[2],name)]))};
-      const deadlineEntries=collections?DeadlineSharing.entries({[COLLECTION_SOURCE]:collectionText,[TRACK_FILES.submissions]:texts[2]}):[];
-      deadlines.projects=Object.fromEntries(deadlineEntries.filter(g=>g.scope==='projects').map(g=>[g.name,g.deadline]));
-      if(this.stopped)return;
-      this.snapshot={library,reviews,submissions,inbox,collections,deadlineEntries,categories:collections?[...collections.filter(g=>g.scope==='library').map(g=>g.name),...(library.some(r=>!r.categories.length)?[Engine.UNFILED_CATEGORY]:[])]:Engine.getCategories(texts[0]),groups:{projects:collections?.filter(g=>g.scope==='projects').map(g=>g.name)||[],reviews:Engine.trackerGroups(texts[1]),submissions:Engine.trackerGroups(texts[2])},deadlines};this.lastError='';
-      const added=this.citationKnown?library.filter(r=>!this.citationKnown.has(r.path)):[];this.citationKnown=new Set(library.map(r=>r.path));
+      this.snapshotCache??=new SnapshotCache(Engine,Collections,DeadlineSharing,TFile,tr);
+      const snapshot=await this.snapshotCache.read(this.app.vault,dirty);if(this.stopped){this.snapshotCache.clear();return;}
+      this.snapshot=snapshot;this.lastError='';
+      const library=snapshot.library,added=this.citationKnown?library.filter(r=>!this.citationKnown.has(r.path)):[];this.citationKnown=new Set(library.map(r=>r.path));
       if(added.length&&!this.importing&&typeof loadPdfJs==='function')this.ensureCitationRows(added).catch(e=>new Notice(e.message,8000));
-    }catch(e){const message=tr('保留上次列表：')+e.message;if(message!==this.lastError)new Notice(message,8000);this.lastError=message;}
-    this.renderNavigation();for(const leaf of this.app.workspace.getLeavesOfType(LIBRARY_VIEW))if(leaf.view instanceof LiteratureBrowser)await leaf.view.reload();
+    }catch(e){if(this.stopped){this.snapshotCache?.clear();return;}const message=tr('保留上次列表：')+e.message;if(message!==this.lastError)new Notice(message,8000);this.lastError=message;}
+    if(this.snapshot===previous&&this.lastError===previousError)return;
+    for(const leaf of this.app.workspace.getLeavesOfType(LIBRARY_VIEW))if(leaf.view instanceof LiteratureBrowser)await leaf.view.reload();
+    this.renderNavigation();
   }
   async mutate(name,transform){
     if(this.lastError)throw new Error(tr('源数据不完整，暂不能保存'));
@@ -388,7 +402,7 @@ module.exports=class LiteratureManager extends Plugin {
     const stamp=new Date().toISOString().replace(/[:.]/g,'-');
     await vault.adapter.write(`${folder}/${name.replace(/\.md$/,'')}-edit-${stamp}-${Math.random().toString(36).slice(2,8)}.md`,before);
     await vault.process(file,current=>{if(current!==before)throw new Error(tr('备份期间文件发生变化，请重试；草稿已保留'));return after;});
-    await this.refresh();
+    await this.refresh(false,[name]);
   }
   async renameTagBranch(node,name,expectedCatalog,origin=null){
     const views=this.app.workspace.getLeavesOfType(LIBRARY_VIEW).map(l=>l.view);
@@ -488,12 +502,19 @@ module.exports=class LiteratureManager extends Plugin {
     });
   }
   async ensureCitationRows(rows,onProgress=()=>{},options={}){
+    const generation=this.citationGeneration||0,cancelled=options.cancelled;options={...options,cancelled:()=>this.stopped||generation!==(this.citationGeneration||0)||!!cancelled?.()};
+    if(options.cancelled())return [];
+    if(options.titleOnly){
+      const current=new Map((this.snapshot?.library||[]).map(r=>[r.path,r])),selected=[...new Set(rows.map(r=>r.path))].map(path=>current.get(path)).filter(Boolean);
+      if(selected.every(r=>!Organization.temporaryTitle(r)&&r.title?.trim())){onProgress(selected.length,selected.length);return selected;}
+    }
     const run=async()=>{
       const output=[],unique=[...new Map(rows.map(r=>[r.path,r])).values()];
       this.citationTransport??=CitationMetadata.transport(url=>requestUrl({url,throw:false}));
       for(const [index,selected] of unique.entries()){
         if(this.stopped||options.cancelled?.())break;
         let row=this.snapshot?.library.find(r=>r.path===selected.path);if(!row)continue;
+        if(options.titleOnly&&!Organization.temporaryTitle(row)&&row.title?.trim()){output.push(row);onProgress(index+1,unique.length);continue;}
         let changes={},error='',recognized=false,evidenceSources={};
         try{
           // Existing bibliography and keys are never overwritten by automatic retrieval.
@@ -505,8 +526,11 @@ module.exports=class LiteratureManager extends Plugin {
             const stat=indexed?file.stat:await this.app.vault.adapter.stat?.(row.path);
             if(!stat||(!indexed&&stat.type!=='file'))throw new Error(tr('PDF 尚未同步到本机'));
             if(stat.size>150*1024*1024)throw new Error(tr('PDF 超过 150 MB，未自动解析'));
-            const bytes=indexed?await this.app.vault.readBinary(file):await this.app.vault.adapter.readBinary(row.path);
-            const evidence=await CitationMetadata.readPdf(await loadPdfJs(),bytes);
+            this.pdfWork??=new PdfWorkQueue();
+            const evidence=await this.pdfWork.run(async work=>{
+              const bytes=indexed?await this.app.vault.readBinary(file):await this.app.vault.adapter.readBinary(row.path);work.check();
+              const pdfjs=await loadPdfJs();work.check();return CitationMetadata.readPdf(pdfjs,bytes,{work});
+            },{cancelled:()=>this.stopped||!!options.cancelled?.(),owner:this});
             if(this.stopped||options.cancelled?.())break;
             const evidenceRow=Organization.temporaryTitle(row)?{...row,title:''}:row;
             const localTitle=CitationMetadata.pdfTitle(evidence,evidenceRow),localDate=CitationMetadata.pdfPublication(evidence,evidenceRow);
@@ -530,13 +554,13 @@ module.exports=class LiteratureManager extends Plugin {
             });
             row=this.snapshot.library.find(r=>r.path===row.path)||row;
           }
-        }catch(e){error=e.message;}
+        }catch(e){if(this.stopped||options.cancelled?.())break;error=e.message;}
         if(error)this.citationErrors.set(row.path,error);else this.citationErrors.delete(row.path);
         output.push({...row,citationError:error});onProgress(index+1,unique.length);
       }
       return output;
     };
-    const task=(this.citationQueue||Promise.resolve()).then(run,run);this.citationQueue=task.catch(()=>{});return task;
+    const task=(this.citationQueue||Promise.resolve()).then(run,run);this.citationQueue=task.then(()=>{},()=>{});return task;
   }
   async saveExport(name,extension,content){
     const folder='exports';if(!await this.app.vault.adapter.exists(folder))await this.app.vault.adapter.mkdir(folder);
@@ -556,5 +580,5 @@ module.exports=class LiteratureManager extends Plugin {
       else await this.app.workspace.getLeaf('tab').openFile(file);
     }catch(e){new Notice(e.message,8000);}
   }
-  onunload(){this.stopped=true;this.agentGuide?.close();this.agentMcp?.stop(false).catch(()=>{});this.tagFilterMenu?.close();this.tagMap?.close(true);this.membershipMenu?.close();this.removalModal?.close();clearTimeout(this.timer);for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))leaf.view.stopCountdowns?.();this.endPaperDrag();this.endGroupDrag();}
+  onunload(){this.stopped=true;for(const [win,frame] of this.resumeFrames||[])win.cancelAnimationFrame(frame);this.resumeFrames?.clear();this.pdfWork?.close();this.agentGuide?.close();this.agentMcp?.stop(false).catch(()=>{});this.tagFilterMenu?.close();this.tagMap?.close(true);this.membershipMenu?.close();this.removalModal?.close();clearTimeout(this.timer);this.snapshotCache?.clear();this.refreshDirty?.clear();for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))leaf.view.stopCountdowns?.();this.endPaperDrag();this.endGroupDrag();}
 };

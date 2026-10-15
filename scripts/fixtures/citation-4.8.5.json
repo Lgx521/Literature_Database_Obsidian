@@ -1,0 +1,323 @@
+[
+  {
+    "name": "mixed",
+    "rows": [
+      {
+        "path": "papers/A.pdf",
+        "filename": "A.pdf",
+        "title": "A verified title",
+        "bibtex": "@article{alpha, title={Learning with {Robots}}, author={Smith, Alice and Doe, Jane}, journal={Journal of Testing}, year={2024}, volume={12}, number={3}, pages={10--20}, doi={10.1234/example}}"
+      },
+      {
+        "path": "papers/B.pdf",
+        "filename": "B.pdf",
+        "bibtex": "@inproceedings{beta, title={Reliable Systems}, author={Turing, Alan}, booktitle={Test Conference}, year={2023}, pages={21--30}}"
+      },
+      {
+        "path": "papers/Missing.pdf",
+        "filename": "Missing.pdf",
+        "title": "Known title without bibliography",
+        "bibtex": ""
+      },
+      {
+        "path": "papers/Broken.pdf",
+        "filename": "Broken.pdf",
+        "bibtex": "@article{broken,title={Incomplete citation}}"
+      }
+    ],
+    "formats": {
+      "titles": {
+        "text": "A verified title\nReliable Systems\nKnown title without bibliography\nIncomplete citation",
+        "content": "A verified title\nReliable Systems\nKnown title without bibliography\nIncomplete citation\n",
+        "extension": "txt",
+        "ready": 4,
+        "missing": [],
+        "report": ""
+      },
+      "bibtex": {
+        "text": "@article{alpha, title={Learning with {Robots}}, author={Smith, Alice and Doe, Jane}, journal={Journal of Testing}, year={2024}, volume={12}, number={3}, pages={10--20}, doi={10.1234/example}}\n\n@inproceedings{beta, title={Reliable Systems}, author={Turing, Alan}, booktitle={Test Conference}, year={2023}, pages={21--30}}\n",
+        "content": "@article{alpha, title={Learning with {Robots}}, author={Smith, Alice and Doe, Jane}, journal={Journal of Testing}, year={2024}, volume={12}, number={3}, pages={10--20}, doi={10.1234/example}}\n\n@inproceedings{beta, title={Reliable Systems}, author={Turing, Alan}, booktitle={Test Conference}, year={2023}, pages={21--30}}\n",
+        "extension": "bib",
+        "ready": 2,
+        "missing": [
+          {
+            "row": {
+              "path": "papers/Missing.pdf",
+              "filename": "Missing.pdf",
+              "title": "Known title without bibliography",
+              "bibtex": ""
+            },
+            "reason": "未识别到完整引用资料"
+          },
+          {
+            "row": {
+              "path": "papers/Broken.pdf",
+              "filename": "Broken.pdf",
+              "bibtex": "@article{broken,title={Incomplete citation}}"
+            },
+            "reason": "缺少作者、年份、期刊／会议／书名"
+          }
+        ],
+        "report": "Missing.pdf\n  未识别到完整引用资料\n  papers/Missing.pdf\n\nBroken.pdf\n  缺少作者、年份、期刊／会议／书名\n  papers/Broken.pdf"
+      },
+      "apa": {
+        "text": "Smith, A., & Doe, J. (2024). Learning with Robots. Journal of Testing, 12(3), 10–20. https://doi.org/10.1234/example\nTuring, A. (2023). Reliable Systems. Test Conference, 21–30.\n",
+        "html": "<div class=\"csl-bib-body\">\n  <div class=\"csl-entry\">Smith, A., &#38; Doe, J. (2024). Learning with Robots. <i>Journal of Testing</i>, <i>12</i>(3), 10–20. https://doi.org/10.1234/example</div>\n  <div class=\"csl-entry\">Turing, A. (2023). Reliable Systems. <i>Test Conference</i>, 21–30.</div>\n</div>",
+        "content": "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>References</title><style>body{max-width:900px;margin:48px auto;padding:0 24px;font:16px/1.6 Georgia,serif}h1{font:600 20px/1.4 system-ui}.csl-entry{margin:0 0 14px 2em;text-indent:-2em}.csl-left-margin{float:left;min-width:2em}.csl-right-inline{margin-left:2em;text-indent:0}a{color:inherit}</style></head><body><h1>References</h1><div class=\"csl-bib-body\">\n  <div class=\"csl-entry\">Smith, A., &#38; Doe, J. (2024). Learning with Robots. <i>Journal of Testing</i>, <i>12</i>(3), 10–20. https://doi.org/10.1234/example</div>\n  <div class=\"csl-entry\">Turing, A. (2023). Reliable Systems. <i>Test Conference</i>, 21–30.</div>\n</div></body></html>",
+        "extension": "html",
+        "ready": 2,
+        "missing": [
+          {
+            "row": {
+              "path": "papers/Missing.pdf",
+              "filename": "Missing.pdf",
+              "title": "Known title without bibliography",
+              "bibtex": ""
+            },
+            "reason": "未识别到完整引用资料"
+          },
+          {
+            "row": {
+              "path": "papers/Broken.pdf",
+              "filename": "Broken.pdf",
+              "bibtex": "@article{broken,title={Incomplete citation}}"
+            },
+            "reason": "缺少作者、年份、期刊／会议／书名"
+          }
+        ],
+        "report": "Missing.pdf\n  未识别到完整引用资料\n  papers/Missing.pdf\n\nBroken.pdf\n  缺少作者、年份、期刊／会议／书名\n  papers/Broken.pdf"
+      },
+      "ieee": {
+        "text": "[1] A. Smith and J. Doe, “Learning with Robots,” Journal of Testing, vol. 12, no. 3, pp. 10–20, 2024, doi: 10.1234/example.\n[2] A. Turing, “Reliable Systems,” in Test Conference, 2023, pp. 21–30.\n",
+        "html": "<div class=\"csl-bib-body\">\n  <div class=\"csl-entry\">\n    <div class=\"csl-left-margin\">[1]</div><div class=\"csl-right-inline\">A. Smith and J. Doe, “Learning with Robots,” <i>Journal of Testing</i>, vol. 12, no. 3, pp. 10–20, 2024, doi: 10.1234/example.</div>\n  </div>\n  <div class=\"csl-entry\">\n    <div class=\"csl-left-margin\">[2]</div><div class=\"csl-right-inline\">A. Turing, “Reliable Systems,” in <i>Test Conference</i>, 2023, pp. 21–30.</div>\n  </div>\n</div>",
+        "content": "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>References</title><style>body{max-width:900px;margin:48px auto;padding:0 24px;font:16px/1.6 Georgia,serif}h1{font:600 20px/1.4 system-ui}.csl-entry{margin:0 0 14px 2em;text-indent:-2em}.csl-left-margin{float:left;min-width:2em}.csl-right-inline{margin-left:2em;text-indent:0}a{color:inherit}</style></head><body><h1>References</h1><div class=\"csl-bib-body\">\n  <div class=\"csl-entry\">\n    <div class=\"csl-left-margin\">[1]</div><div class=\"csl-right-inline\">A. Smith and J. Doe, “Learning with Robots,” <i>Journal of Testing</i>, vol. 12, no. 3, pp. 10–20, 2024, doi: 10.1234/example.</div>\n  </div>\n  <div class=\"csl-entry\">\n    <div class=\"csl-left-margin\">[2]</div><div class=\"csl-right-inline\">A. Turing, “Reliable Systems,” in <i>Test Conference</i>, 2023, pp. 21–30.</div>\n  </div>\n</div></body></html>",
+        "extension": "html",
+        "ready": 2,
+        "missing": [
+          {
+            "row": {
+              "path": "papers/Missing.pdf",
+              "filename": "Missing.pdf",
+              "title": "Known title without bibliography",
+              "bibtex": ""
+            },
+            "reason": "未识别到完整引用资料"
+          },
+          {
+            "row": {
+              "path": "papers/Broken.pdf",
+              "filename": "Broken.pdf",
+              "bibtex": "@article{broken,title={Incomplete citation}}"
+            },
+            "reason": "缺少作者、年份、期刊／会议／书名"
+          }
+        ],
+        "report": "Missing.pdf\n  未识别到完整引用资料\n  papers/Missing.pdf\n\nBroken.pdf\n  缺少作者、年份、期刊／会议／书名\n  papers/Broken.pdf"
+      }
+    }
+  },
+  {
+    "name": "duplicate-path",
+    "rows": [
+      {
+        "path": "papers/A.pdf",
+        "filename": "A.pdf",
+        "title": "A verified title",
+        "bibtex": "@article{alpha, title={Learning with {Robots}}, author={Smith, Alice and Doe, Jane}, journal={Journal of Testing}, year={2024}, volume={12}, number={3}, pages={10--20}, doi={10.1234/example}}"
+      },
+      {
+        "path": "papers/A.pdf",
+        "filename": "A.pdf",
+        "title": "A verified title",
+        "bibtex": "@article{alpha, title={Learning with {Robots}}, author={Smith, Alice and Doe, Jane}, journal={Journal of Testing}, year={2024}, volume={12}, number={3}, pages={10--20}, doi={10.1234/example}}"
+      },
+      {
+        "path": "papers/B.pdf",
+        "filename": "B.pdf",
+        "bibtex": "@inproceedings{beta, title={Reliable Systems}, author={Turing, Alan}, booktitle={Test Conference}, year={2023}, pages={21--30}}"
+      }
+    ],
+    "formats": {
+      "titles": {
+        "text": "A verified title\nReliable Systems",
+        "content": "A verified title\nReliable Systems\n",
+        "extension": "txt",
+        "ready": 2,
+        "missing": [],
+        "report": ""
+      },
+      "bibtex": {
+        "text": "@article{alpha, title={Learning with {Robots}}, author={Smith, Alice and Doe, Jane}, journal={Journal of Testing}, year={2024}, volume={12}, number={3}, pages={10--20}, doi={10.1234/example}}\n\n@inproceedings{beta, title={Reliable Systems}, author={Turing, Alan}, booktitle={Test Conference}, year={2023}, pages={21--30}}\n",
+        "content": "@article{alpha, title={Learning with {Robots}}, author={Smith, Alice and Doe, Jane}, journal={Journal of Testing}, year={2024}, volume={12}, number={3}, pages={10--20}, doi={10.1234/example}}\n\n@inproceedings{beta, title={Reliable Systems}, author={Turing, Alan}, booktitle={Test Conference}, year={2023}, pages={21--30}}\n",
+        "extension": "bib",
+        "ready": 2,
+        "missing": [],
+        "report": ""
+      },
+      "apa": {
+        "text": "Smith, A., & Doe, J. (2024). Learning with Robots. Journal of Testing, 12(3), 10–20. https://doi.org/10.1234/example\nTuring, A. (2023). Reliable Systems. Test Conference, 21–30.\n",
+        "html": "<div class=\"csl-bib-body\">\n  <div class=\"csl-entry\">Smith, A., &#38; Doe, J. (2024). Learning with Robots. <i>Journal of Testing</i>, <i>12</i>(3), 10–20. https://doi.org/10.1234/example</div>\n  <div class=\"csl-entry\">Turing, A. (2023). Reliable Systems. <i>Test Conference</i>, 21–30.</div>\n</div>",
+        "content": "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>References</title><style>body{max-width:900px;margin:48px auto;padding:0 24px;font:16px/1.6 Georgia,serif}h1{font:600 20px/1.4 system-ui}.csl-entry{margin:0 0 14px 2em;text-indent:-2em}.csl-left-margin{float:left;min-width:2em}.csl-right-inline{margin-left:2em;text-indent:0}a{color:inherit}</style></head><body><h1>References</h1><div class=\"csl-bib-body\">\n  <div class=\"csl-entry\">Smith, A., &#38; Doe, J. (2024). Learning with Robots. <i>Journal of Testing</i>, <i>12</i>(3), 10–20. https://doi.org/10.1234/example</div>\n  <div class=\"csl-entry\">Turing, A. (2023). Reliable Systems. <i>Test Conference</i>, 21–30.</div>\n</div></body></html>",
+        "extension": "html",
+        "ready": 2,
+        "missing": [],
+        "report": ""
+      },
+      "ieee": {
+        "text": "[1] A. Smith and J. Doe, “Learning with Robots,” Journal of Testing, vol. 12, no. 3, pp. 10–20, 2024, doi: 10.1234/example.\n[2] A. Turing, “Reliable Systems,” in Test Conference, 2023, pp. 21–30.\n",
+        "html": "<div class=\"csl-bib-body\">\n  <div class=\"csl-entry\">\n    <div class=\"csl-left-margin\">[1]</div><div class=\"csl-right-inline\">A. Smith and J. Doe, “Learning with Robots,” <i>Journal of Testing</i>, vol. 12, no. 3, pp. 10–20, 2024, doi: 10.1234/example.</div>\n  </div>\n  <div class=\"csl-entry\">\n    <div class=\"csl-left-margin\">[2]</div><div class=\"csl-right-inline\">A. Turing, “Reliable Systems,” in <i>Test Conference</i>, 2023, pp. 21–30.</div>\n  </div>\n</div>",
+        "content": "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>References</title><style>body{max-width:900px;margin:48px auto;padding:0 24px;font:16px/1.6 Georgia,serif}h1{font:600 20px/1.4 system-ui}.csl-entry{margin:0 0 14px 2em;text-indent:-2em}.csl-left-margin{float:left;min-width:2em}.csl-right-inline{margin-left:2em;text-indent:0}a{color:inherit}</style></head><body><h1>References</h1><div class=\"csl-bib-body\">\n  <div class=\"csl-entry\">\n    <div class=\"csl-left-margin\">[1]</div><div class=\"csl-right-inline\">A. Smith and J. Doe, “Learning with Robots,” <i>Journal of Testing</i>, vol. 12, no. 3, pp. 10–20, 2024, doi: 10.1234/example.</div>\n  </div>\n  <div class=\"csl-entry\">\n    <div class=\"csl-left-margin\">[2]</div><div class=\"csl-right-inline\">A. Turing, “Reliable Systems,” in <i>Test Conference</i>, 2023, pp. 21–30.</div>\n  </div>\n</div></body></html>",
+        "extension": "html",
+        "ready": 2,
+        "missing": [],
+        "report": ""
+      }
+    }
+  },
+  {
+    "name": "key-collision",
+    "rows": [
+      {
+        "path": "papers/A.pdf",
+        "filename": "A.pdf",
+        "title": "A verified title",
+        "bibtex": "@article{alpha, title={Learning with {Robots}}, author={Smith, Alice and Doe, Jane}, journal={Journal of Testing}, year={2024}, volume={12}, number={3}, pages={10--20}, doi={10.1234/example}}"
+      },
+      {
+        "path": "papers/Other.pdf",
+        "filename": "Other.pdf",
+        "title": "A verified title",
+        "bibtex": "@article{alpha, title={Learning with {Robots}}, author={Smith, Alice and Doe, Jane}, journal={Journal of Testing}, year={2024}, volume={12}, number={3}, pages={10--20}, doi={10.1234/example}}"
+      }
+    ],
+    "formats": {
+      "titles": {
+        "text": "A verified title\nA verified title",
+        "content": "A verified title\nA verified title\n",
+        "extension": "txt",
+        "ready": 2,
+        "missing": [],
+        "report": ""
+      },
+      "bibtex": {
+        "text": "",
+        "content": "",
+        "extension": "bib",
+        "ready": 0,
+        "missing": [
+          {
+            "row": {
+              "path": "papers/A.pdf",
+              "filename": "A.pdf",
+              "title": "A verified title",
+              "bibtex": "@article{alpha, title={Learning with {Robots}}, author={Smith, Alice and Doe, Jane}, journal={Journal of Testing}, year={2024}, volume={12}, number={3}, pages={10--20}, doi={10.1234/example}}"
+            },
+            "reason": "重复引用键 alpha"
+          },
+          {
+            "row": {
+              "path": "papers/Other.pdf",
+              "filename": "Other.pdf",
+              "title": "A verified title",
+              "bibtex": "@article{alpha, title={Learning with {Robots}}, author={Smith, Alice and Doe, Jane}, journal={Journal of Testing}, year={2024}, volume={12}, number={3}, pages={10--20}, doi={10.1234/example}}"
+            },
+            "reason": "重复引用键 alpha"
+          }
+        ],
+        "report": "A.pdf\n  重复引用键 alpha\n  papers/A.pdf\n\nOther.pdf\n  重复引用键 alpha\n  papers/Other.pdf"
+      },
+      "apa": {
+        "text": "",
+        "content": "",
+        "extension": "html",
+        "ready": 0,
+        "missing": [
+          {
+            "row": {
+              "path": "papers/A.pdf",
+              "filename": "A.pdf",
+              "title": "A verified title",
+              "bibtex": "@article{alpha, title={Learning with {Robots}}, author={Smith, Alice and Doe, Jane}, journal={Journal of Testing}, year={2024}, volume={12}, number={3}, pages={10--20}, doi={10.1234/example}}"
+            },
+            "reason": "重复引用键 alpha"
+          },
+          {
+            "row": {
+              "path": "papers/Other.pdf",
+              "filename": "Other.pdf",
+              "title": "A verified title",
+              "bibtex": "@article{alpha, title={Learning with {Robots}}, author={Smith, Alice and Doe, Jane}, journal={Journal of Testing}, year={2024}, volume={12}, number={3}, pages={10--20}, doi={10.1234/example}}"
+            },
+            "reason": "重复引用键 alpha"
+          }
+        ],
+        "report": "A.pdf\n  重复引用键 alpha\n  papers/A.pdf\n\nOther.pdf\n  重复引用键 alpha\n  papers/Other.pdf"
+      },
+      "ieee": {
+        "text": "",
+        "content": "",
+        "extension": "html",
+        "ready": 0,
+        "missing": [
+          {
+            "row": {
+              "path": "papers/A.pdf",
+              "filename": "A.pdf",
+              "title": "A verified title",
+              "bibtex": "@article{alpha, title={Learning with {Robots}}, author={Smith, Alice and Doe, Jane}, journal={Journal of Testing}, year={2024}, volume={12}, number={3}, pages={10--20}, doi={10.1234/example}}"
+            },
+            "reason": "重复引用键 alpha"
+          },
+          {
+            "row": {
+              "path": "papers/Other.pdf",
+              "filename": "Other.pdf",
+              "title": "A verified title",
+              "bibtex": "@article{alpha, title={Learning with {Robots}}, author={Smith, Alice and Doe, Jane}, journal={Journal of Testing}, year={2024}, volume={12}, number={3}, pages={10--20}, doi={10.1234/example}}"
+            },
+            "reason": "重复引用键 alpha"
+          }
+        ],
+        "report": "A.pdf\n  重复引用键 alpha\n  papers/A.pdf\n\nOther.pdf\n  重复引用键 alpha\n  papers/Other.pdf"
+      }
+    }
+  },
+  {
+    "name": "empty",
+    "rows": [],
+    "formats": {
+      "titles": {
+        "text": "",
+        "content": "",
+        "extension": "txt",
+        "ready": 0,
+        "missing": [],
+        "report": ""
+      },
+      "bibtex": {
+        "text": "",
+        "content": "",
+        "extension": "bib",
+        "ready": 0,
+        "missing": [],
+        "report": ""
+      },
+      "apa": {
+        "text": "",
+        "content": "",
+        "extension": "html",
+        "ready": 0,
+        "missing": [],
+        "report": ""
+      },
+      "ieee": {
+        "text": "",
+        "content": "",
+        "extension": "html",
+        "ready": 0,
+        "missing": [],
+        "report": ""
+      }
+    }
+  }
+]

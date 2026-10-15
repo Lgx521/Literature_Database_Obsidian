@@ -102,7 +102,7 @@ function layout(tree,{collapsed=new Set(),editor=null,sides=new Map()}={}){
  const walk=(node,depth,parent,side)=>{
   const renaming=editor?.renameKey===node.key;
   const width=node.kind==='editor'||renaming?234:Math.min(260,Math.max(node.kind==='root'?106:128,58+[...node.label].reduce((sum,c)=>sum+(/[\u2e80-\uffff]/.test(c)?14:7.8),0)));
-  const n={...node,...(renaming?{key:'editor',kind:'editor'}:{}),depth,parent,side,width,children:[]};visible.push(n);
+  const n={...node,...(renaming?{key:'editor',kind:'editor'}:{}),depth,parent,side,width,hasChildren:node.children.length>0,children:[]};visible.push(n);
   if(side)widths[side][depth]=Math.max(widths[side][depth]||0,width);
   if(!collapsed.has(node.key))n.children=node.children.map(c=>walk(c,depth+1,n,side||sides.get(c.key)));
   if(!editor?.renameKey&&editor?.parent===node.key){const editorSide=side||'right';n.children.push(walk({key:'editor',kind:'editor',label:'',children:[]},depth+1,n,editorSide));}

@@ -27,12 +27,15 @@ The build assembles source modules into `main.js` and copies the plugin CSS to `
 | `agent-mcp.js`, `agent-service.js`, `agent-migration.js`, `agent-guide-view.js`, `agent-codex.js`, `agent-codex-bridge.cjs` | Opt-in desktop MCP transport, constrained tools, export migration and bilingual guide |
 | `setup.js` | Explicit empty-vault setup and startup preferences |
 | `plugin-tail.js` | Obsidian lifecycle, mutation guards, coordination and system PDF opening |
+| `snapshot-cache.js`, `pdf-work.js`, `title-export.js` | Source-scoped snapshots, shared cancellable PDF queue and lightweight title export |
 | `inbox-import.js` | Explicit PDF/sidecar import and clipboard decoding |
 | `record-trash.js` | Recoverable archive receipts, restore and permanent purge |
 | `deadline-sharing.js` | Explicitly shared project/submission deadlines |
 | `citation-metadata.js`, `citation-engine.js` | Evidence-based recognition and deterministic formatting |
 
 All paths in the table are under `scripts/`.
+
+Performance behavior and the synthetic benchmark are documented in [performance notes](performance.md).
 
 ## Deploy to a test vault
 

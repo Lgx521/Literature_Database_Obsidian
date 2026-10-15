@@ -114,12 +114,13 @@ function pdfMetadata(metadata){
   const fields=['dc:title','dc:creator','dc:identifier','dc:source','dc:relation','xmp:identifier','prism:doi','prism:url','prism:publicationdate','prism:publicationname','prism:aggregationtype','prism:volume','prism:number','prism:pagerange','arxiv:id','arxiv:identifier'];
   return Object.fromEntries(fields.map(k=>[k,metadata?.get?.(k)]).filter(([,v])=>v!==null&&v!==undefined));
 }
-async function readPdf(pdfjs,data){
-  const task=pdfjs.getDocument({data:new Uint8Array(data),isEvalSupported:false,disableFontFace:true,useSystemFonts:false,verbosity:0});let doc;
+async function readPdf(pdfjs,data,{work}={}){
+  const task=pdfjs.getDocument({data:new Uint8Array(data),isEvalSupported:false,disableFontFace:true,useSystemFonts:false,verbosity:0});let doc;const off=work?.onCancel(()=>task.destroy?.());
   try{
-    doc=await task.promise;const {info,metadata}=await doc.getMetadata(),pages=[];let layoutTitle='';
+    doc=await task.promise;work?.check();const {info,metadata}=await doc.getMetadata(),pages=[];work?.check();let layoutTitle='';
     for(let n=1;n<=Math.min(2,doc.numPages);n++){
-      const page=await doc.getPage(n),content=await page.getTextContent();
+      work?.check();const page=await doc.getPage(n);
+      try{const content=await page.getTextContent();work?.check();
       const items=content.items.filter(i=>typeof i.str==='string');pages.push(items.map(i=>i.str+(i.hasEOL?'\n':' ')).join('').slice(0,45000));
       if(n===1){
         const h=page.getViewport({scale:1}).height;
@@ -140,10 +141,10 @@ async function readPdf(pdfjs,data){
         }
         if(!validTitle(layoutTitle)||layoutTitle.length>450)layoutTitle='';
       }
-      page.cleanup();
+      }finally{page.cleanup();}
     }
     return {info:info||{},metadata:pdfMetadata(metadata),pages,layoutTitle};
-  }finally{if(doc)await doc.destroy();else await task.destroy();}
+  }finally{off?.();if(doc)await doc.destroy();else await task.destroy?.();}
 }
 async function resolve(row,e,services){
   const title=pdfTitle(e,row),local=embedded(e,row),publication=pdfPublication(e,row),ids=evidenceIds(e),errors=[];

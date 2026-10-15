@@ -1,6 +1,8 @@
 'use strict';
 // Source table values and user content are never translated in storage.
 const english = {
+  '取消 PDF 识别与读取':'Cancel PDF recognition and reading',
+  '已取消 PDF 任务':'PDF tasks cancelled',
   "请输入单个标签名称，不含斜杠": "Enter one tag segment without slashes",
   "标签分支已改变，请重新打开": "The tag branch changed. Reopen the map.",
   "目标标签分支已存在，不能隐式合并": "The destination branch exists. Renaming cannot silently merge tags.",

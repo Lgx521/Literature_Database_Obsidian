@@ -31,6 +31,9 @@ vm.runInNewContext(bundle,ctx);
  await reset();let cancelled=false;onRead=()=>{cancelled=true;};result=await plugin.ensureCitationRows(plugin.snapshot.library,()=>{},{cancelled:()=>cancelled});assert.equal(result.length,0);assert.equal(store.get('library.md'),source);
  await reset();const oldReads=pdfReads;result=await plugin.ensureCitationRows(plugin.snapshot.library,()=>{},{titleOnly:true});assert.equal(result[0].title,title);assert.equal(result[0].bibtex,'');assert.equal(pdfReads,oldReads+1);
  await plugin.ensureCitationRows(result,()=>{},{titleOnly:true});assert.equal(pdfReads,oldReads+1);
+ let releaseQueue,fastTitles=false;plugin.citationQueue=new Promise(r=>releaseQueue=r);
+ const fast=plugin.ensureCitationRows(result,()=>{},{titleOnly:true}).then(()=>{fastTitles=true;});await new Promise(r=>setImmediate(r));const beforeRelease=fastTitles;releaseQueue();await fast;
+ assert(beforeRelease,'Known title export should not wait for queued PDF recognition');assert.equal(pdfReads,oldReads+1);
  // Existing custom keys, raw BibTeX and source remain byte-for-byte intact.
  await reset();store.set('library.md',E.updateLibraryEntry(source,E.parseLibrary(source)[0],{bibtex:'@misc{UserStableKey,title={User Record Title},author={Doe, Jane},year={2022}}',citationSource:'User original source'}));await plugin.refresh();
  const supplied=plugin.snapshot.library[0];const reads=pdfReads;result=await plugin.ensureCitationRows([supplied]);assert.equal(pdfReads,reads);assert.equal(result[0].bibtex,supplied.bibtex);assert.equal(result[0].citationSource,supplied.citationSource);assert.equal(result[0].title,'User Record Title');

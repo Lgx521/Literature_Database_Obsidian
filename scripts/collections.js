@@ -170,5 +170,12 @@ function removalPlan(groups,paths,from=null){
   const sourceValid=!!from&&memberships.length>0&&memberships.every(m=>m.groups.some(g=>g.scope===from.scope&&g.name===from.name));
   return {memberships,sourceValid,shared:memberships.some(m=>m.groups.length>1),canRemove:sourceValid&&memberships.every(m=>m.groups.length>1)};
 }
-function decorate(rows,groups){return rows.map(r=>({...r,categories:memberships(groups,r.path,'library'),projects:memberships(groups,r.path,'projects')}));}
+function decorate(rows,groups){
+  const index=new Map();for(const group of groups)for(const member of group.members){
+    let record=index.get(member.path);if(!record){record={categories:[],projects:[]};index.set(member.path,record);}
+    const names=group.scope==='library'?record.categories:group.scope==='projects'?record.projects:null;
+    if(names&&!names.includes(group.name))names.push(group.name);
+  }
+  return rows.map(r=>{const record=index.get(r.path);return {...r,categories:record?[...record.categories]:[],projects:record?[...record.projects]:[]};});
+}
 module.exports={CHILD_HEADERS,childState,placementState,addChild,renameChild,removeChild,reorderChild,groupRows,END,HEADERS,parse,empty,add,rename,remove,reorder,change,setNote,setVenue,setDeadline,memberships,removalPlan,decorate,link,encode,decode};
