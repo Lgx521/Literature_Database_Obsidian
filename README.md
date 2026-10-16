@@ -27,6 +27,7 @@ AI sends selected PDF text and your taxonomy to DeepSeek when you start a task. 
 
 - **Collections and subcategories.** File papers in multiple collections and writing projects without duplicating PDFs. Drag into a destination or start with the Inbox.
 - **Visual tags.** Create, select, rename and remove branches in a two-sided mind map. Combine tag filters and bookmark important papers.
+- **Advanced search.** Combine title, tags, publication date, venue, TL;DR, filename and Notes with all/any conditions. Keep searches across collections or clear the query with one click.
 - **Editable details.** Update reading status, priority, venue and Notes directly. Rename, hide or add your own fields.
 - **Writing and deadlines.** Gather project references; track reviews and submissions by venue with timezone-aware deadlines and countdowns.
 - **Citation export.** Export BibTeX, APA, IEEE or paper titles. Citation metadata comes from PDFs and official lookup services.

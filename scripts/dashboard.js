@@ -1,6 +1,7 @@
 const {t:tr}=require('./i18n');
 const Organization=require('./organization');
 const CustomFields=require('./custom-fields');
+const AdvancedSearch=require('./advanced-search');
 'use strict';
 // Pure Markdown -> Markdown. Shared by the offline CLI and the Obsidian plugin.
 const HEADERS = ['PDF（文件名）', '发表时间', '标签', 'TL;DR', '阅读', '优先级'];
@@ -111,19 +112,26 @@ function normalizeTagFilter(value){
 }
 let filenameCollator;
 function compareFilenames(a,b){return (filenameCollator??=new Intl.Collator('en',{numeric:true})).compare(a,b);}
-function filterLibrary(rows, { query = '', category = '', status = '', tag = '', tags, sort = 'filename', descending = false, organizing = '', bookmarked = false, statusOrder=STATUSES, priorityOrder=PRIORITIES, fieldSearch=null } = {}) {
+function librarySearchText(r,fieldSearch){return [r.filename, r.title||'', ...(r.categories||[r.category]), r.tags, r.tldr, decodeText(r.notes || ''), r.published, r.status, r.priority, fieldSearch?.(r)||'', ...Object.values(r.customFields||{}), ...(r.venues||[])].join(' ').toLocaleLowerCase();}
+function filterLibrary(rows, { query = '', category = '', status = '', tag = '', tags, sort = 'filename', descending = false, organizing = '', bookmarked = false, statusOrder=STATUSES, priorityOrder=PRIORITIES, fieldSearch=null, advanced, search=null } = {}) {
   const tokens = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const matches=advanced?.conditions?.length?(search?search.predicate(advanced):AdvancedSearch.compile(advanced,decodeText)):null;
   const selectedTags=normalizeTagFilter(Array.isArray(tags)?tags:tag).map(t=>t.toLocaleLowerCase());
-  const result = rows.filter(r => {
+  const order={sort,descending,statusOrder,priorityOrder};
+  const result = (search?search.sorted(rows,order):rows).filter(r => {
     if(bookmarked&&!r.bookmarked||status&&r.status!==status)return false;
     if(category&&(r.categories?(category===UNFILED_CATEGORY?!!r.categories.length:!r.categories.includes(category)):r.category!==category))return false;
     if(organizing&&!(organizing==='pending'?Organization.pending(r):r.organizing===organizing))return false;
-    if(selectedTags.length&&!r.tags.toLocaleLowerCase().split(/\s+/).some(t=>selectedTags.includes(t)))return false;
+    if(selectedTags.length&&!(search?selectedTags.some(t=>search.tags(r).has(t)):r.tags.toLocaleLowerCase().split(/\s+/).some(t=>selectedTags.includes(t))))return false;
+    if(matches&&!matches(r))return false;
     if(!tokens.length)return true;
-    const text=[r.filename, r.title||'', ...(r.categories||[r.category]), r.tags, r.tldr, decodeText(r.notes || ''), r.published, r.status, r.priority, fieldSearch?.(r)||'', ...Object.values(r.customFields||{}), ...(r.venues||[])].join(' ').toLocaleLowerCase();
+    const text=search?search.text(r,fieldSearch):librarySearchText(r,fieldSearch);
     return tokens.every(t=>text.includes(t));
   });
-  return result.sort((a, b) => {
+  return search?result:sortLibrary(result,order);
+}
+function sortLibrary(rows,{sort='filename',descending=false,statusOrder=STATUSES,priorityOrder=PRIORITIES}={}){
+  return rows.sort((a, b) => {
     // Unknown dates always stay at the end, in either direction.
     if (sort === 'published' && (a.published === '待核实') !== (b.published === '待核实')) return a.published === '待核实' ? 1 : -1;
     const cmp = sort === 'published' ? publicationRank(a.published) - publicationRank(b.published)
@@ -487,4 +495,4 @@ function restoreRecord(text,scope,row){
   if(end<0)throw new Error(tr('无法恢复到分类'));const values=[...row.cells];if(library)while(values.length<header.length)values.push('');if(!library)values[2]=trackerDeadline(text,group);
   lines.splice(end+1,0,'| '+values.join(' | ')+' |'+cr);const output=lines.join('\n');library?parseLibrary(output):parseTracker(output,source);return output;
 }
-module.exports = { CUSTOM_HEADERS,migrateLibraryCustomFields,normalizeTagFilter, BOOKMARK_HEADERS, migrateLibraryBookmarks, groupLibrary, Organization, ORGANIZATION_HEADERS, migrateLibraryOrganization, addLibraryEntry, REVIEW_STATUSES, updateReviewStatus, TITLE_HEADERS, migrateLibraryTitles, trackerLayout, CITATION_HEADERS, migrateLibraryCitations, HEADERS, NOTES_HEADERS, VENUE_HEADERS, normalizeVenues, venueOptions, migrateLibraryVenues, STATUSES, PRIORITIES, UNFILED_CATEGORY, TRACKING_HEADERS, parseLibrary, deadline, deadlineParts, composeDeadline, displayDeadline, deadlineCountdown, escapeLabel, filterLibrary, updateLibraryEntry, decodeText, encodeNotes, getCategories, migrateLibraryNotes, addCategory, renameCategory, deleteCategory, reorderGroups, parseTracker, trackerGroups, trackerDeadline, setTrackerDeadline, migrateTrackerDeadlines, isStagingGroup, renameTrackerGroup, deleteTrackerGroup, addTrackerGroup, updateTracker, removeRecord, restoreRecord, sameTrackerContent };
+module.exports = { librarySearchText,sortLibrary, CUSTOM_HEADERS,migrateLibraryCustomFields,normalizeTagFilter, BOOKMARK_HEADERS, migrateLibraryBookmarks, groupLibrary, Organization, ORGANIZATION_HEADERS, migrateLibraryOrganization, addLibraryEntry, REVIEW_STATUSES, updateReviewStatus, TITLE_HEADERS, migrateLibraryTitles, trackerLayout, CITATION_HEADERS, migrateLibraryCitations, HEADERS, NOTES_HEADERS, VENUE_HEADERS, normalizeVenues, venueOptions, migrateLibraryVenues, STATUSES, PRIORITIES, UNFILED_CATEGORY, TRACKING_HEADERS, parseLibrary, deadline, deadlineParts, composeDeadline, displayDeadline, deadlineCountdown, escapeLabel, filterLibrary, updateLibraryEntry, decodeText, encodeNotes, getCategories, migrateLibraryNotes, addCategory, renameCategory, deleteCategory, reorderGroups, parseTracker, trackerGroups, trackerDeadline, setTrackerDeadline, migrateTrackerDeadlines, isStagingGroup, renameTrackerGroup, deleteTrackerGroup, addTrackerGroup, updateTracker, removeRecord, restoreRecord, sameTrackerContent };

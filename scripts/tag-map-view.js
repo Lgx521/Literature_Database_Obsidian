@@ -115,7 +115,7 @@ class TagMapModal extends Modal {
       const label=el.createEl('button',{cls:'ldb-map-node-label',text:n.label});label.addEventListener('click',()=>this.toggle(el.ldbNode,!box.checked));el.ldbLabel=label;
       el.title=TagTree.label(n.tag);
     }else el.ldbLabel=el.createSpan({cls:'ldb-map-node-label',text:n.label});
-    if(n.kind!=='root')el.addEventListener('contextmenu',e=>{
+    if(n.kind!=='root'&&!this.draft?.selectionOnly)el.addEventListener('contextmenu',e=>{
       e.preventDefault();if(this.closed||this.busy||this.editor)return;this.clearMenu();const node=el.ldbNode,menu=this.contextMenu=new Menu().setUseNativeMenu(!Platform?.isMobile);
       if(!this.draft)menu.addItem(i=>i.setTitle(tr('重命名')).setIcon('pencil').onClick(this.menuAction(()=>this.beginRename(node))));
       if(!this.draft&&node.kind==='tag'){menu.addSeparator();menu.addItem(i=>i.setTitle(tr('移动标签分支到…')).setIsLabel(true));for(const g of this.model.groups)menu.addItem(i=>i.setTitle(g.name).setChecked(g.name===node.group).onClick(this.menuAction(()=>this.move(node,g.name))));}
@@ -123,7 +123,7 @@ class TagMapModal extends Modal {
       if(this.draft&&!this.draft.canRemove?.(node))menu.addItem(i=>i.setTitle(tr('已有标签可通过复选框取消选择')).setIsLabel(true));
       const r=el.getBoundingClientRect();menu.showAtPosition({x:r.left,y:r.bottom},this.mapDoc);
     });
-    el.ldbPlus=this.icon(el,'plus',tr(n.kind==='root'?'新建标签分组':n.kind==='group'?'新建标签':'新建子标签'),()=>this.beginEditor(el.ldbNode),'ldb-map-add');
+    if(!this.draft?.selectionOnly)el.ldbPlus=this.icon(el,'plus',tr(n.kind==='root'?'新建标签分组':n.kind==='group'?'新建标签':'新建子标签'),()=>this.beginEditor(el.ldbNode),'ldb-map-add');
     return el;
   }
   beginEditor(node){
@@ -170,7 +170,7 @@ class TagMapModal extends Modal {
     if(this.busy||this.editor||this.closed){this.syncChecked();return;}this.busy=true;this.error.hidden=true;this.syncChecked();
     try{
       let model=this.model;if(!model.groups.some(g=>g.tags.some(t=>TagTree.fold(t)===TagTree.fold(node.tag))))model=TagTree.addTag(model,node.group,null,node.tag).model;
-      if(this.catalogText===null||TagTree.serialize(model,this.catalogText)!==this.catalogText)await this.store(model);
+      if(!this.draft?.selectionOnly&&(this.catalogText===null||TagTree.serialize(model,this.catalogText)!==this.catalogText))await this.store(model);
       if(this.closed)return;
       const saved=await this.view.saveMapTag(node.tag,checked);if(!saved)throw Error(this.view.quickError?.textContent||tr('标签未保存，请重试'));
     }catch(e){this.showError(e);}finally{this.busy=false;this.syncChecked();}

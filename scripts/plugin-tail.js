@@ -610,5 +610,5 @@ module.exports=class LiteratureManager extends Plugin {
       else await this.app.workspace.getLeaf('tab').openFile(file);
     }catch(e){new Notice(e.message,8000);}
   }
-  onunload(){this.stopped=true;this.deepSeekModal?.close();this.deepSeekWork?.close();this.deepSeek?.close();for(const [win,frame] of this.resumeFrames||[])win.cancelAnimationFrame(frame);this.resumeFrames?.clear();this.pdfWork?.close();this.tagFilterMenu?.close();this.tagMap?.close(true);this.membershipMenu?.close();this.removalModal?.close();clearTimeout(this.timer);this.snapshotCache?.clear();this.refreshDirty?.clear();for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))leaf.view.stopCountdowns?.();this.endPaperDrag();this.endGroupDrag();}
+  onunload(){this.stopped=true;this.advancedSearchModal?.close();this.deepSeekModal?.close();this.deepSeekWork?.close();this.deepSeek?.close();for(const [win,frame] of this.resumeFrames||[])win.cancelAnimationFrame(frame);this.resumeFrames?.clear();this.pdfWork?.close();this.tagFilterMenu?.close();this.tagMap?.close(true);this.membershipMenu?.close();this.removalModal?.close();clearTimeout(this.timer);this.snapshotCache?.clear();this.refreshDirty?.clear();for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))leaf.view.stopCountdowns?.();this.endPaperDrag();this.endGroupDrag();}
 };

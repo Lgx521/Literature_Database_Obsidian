@@ -103,3 +103,20 @@ The retained JS increase in this workload was about 2.2 MiB. PDF buffers are sep
 The audit found that cancellation during `vault.readBinary`, before PDF.js received the data, left the host adapter's last-read promise holding a 26.13 MiB ArrayBuffer. A heap retaining path confirmed the owner. Extraction now covers the read itself with cleanup and transfers any remaining owned buffer after destroying the loading task, when the platform supports transfer. It does not change host adapter state or force GC. The same cancellation test reduced external memory after GC from 34.27 MiB to the 8.14 MiB baseline.
 
 All 52 created PDF tasks were destroyed, maximum concurrent tasks stayed at one, and no simulated API request began while a PDF task remained active. At the end there were no pending work items, requests, queue jobs or modal subscribers. Twenty panel/map cycles released map models and nodes on every close. Regression coverage includes cancellation during a deferred file read, oversized-read rejection and normal completion; all 55 offline suites pass. The bounded exercise found no accumulating PDF or panel allocations, but is not a universal memory ceiling. DeepSeek model inference runs remotely; this test measures local orchestration and parsing, not inference or actual HTTP transport overhead.
+
+## 4.9.3 search optimization — 2026-10-16
+
+Advanced search reuses the current snapshot's sort order, lazily normalized text and field values, and the current advanced predicate's per-row results. Snapshot replacement, language changes and custom-field edits invalidate derived data. Typing coalesces to one animation frame, waits for IME composition to finish and pauses in hidden views. Closing or rebuilding the view releases its search cache and pending frame. Search adds no network requests, PDF reads, worker, runtime dependency or persistent index.
+
+`node --expose-gc scripts/benchmark-search.cjs` runs an offline synthetic fixture. The comparison used the implementation before this optimization and the cached implementation in five alternating process runs on macOS with Node 26.7.0. Each workload ran 48 typing/backspace queries, discarded the first 12 for warm-up and reported the median; the table is the median across those five runs. Advanced queries combine tags, publication dates and TL;DR. All result checksums matched.
+
+| Papers | Plain search before | Plain search cached | Advanced search before | Advanced search cached |
+| --- | ---: | ---: | ---: | ---: |
+| 1,000 | 2.03 ms | 0.07 ms | 3.14 ms | 0.06 ms |
+| 10,000 | 22.17 ms | 1.37 ms | 33.84 ms | 1.29 ms |
+
+These timings cover warm filtering and sorting, not painting. Cold first-call time for 10,000 rows increased from 27.19 to 31.71 ms. The cache retains at most 8 MiB of estimated value payload; oversized Notes remain fully searchable without being cached. Maps, row references and runtime overhead are additional. The benchmark's post-GC heap increase was 2.06 MiB for 1,000 cached rows versus 0.37 MiB before, and 12.21 MiB for 10,000 versus 2.48 MiB before. Diagnostic GC is used only by the benchmark.
+
+In the actual Obsidian demo renderer, 1,000 synthetic rows held only in memory took a median 1.2 ms in `renderList` JavaScript during consecutive searches retaining the same results. Adding or removing many visible DOM rows still costs more; full list virtualization remains separate work. Input bursts and IME commits each produced one render, with focus retained. Forty search-dialog and ten tag-map open/close cycles left mounted document nodes unchanged at 968 and released map models and callbacks. Demo source files remained byte-identical.
+
+All 58 offline suites pass, including 200 cached/stateless equivalence cases, cache invalidation, long Notes beyond the cache budget, AND/OR and date semantics, composition handling, hidden views, draft protection and teardown. The package check passes. These changes ship in 4.9.3.

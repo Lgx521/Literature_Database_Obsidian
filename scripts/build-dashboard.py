@@ -8,6 +8,9 @@ organization = (root / 'scripts/organization.js').read_text()
 sha256 = (root / 'scripts/sha256.js').read_text()
 mobile_import = (root / 'scripts/mobile-import.js').read_text()
 custom_fields = (root / 'scripts/custom-fields.js').read_text()
+advanced_search = (root / 'scripts/advanced-search.js').read_text()
+library_search = (root / 'scripts/library-search.js').read_text()
+advanced_view = (root / 'scripts/advanced-search-view.js').read_text()
 field_settings = (root / 'scripts/field-settings-view.js').read_text()
 engine = (root / 'scripts/dashboard.js').read_text()
 view = (root / 'scripts/library-view.js').read_text()
@@ -43,11 +46,13 @@ deepseek_view = (root / 'scripts/deepseek-view.js').read_text()
     'const LDB_TEMPLATES = ' + json.dumps(templates, ensure_ascii=False) + ';\n'
     'const LdbI18n = (() => { const module = { exports: {} };\n' + i18n + '\nreturn module.exports; })();\n'
     'const Sha256 = (() => { const module = { exports: {} };\n' + sha256 + '\nreturn module.exports; })();\n'
-    'const tr=LdbI18n.t, ldbRequire=id=>id==="./i18n"?LdbI18n:id==="./sha256"?Sha256:id==="./organization"?Organization:id==="./custom-fields"?CustomFields:require(id);\n'
+    'const tr=LdbI18n.t, ldbRequire=id=>id==="./i18n"?LdbI18n:id==="./sha256"?Sha256:id==="./organization"?Organization:id==="./custom-fields"?CustomFields:id==="./advanced-search"?AdvancedSearch:require(id);\n'
     'const StorageMigration = ((require) => { const module = { exports: {} };\n' + storage + '\nreturn module.exports; })(ldbRequire);\n'
     'const Organization = ((require) => { const module = { exports: {} };\n' + organization + '\nreturn module.exports; })(ldbRequire);\n'
     'const CustomFields = ((require) => { const module = { exports: {} };\n' + custom_fields + '\nreturn module.exports; })(ldbRequire);\n'
+    'const AdvancedSearch = (() => { const module = { exports: {} };\n' + advanced_search + '\nreturn module.exports; })();\n'
     'const Engine = ((require) => { const module = { exports: {} };\n' + engine + '\nreturn module.exports; })(ldbRequire);\n'
+    'const LibrarySearch = (() => { const module = { exports: {} };\n' + library_search + '\nreturn module.exports(Engine,AdvancedSearch); })();\n'
     'const Collections = ((require) => { const module = { exports: {} };\n' + collections + '\nreturn module.exports; })(ldbRequire);\n'
     'const TagTree = ((require) => { const module = { exports: {} };\n' + tag_tree + '\nreturn module.exports; })(ldbRequire);\n'
     'const SourceTransaction = (() => { const module = { exports: {} };\n' + transaction + '\nreturn module.exports; })();\n'
@@ -65,5 +70,5 @@ deepseek_view = (root / 'scripts/deepseek-view.js').read_text()
     'let deepSeekModule,deepSeekSecret; function ldbDeepSeek(plugin){if(!deepSeekModule){const Plan=(()=>{const module={exports:{}};\n' + deepseek_plan + '\nreturn module.exports({TagTree,Collections,tr});})();const module={exports:{}};\n' + deepseek + '\ndeepSeekModule=module.exports({Plan,Engine,Collections,TagTree,Organization,Sha256,CitationMetadata,SourceTransaction,loadPdfJs,requestUrl,tr,desktop:Platform.isDesktopApp&&!Platform.isMobile,nodeRequire:require});} return plugin.deepSeek??=new deepSeekModule.Service(plugin);}\n'
     'function getDeepSeekSecret(){if(!deepSeekSecret){const Plan=(()=>{const module={exports:{}};\n' + deepseek_plan + '\nreturn module.exports({TagTree,Collections,tr});})();const module={exports:{}};\n' + deepseek_secret + '\ndeepSeekSecret=module.exports;}return deepSeekSecret;}\n'
     'let deepSeekWorkClass; function getDeepSeekWork(){if(!deepSeekWorkClass){const Plan=(()=>{const module={exports:{}};\n' + deepseek_plan + '\nreturn module.exports({TagTree,Collections,tr});})();const module={exports:{}};\n' + deepseek_work + '\ndeepSeekWorkClass=module.exports;}return deepSeekWorkClass;}\n'
-    + splitter + '\n' + view + '\n' + tag_view + '\n' + tag_filter + '\n' + collection_view + '\n' + setup + '\n' + field_settings + '\n' + deepseek_view + '\n' + tail)
+    + splitter + '\n' + view + '\n' + tag_view + '\n' + tag_filter + '\n' + advanced_view + '\n' + collection_view + '\n' + setup + '\n' + field_settings + '\n' + deepseek_view + '\n' + tail)
 (root / 'styles.css').write_text((root / 'scripts/library-view.css').read_text())
