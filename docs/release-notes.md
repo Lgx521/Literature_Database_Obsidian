@@ -1,10 +1,11 @@
-Literature Database 4.9.1 adds batch-first Inbox organization, helping new libraries build a consistent taxonomy before papers are filed.
+Literature Database 4.9.2 improves collection navigation, searchable AI summaries and memory cleanup.
 
-- **Plan the batch first.** Read up to 20 Inbox PDFs together, propose shared categories and tags, and preview every paper’s assignment. Existing names are preferred.
-- **Review and merge.** Edit suggestion names to combine similar categories or tags. Confirm the plan before per-paper title, TL;DR and tag generation; Apply remains a separate step.
-- **Consistent assignments.** Confirmed categories are fixed by the plugin, and subsequent AI results use only existing or approved tags. Human tag edits retain their own provenance.
-- **Resume the preview.** Closing and reopening the panel preserves the current session’s plan and edits. Mobile confirmation controls stay visible while the plan scrolls.
+- **Clear transfer feedback.** Distinguish papers newly added, moved or already present at the destination.
+- **Move directly into subcategories.** Cmd-drag works across same-type collections, including child targets. Add/move menus show nested destinations only when a collection has children.
+- **Keep your search.** Switching categories, subcategories, projects or smart views preserves the search query.
+- **Search by method name.** AI summaries retain explicitly stated method names/acronyms, with the same rule for external workspace agents.
+- **Release unused memory.** Rebuilt views and dismissed menus release old DOM, listeners and callbacks. PDF extraction also releases its read buffer when cancelled before parsing starts.
 
-Validation: 54 offline regression suites on macOS, plus an isolated live test with six public papers and a second two-paper batch that reused the existing taxonomy. PDF filenames and contents were preserved. Requires Obsidian 1.8.7+.
+Validation: 55 offline regression suites on macOS, plus isolated Obsidian tests covering batch planning, 20-paper previews, repeated panel/tag-map cycles, large PDFs and cancellation. AI memory tests used synthetic PDFs and a simulated API transport. Requires Obsidian 1.8.7+.
 
-[AI organization guide](https://github.com/Lgx521/Literature_Database_Obsidian/blob/4.9.1/docs/deepseek-beta.md)
+[Performance measurements](https://github.com/Lgx521/Literature_Database_Obsidian/blob/4.9.2/docs/performance.md)

@@ -7,7 +7,7 @@ const store=new Map([['library.md',data.library],['collections.md',data.collecti
 const vault={getAbstractFileByPath:p=>files.get(p),getFiles:()=>[...files.values()],read:async f=>store.get(f.path),on(){},process:async(f,fn)=>store.set(f.path,fn(store.get(f.path))),create:async(n,t)=>{assert(!store.has(n));store.set(n,t);files.set(n,new TFile(n));},adapter:{exists:async()=>true,mkdir:async()=>{},write:async(n,t)=>store.set(n,t)}};
 const workspace={getLeavesOfType:()=>[],on(){},onLayoutReady(callback){this.startup=callback;}};
 class Plugin{constructor(){this.app={vault,workspace};}registerView(){}addRibbonIcon(){}addCommand(){}registerObsidianProtocolHandler(){}registerEvent(){}}
-const ctx={module:{exports:{}},require:n=>n==='obsidian'?{Plugin,ItemView:class{},Modal:class{},Notice:class{},Platform:{isDesktopApp:true,isMacOS:true},TFile}:require(n),setTimeout,clearTimeout,console,TextEncoder,TextDecoder};
+const ctx={module:{exports:{}},require:n=>n==='obsidian'?{Plugin,ItemView:class{},Modal:class{},Notice:class{constructor(t){notices.push(t);}},Platform:{isDesktopApp:true,isMacOS:true},TFile}:require(n),setTimeout,clearTimeout,console,TextEncoder,TextDecoder};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../main.js'),'utf8')+'\nmodule.exports.drop=ldbDropTarget;module.exports.Browser=LiteratureBrowser;',ctx);
 const notices=[];
 (async()=>{
@@ -24,15 +24,21 @@ const notices=[];
  const selectedChild=plugin.snapshot.library[0];
  await plugin.changeMembership([selectedChild],{scope:'library',name:'A',subgroup:'Methods'});
  assert(plugin.beginPaperDrag({dataTransfer:dt},selectedChild,'library',[selectedChild],'A'));
- await plugin.moveDraggedPaper(plugin.dragState.token,'A','library',true,'Experiments');assert.equal(group('A').members[0].subgroup,'Experiments');
+ await plugin.moveDraggedPaper(plugin.dragState.token,'A','library',true,'Experiments');assert.equal(group('A').members.find(m=>m.path===selectedChild.path).subgroup,'Experiments');
  assert(plugin.beginPaperDrag({dataTransfer:dt},selectedChild,'library',[selectedChild],'A'));
- await plugin.moveDraggedPaper(plugin.dragState.token,'B','library',true,'Methods');assert.equal(group('A').members[0].subgroup,'Experiments');assert.equal(group('B').members[0].subgroup,'Methods');
+ await plugin.moveDraggedPaper(plugin.dragState.token,'B','library',false,'Methods');assert.equal(group('A').members.find(m=>m.path===selectedChild.path).subgroup,'Experiments');assert.equal(group('B').members[0].subgroup,'Methods');
+ assert(notices.at(-1).includes('已移动'),'Changing an existing destination placement is a move, not a new membership');
+ const duplicateSize=store.size;assert(plugin.beginPaperDrag({dataTransfer:dt},selectedChild,'library',[selectedChild],'A'));
+ await plugin.moveDraggedPaper(plugin.dragState.token,'B','library',false,'Methods');assert.equal(store.size,duplicateSize);assert(notices.at(-1).includes('未重复添加'));
+ assert(plugin.beginPaperDrag({dataTransfer:dt},selectedChild,'library',[selectedChild],'A'));
+ await plugin.moveDraggedPaper(plugin.dragState.token,'B','library',true,'Methods');assert(!group('A').members.some(m=>m.path===selectedChild.path));assert.equal(group('B').members[0].subgroup,'Methods');assert(notices.at(-1).includes('已移动'));
+ await plugin.changeMembership([selectedChild],{scope:'library',name:'A',subgroup:'Experiments'});
  assert(plugin.beginPaperDrag({dataTransfer:dt},selectedChild,'library',[selectedChild],'A'));const staleChildDrag=plugin.dragState.token;
  await plugin.changeMembership([selectedChild],{scope:'library',name:'A',subgroup:'Methods'});
- await assert.rejects(plugin.moveDraggedPaper(staleChildDrag,'A','library',true,''),/归属/);assert.equal(group('A').members[0].subgroup,'Methods');
+ await assert.rejects(plugin.moveDraggedPaper(staleChildDrag,'A','library',true,''),/归属/);assert.equal(group('A').members.find(m=>m.path===selectedChild.path).subgroup,'Methods');
  assert(plugin.beginGroupDrag({dataTransfer:dt},'library','Experiments','A'));await plugin.moveDraggedGroup(plugin.groupDrag.token,'library','Methods',false,'A');assert.deepEqual([...group('A').subgroups],['Experiments','Methods']);
- await plugin.editChild('rename','library','A','Methods','Policy',C.childState(group('A')));assert.equal(group('A').members[0].subgroup,'Policy');
- await plugin.editChild('remove','library','A','Policy','',C.childState(group('A')));assert.equal(group('A').members[0].subgroup,'');assert.equal(store.get('library.md'),paperBefore);
+ await plugin.editChild('rename','library','A','Methods','Policy',C.childState(group('A')));assert.equal(group('A').members.find(m=>m.path===selectedChild.path).subgroup,'Policy');
+ await plugin.editChild('remove','library','A','Policy','',C.childState(group('A')));assert.equal(group('A').members.find(m=>m.path===selectedChild.path).subgroup,'');assert.equal(store.get('library.md'),paperBefore);
  const size=store.size;await plugin.changeMembership([plugin.snapshot.library[0]],{scope:'library',name:'B'});assert.equal(store.size,size);
  await plugin.newCollection('projects','Project');await plugin.newCollection('projects','Other');
  assert(plugin.beginPaperDrag({dataTransfer:dt},plugin.snapshot.library[0],'library',plugin.snapshot.library,'A'));await plugin.moveDraggedPaper(plugin.dragState.token,'Project','projects');

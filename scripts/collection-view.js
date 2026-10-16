@@ -1,4 +1,25 @@
 // Native membership selection; metadata and PDFs remain in the master library.
+function ldbTransferNotice(result,target){
+  if(!result)return;
+  const name=target.name+(target.subgroup!==undefined?' / '+(target.subgroup||tr('未分组')):''),parts=[];
+  if(result.copied)parts.push(tr`已复制 ${result.copied} 篇至 ${name}`);
+  if(result.moved)parts.push(tr`已移动 ${result.moved} 篇至 ${name}`);
+  if(result.existing)parts.push(tr`${result.existing} 篇已在 ${name}，未重复添加`);
+  if(parts.length)new Notice(parts.join('\n'));
+}
+// Native menu callbacks can outlive their popup. Keep only revocable slots in the host.
+function ldbCollectionAction(slot){return (...args)=>slot.run?.(...args);}
+class LdbCollectionPicker {
+  constructor(plugin,rows,position,doc){Object.assign(this,{plugin,rows:[...rows],position,doc,closed:false,busy:false,actions:[]});}
+  releaseMenu(){const menu=this.menu;this.menu=null;for(const slot of this.actions)slot.run=null;this.actions=[];menu?.hide();}
+  close(){if(this.closed)return;this.closed=true;clearTimeout(this.timer);this.releaseMenu();this.rows=[];this.doc=null;if(this.plugin.membershipMenu===this)this.plugin.membershipMenu=null;}
+  action(run){const slot={run};this.actions.push(slot);return ldbCollectionAction(slot);}
+  createMenu(){
+    clearTimeout(this.timer);this.releaseMenu();const menu=this.menu=new Menu().setUseNativeMenu(!Platform?.isMobile);
+    menu.onHide?.(()=>{if(this.menu===menu)this.timer=setTimeout(()=>{if(!this.busy&&this.menu===menu)this.close();},0);});
+    return menu;
+  }
+}
 function ldbChildMenu(plugin,rows,target,position,doc){
   if(plugin.hasPendingEdit()){new Notice(tr('请先保存或取消右侧编辑'));return;}
   const group=plugin.snapshot.collections?.find(g=>g.scope===target.scope&&g.name===target.name);if(!group)return;
@@ -19,13 +40,11 @@ function ldbOpenCollectionMenu(plugin,rows,position,doc){
   // A native context-menu click must finish before its replacement menu opens.
   picker.timer=setTimeout(()=>picker.show(),0);
 }
-class CollectionMembershipMenu {
-  constructor(plugin,rows,position,doc){Object.assign(this,{plugin,rows:[...rows],position,doc,closed:false,busy:false});}
-  close(){this.closed=true;clearTimeout(this.timer);this.menu?.hide();if(this.plugin.membershipMenu===this)this.plugin.membershipMenu=null;}
+class CollectionMembershipMenu extends LdbCollectionPicker {
   show(){
     if(this.closed||this.plugin.stopped||this.doc?.hidden)return;
     if(this.plugin.hasPendingEdit()){this.close();return;}
-    const menu=new Menu().setUseNativeMenu(!Platform?.isMobile);this.menu=menu;
+    const menu=this.createMenu();
     const groups=this.plugin.snapshot.collections||[];let sections=0;
     for(const [scope,title] of [['library',tr('分类')],['projects',tr('写作项目')]]){
       const list=groups.filter(g=>g.scope===scope);if(!list.length)continue;
@@ -35,7 +54,7 @@ class CollectionMembershipMenu {
         const members=this.rows.map(row=>{const m=group.members.find(m=>m.path===row.path);return m?m.notes:null;});
         const count=members.filter(m=>m!==null).length,checked=count===this.rows.length;
         const target={scope,name:group.name},expected={target,members,placements:Collections.placementState(groups,this.rows.map(r=>r.path),{scope,name:group.name})};
-        menu.addItem(item=>item.setTitle(group.name+(count&&!checked?tr('（部分）'):'')).setChecked(checked).onClick(async()=>{
+        const toggle=this.action(async()=>{
           if(this.busy||this.closed)return;
           this.busy=true;menu.hide();
           try{
@@ -49,7 +68,24 @@ class CollectionMembershipMenu {
           finally{this.busy=false;}
           // Reopen in place with the saved checkmarks, allowing another click to toggle back.
           this.show();
-        }));
+        });
+        menu.addItem(item=>{
+          item.setTitle(group.name+(count&&!checked?tr('（部分）'):'')).setChecked(checked);
+          if(!group.subgroups?.length||typeof item.setSubmenu!=='function'){item.onClick(toggle);return;}
+          const children=item.setSubmenu();
+          children.addItem(child=>child.setTitle(tr(scope==='projects'?'属于此项目':'属于此分类')).setChecked(checked).onClick(toggle));
+          children.addSeparator();
+          for(const subgroup of [...group.subgroups,'']){
+            const placed=expected.placements.every(m=>m&&(m.subgroup||'')===subgroup);
+            children.addItem(child=>child.setTitle(subgroup||tr('未分组')).setChecked(placed).onClick(this.action(async()=>{
+              if(this.busy||this.closed)return;this.busy=true;menu.hide();
+              const destination={...target,subgroup};
+              try{ldbTransferNotice(await this.plugin.changeMembership(this.rows,destination,null,false,expected),destination);}
+              catch(e){new Notice(e.message,8000);this.close();}
+              finally{this.busy=false;}this.show();
+            })));
+          }
+        });
       }
     }
     if(!sections)menu.addItem(item=>item.setTitle(tr('请先在左侧新建分类或项目')).setDisabled(true));
@@ -93,25 +129,34 @@ function ldbOpenMoveMenu(plugin,rows,from,position,doc){
   const picker=new CollectionMoveMenu(plugin,rows,from,position,doc);plugin.membershipMenu=picker;
   picker.timer=setTimeout(()=>picker.show(),0);
 }
-class CollectionMoveMenu {
-  constructor(plugin,rows,from,position,doc){Object.assign(this,{plugin,rows:[...rows],from,position,doc,closed:false});}
-  close(){this.closed=true;clearTimeout(this.timer);this.menu?.hide();if(this.plugin.membershipMenu===this)this.plugin.membershipMenu=null;}
+class CollectionMoveMenu extends LdbCollectionPicker {
+  constructor(plugin,rows,from,position,doc){super(plugin,rows,position,doc);this.from=from;}
   show(){
     if(this.closed||this.plugin.stopped||this.doc?.hidden||this.plugin.hasPendingEdit())return;
-    const menu=new Menu().setUseNativeMenu(!Platform?.isMobile);this.menu=menu;
+    const menu=this.createMenu();
     const groups=(this.plugin.snapshot.collections||[]).filter(g=>g.scope===this.from.scope);
     const source=groups.find(g=>g.name===this.from.name);
     if(!source){this.close();new Notice(tr('来源集合已被修改，请重新打开菜单'));return;}
-    const expected={target:this.from,members:this.rows.map(row=>source.members.find(m=>m.path===row.path)?.notes??null),placements:Collections.placementState(groups,this.rows.map(r=>r.path),this.from)};
+    const paths=this.rows.map(r=>r.path),expected={target:this.from,members:this.rows.map(row=>source.members.find(m=>m.path===row.path)?.notes??null),placements:Collections.placementState(groups,paths,this.from),allMemberships:Collections.removalPlan(this.plugin.snapshot.collections,paths).memberships};
+    const choose=target=>this.action(async()=>{
+      if(this.closed)return;const rows=this.rows;this.close();
+      try{ldbTransferNotice(await this.plugin.changeMembership(rows,target,this.from,true,expected),target);}
+      catch(e){new Notice(e.message,8000);}
+    });
     for(const group of groups){
       const current=group.name===this.from.name;
-      menu.addItem(item=>item.setTitle(group.name).setChecked(current).setDisabled(current).onClick(async()=>{
-        if(this.closed)return;this.close();
-        try{await this.plugin.changeMembership(this.rows,{scope:group.scope,name:group.name},this.from,true,expected);new Notice(tr('已移至 ')+group.name);}
-        catch(e){new Notice(e.message,8000);}
-      }));
+      const target={scope:group.scope,name:group.name};
+      menu.addItem(item=>{
+        item.setTitle(group.name).setChecked(current);
+        if(!group.subgroups?.length||typeof item.setSubmenu!=='function'){item.setDisabled(current).onClick(choose(target));return;}
+        const children=item.setSubmenu(),placements=Collections.placementState(groups,paths,target);
+        for(const subgroup of [...group.subgroups,'']){
+          const placed=placements.every(m=>m&&(m.subgroup||'')===subgroup);
+          children.addItem(child=>child.setTitle(subgroup||tr('未分组')).setChecked(placed).setDisabled(current&&placed).onClick(choose({...target,subgroup})));
+        }
+      });
     }
-    if(groups.length<2)menu.addItem(item=>item.setTitle(tr('请先在左侧新建目标集合')).setDisabled(true));
+    if(groups.length<2&&!source.subgroups?.length)menu.addItem(item=>item.setTitle(tr('请先在左侧新建目标集合')).setDisabled(true));
     menu.showAtPosition(this.position,this.doc);
   }
 }

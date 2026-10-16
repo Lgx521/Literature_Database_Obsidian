@@ -288,8 +288,9 @@ module.exports=class LiteratureManager extends Plugin {
     const drag=this.dragState;this.endPaperDrag();
     if(!drag||drag.token!==token)throw new Error(tr('拖拽已失效，请从当前列表重新拖动'));
     if(this.snapshot.collections&&['library','projects'].includes(drag.scope)&&['library','projects'].includes(scope)){
-      if(subgroup!==undefined&&!(drag.from?.scope===scope&&drag.from?.name===category))move=false;
-      await this.changeMembership(drag.rows||[drag.row],{scope,name:category,...(subgroup!==undefined?{subgroup}:{})},move?drag.from:null,move,drag.memberships?{allMemberships:drag.memberships}:null);new Notice(move?tr('已移动到 ')+category:tr('已加入 ')+category);return;
+      move=!!move&&drag.from?.scope===scope;
+      const target={scope,name:category,...(subgroup!==undefined?{subgroup}:{})};
+      const result=await this.changeMembership(drag.rows||[drag.row],target,move?drag.from:null,move,drag.memberships?{allMemberships:drag.memberships}:null);ldbTransferNotice(result,target);return;
     }
     if(drag.scope!==scope)throw new Error(tr('请在同一类型内移动，审稿和投稿不混入文献库'));
     if(this.hasPendingEdit())throw new Error(tr('请先保存或取消右侧编辑，草稿已保留'));
@@ -510,6 +511,7 @@ module.exports=class LiteratureManager extends Plugin {
       // Refuse stale drags before changing collection membership; unrelated papers can change.
       const source=this.app.vault.getAbstractFileByPath(LIBRARY_SOURCE),current=Engine.parseLibrary(await this.app.vault.read(source));
       for(const row of rows){const found=current.find(r=>r.path===row.path);if(!found||JSON.stringify(found.cells)!==JSON.stringify(row.cells))throw new Error(tr('文献已在其他窗口或设备中修改，请刷新后重试'));}
+      let result;
       await this.mutate(COLLECTION_SOURCE,text=>{
         const groups=Collections.parse(text).groups,plan=Collections.removalPlan(groups,rows.map(r=>r.path),from);
         if(expected?.allMemberships&&JSON.stringify(plan.memberships)!==JSON.stringify(expected.allMemberships))throw new Error(tr('文献归属或项目备注已改变，请重新选择删除方式'));
@@ -523,8 +525,10 @@ module.exports=class LiteratureManager extends Plugin {
           const actual=group&&rows.map(row=>{const m=group.members.find(m=>m.path===row.path);return m?m.notes:null;});
           if(!group||JSON.stringify(actual)!==JSON.stringify(expected.members))throw new Error(tr('集合归属或项目备注已被修改，请重新打开勾选菜单'));
         }
-        return Collections.change(text,rows.map(r=>r.path),target,{from,move});
+        const paths=rows.map(r=>r.path),next=Collections.change(text,paths,target,{from,move});
+        result=Collections.transferSummary(groups,paths,target,{from,move});return next;
       });
+      return result;
     });
   }
   async ensureCitationRows(rows,onProgress=()=>{},options={}){

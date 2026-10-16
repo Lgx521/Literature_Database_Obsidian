@@ -115,7 +115,8 @@ const descendants=el=>el.children.flatMap(e=>[e,...descendants(e)]);
  view.clearFilters();assert.equal(view.renderedRows.length,3,'Clearing filters keeps subclass grouping without repeated papers');
  await view.navigate({scope:'library',category:'ML',subgroup:'Methods'});assert.equal(view.visibleRows.length,1);assert.equal(descendants(view.listEl).filter(e=>e.classes.has('ldb-group-heading')).length,0);
  assert.equal(view.getState().subgroup,'Methods');view.clearFilters();assert.equal(view.filters.subgroup,'Methods');
- await view.navigate({scope:'library',category:'ML',subgroup:''});assert.equal(view.visibleRows.length,2);
+ view.filters.query='One';view.renderList();await view.navigate({scope:'library',category:'ML',subgroup:''});assert.equal(view.filters.query,'One');assert.equal(view.visibleRows.length,0,'Search remains active in a different child');
+ view.clearFilters();assert.equal(view.visibleRows.length,2);
  await view.navigate({scope:'library',category:'ML'});assert.equal(view.visibleRows.length,3);
  await view.navigate({scope:'library',bookmarked:true});assert.equal(view.renderedRows.length,4);assert.equal(descendants(view.listEl).filter(e=>e.classes.has('ldb-group-heading')).length,3);
  // Import navigation clears hiding filters and selects all successes, focusing the first imported PDF rather than the first sorted row.

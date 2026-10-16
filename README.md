@@ -12,7 +12,7 @@ A compact, Zotero-style literature manager for Obsidian, by **shengzhegan**. Org
 
 ## AI organization
 
-**New in 4.9.1:** Plan Inbox categories and tags together before organizing individual papers. DeepSeek Beta is included and enabled by default. Add your API key, choose a model from DeepSeek’s live model list, and organize your Inbox or papers with missing information.
+Plan Inbox categories and tags together before organizing individual papers. DeepSeek Beta is included and enabled by default. Add your API key, choose a model from DeepSeek’s live model list, and organize your Inbox or papers with missing information.
 
 - Get paper titles, TL;DR summaries, tags and category suggestions.
 - Edit every suggestion before applying it, including tags through the mind map.

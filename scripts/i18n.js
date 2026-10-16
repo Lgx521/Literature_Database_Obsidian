@@ -786,7 +786,12 @@ const english = {
   "新增审稿 Venue": "New review venue",
   "新增投稿 Venue": "New submission venue",
   "完成": "Completed",
-  "无效审稿状态": "Invalid review status"
+  "无效审稿状态": "Invalid review status",
+  "属于此分类": "Member of this category",
+  "属于此项目": "Member of this project",
+  "已复制 {0} 篇至 {1}": "Copied {0} papers to {1}",
+  "已移动 {0} 篇至 {1}": "Moved {0} papers to {1}",
+  "{0} 篇已在 {1}，未重复添加": "{0} papers already in {1}; no duplicates added"
 };
 let language='zh';
 function resolveLanguage(preference,appLanguage='en'){

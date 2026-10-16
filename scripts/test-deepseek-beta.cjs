@@ -92,6 +92,19 @@ function update(path,changes){const row=E.parseLibrary(store.get('library.md')).
   // the one-request slot occupied until the host finishes, avoiding accumulation.
   responseValue=good;let resolveWire;requestOverride=()=>new Promise(resolve=>resolveWire=resolve);const cancellationBefore=sources(),pending=service.organize('temp/D.pdf','en');while(!resolveWire)await new Promise(resolve=>setImmediate(resolve));service.cancel();await assert.rejects(pending,/Cancelled/);await assert.rejects(service.organize('temp/D.pdf','en'),/current request/);assert(service.wire);resolveWire({status:200,text:'late'});await new Promise(resolve=>setImmediate(resolve));assert.equal(service.wire,null);assert.deepEqual(sources(),cancellationBefore);requestOverride=null;
   requestOverride=()=>{throw Error('secret sk-test-key-123456');};await assert.rejects(service.organize('temp/D.pdf','en'),e=>/Network request failed/.test(e.message)&&!e.message.includes('sk-test'));requestOverride=null;
+  // A host adapter may retain the resolved read promise. Cancelling during
+  // readBinary must detach its PDF bytes even though no PDF task was created.
+  const readBinary=vault.readBinary,beforeReadRequests=requests,beforeReadPdfs=destroyed;
+  let finishRead;const retainedBuffer=new ArrayBuffer(1024*1024);
+  vault.readBinary=()=>new Promise(resolve=>{finishRead=resolve;});
+  const cancelledRead=service.organize('temp/D.pdf','en');while(!finishRead)await new Promise(resolve=>setImmediate(resolve));
+  service.cancel();finishRead(retainedBuffer);await assert.rejects(cancelledRead,/cancelled/i);
+  assert.equal(retainedBuffer.byteLength,0);assert.equal(destroyed,beforeReadPdfs);assert.equal(requests,beforeReadRequests);assert.equal(plugin.pdfWork.active,null);
+  const oversized=new ArrayBuffer(30*1024*1024+1);vault.readBinary=async()=>oversized;
+  await assert.rejects(service.organize('temp/D.pdf','en'),/30 MB/);assert.equal(oversized.byteLength,0);assert.equal(requests,beforeReadRequests);
+  const completedBuffer=new ArrayBuffer(128);vault.readBinary=async()=>completedBuffer;
+  await service.organize('temp/D.pdf','en');assert.equal(completedBuffer.byteLength,0);assert.equal(activePdfs,0);
+  vault.readBinary=readBinary;
   service.disable();assert.equal(service.key,'');assert.equal(service.enabled,false);assert(!service.busy);assert.equal(service.cancelRequest,null);
  }finally{service.close();plugin.pdfWork.close();}
  console.log('PASS: offline DeepSeek proposals, bounded PDF lifetime, protected fields, provenance, guarded filing/rollback, editable previews, catalog transactions, cancellation and redacted errors.');

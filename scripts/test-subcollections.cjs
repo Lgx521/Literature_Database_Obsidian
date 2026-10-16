@@ -11,6 +11,8 @@ for(const newline of ['\n','\r\n']){
  assert.equal(group().childColumn,false,'Defining children does not migrate member rows prematurely');
  const before=group().members.map(m=>[m.path,m.notes]);
  text=C.change(text,['papers/One.pdf'],{scope:'library',name:'A',subgroup:'Methods'});
+ assert.deepEqual(C.transferSummary(C.parse(text).groups,['papers/One.pdf','papers/Two.pdf','papers/New.pdf'],{scope:'library',name:'A',subgroup:'Methods'}),{copied:1,moved:1,existing:1});
+ assert.deepEqual(C.transferSummary(C.parse(text).groups,['papers/One.pdf','papers/One.pdf'],{scope:'library',name:'A'}),{copied:0,moved:0,existing:1});
  assert.equal(group().childColumn,true);assert.equal(group().members[0].subgroup,'Methods');assert.deepEqual(group().members.map(m=>[m.path,m.notes]),before);
  text=C.change(text,['papers/One.pdf'],{scope:'library',name:'A',subgroup:'Experiments'},{from:{scope:'library',name:'A'},move:true});
  assert.equal(group().members.length,2);assert.equal(group().members[0].subgroup,'Experiments');

@@ -20,7 +20,7 @@ function ldbDropTarget(element,plugin,target=null,enabled=()=>true,feedback={}){
       const drag=plugin.dragState;if(!drag||!nav.category||plugin.hasPendingEdit())return null;
       if(plugin.snapshot?.collections&&['library','projects'].includes(drag.scope)&&['library','projects'].includes(nav.scope)){
         if(nav.category===Engine.UNFILED_CATEGORY)return null;
-        if(nav.subgroup!==undefined&&nav.subgroup!==null)return drag.from?.scope===nav.scope&&drag.from?.name===nav.category?'move':'copy';
+        if(nav.subgroup!==undefined&&nav.subgroup!==null&&drag.from?.scope===nav.scope&&drag.from?.name===nav.category)return 'move';
         return e.metaKey&&drag.from&&drag.from.scope===nav.scope?'move':'copy';
       }
       return (drag.scope||'library')===nav.scope?'move':null;
@@ -605,7 +605,7 @@ class LiteratureBrowser extends ItemView {
     if(Platform?.isMobile)this.setMobileExpanded(false);
     const keepSort=nav.revealPaths?.length&&this.scope===(nav.scope||'library')?{sort:this.filters.sort,descending:this.filters.descending}:{};
     this.scope=nav.scope||'library';
-    Object.assign(this.filters,{bookmarked:this.scope==='library'&&nav.bookmarked===true,bookmarkOnly:false,query:'',tags:[],organizing:'',category:nav.category||'',subgroup:typeof nav.subgroup==='string'?nav.subgroup:null,status:nav.status||'',sort:this.isPublic()?'title':'published',descending:this.scope==='inbox'},keepSort);
+    Object.assign(this.filters,{bookmarked:this.scope==='library'&&nav.bookmarked===true,bookmarkOnly:false,query:nav.revealPaths?.length?'':this.filters.query,tags:[],organizing:'',category:nav.category||'',subgroup:typeof nav.subgroup==='string'?nav.subgroup:null,status:nav.status||'',sort:this.isPublic()?'title':'published',descending:this.scope==='inbox'},keepSort);
     this.selectedPath='';this.activeRowId=this.selectionAnchorId='';this.selectedPaths.clear();this.listDropController?.end();
     if(this.listEl&&!nav.revealPaths?.length)this.listEl.scrollTop=0;
     this.pendingRevealPaths=nav.revealPaths||[];
@@ -613,9 +613,9 @@ class LiteratureBrowser extends ItemView {
     return true;
   }
   async onOpen(){
-    this.tagFilterMenu?.close();this.paneSplitter?.destroy();this.closed=false;this.detailRenderKey=this.listRenderKey=null;this.listGroups=new Map();this.renderedRows=[];const root=this.contentEl;root.empty();root.addClass('ldb-browser');root.lang=LdbI18n.getLanguage();
+    this.tagFilterMenu?.close();this.paneSplitter?.destroy();this.detailMotion?.destroy();this.detailMotion=null;this.closed=false;this.detailRenderKey=this.listRenderKey=null;this.fieldSettingsKey=null;this.listGroups=new Map();this.renderedRows=[];const root=this.contentEl;root.empty();root.addClass('ldb-browser');root.lang=LdbI18n.getLanguage();
     if(Platform?.isMobile)root.addClass('ldb-mobile');
-    this.registerDomEvent?.(root.ownerDocument,'visibilitychange',()=>{if(this.pendingReload&&ldbViewVisible(this))this.reload();});
+    if(!this.visibilityRegistered){this.registerDomEvent?.(root.ownerDocument,'visibilitychange',()=>{if(this.pendingReload&&ldbViewVisible(this))this.reload();});this.visibilityRegistered=true;}
     const toolbar=root.createDiv('ldb-toolbar');
     if(Platform?.isMobile)this.mobileIcon(toolbar,'panel-left',tr('文献分类'),()=>this.plugin.showNavigation());
     const brand=toolbar.createDiv('ldb-brand');this.headingEl=brand.createEl('strong',{text:tr('文献库')});this.countEl=brand.createSpan('ldb-count');

@@ -65,3 +65,41 @@ Renderer timer resolution is coarse near 0.1 ms; these are local fixture measure
 After five warm-up preview + 1,000-tag map open/close cycles, forced diagnostic GC measured renderer JS heap at 21,583.4 KiB; after ten more cycles it was 21,730.2 KiB, and after twenty, 21,755.3 KiB. Mounted document nodes stayed at 996; task subscribers, map models/nodes and queued frames were released on every close. This bounded sample does not establish a permanent leak-free guarantee or a 200 MB total-process ceiling. The plugin never invokes GC. No real provider requests or private-vault mutations were used in these benchmarks.
 
 `test-performance-beta.cjs` covers source-cache invalidation, bounded selection, per-edit validation, batch Apply complexity, draft release, frame cancellation/hidden pause, and search/sort compatibility. All 53 offline suites pass.
+
+## 4.9.2 interaction and memory audit — 2026-10-16
+
+Rebuilding the browser view (for example after a language change) registered another visibility listener each time and retained the previous detail element through its motion controller. Rebuild now destroys that controller, initializes motion against the new details and registers visibility once. Dismissed collection menus also revoke native callbacks and release selected rows and the document reference.
+
+In the isolated Obsidian demo renderer, 40 rebuilds previously increased view-managed hooks from 4 to 44. The local fix keeps 4 hooks, 805 mounted document nodes and 1,045 total renderer event listeners throughout the same visible-window exercise. The motion root remained the current detail element. After diagnostic GC, JS heap changed from 20.39 to 20.46 MiB over 40 rebuilds; this bounded test found no growing retained panel tree.
+
+A separate comparison in one freshly restarted demo renderer used no other community plugins, no open PDF viewer and no AI requests. The 1,000-row case used synthetic records held only in memory:
+
+| State | Renderer private memory | Renderer JS heap | Mounted document nodes |
+| --- | ---: | ---: | ---: |
+| Plugin disabled, empty tab | 149.6 MiB | 13.1 MiB | 412 |
+| Plugin enabled, 12 demo papers | 158.8 MiB | 19.8 MiB | 951 |
+| Plugin enabled, 1,000 synthetic papers | 198.0 MiB | 20.7 MiB | 13,643 |
+
+Private memory includes Chromium/Blink, rendering allocations and allocator caches; it is neither plugin-only JS memory nor the sum of all Obsidian processes. These sequential samples are diagnostic comparisons, not a fixed memory budget. Large paper lists still mount every row, so DOM virtualization remains the main larger-scale opportunity. Tests do not force GC in normal plugin operation.
+
+`test-view-lifecycle.cjs` checks repeated rebuild/close cleanup; collection and drag suites cover nested targets, Cmd moves, duplicate/no-op feedback, callback revocation and source-data preservation. Search navigation and import-reveal behavior are also covered.
+
+## 4.9.2 AI memory audit — 2026-10-16
+
+The 4.9.2 build was exercised in the actual macOS Obsidian demo renderer with real PDF.js extraction and production planning, preview and tag-map code. Only the API transport was replaced with deterministic responses: no provider requests, credentials or personal papers were used. Fixtures were twenty 12-page PDFs of 1.89 MiB each and one 12-page PDF of 26.13 MiB, containing synthetic text and embedded RGB images. Nothing was applied to the library. Background timer throttling was disabled in the demo for the final run and restored afterward.
+
+These are whole-renderer JS heap readings after diagnostic GC, not plugin-only or total-process memory:
+
+| State | JS heap |
+| --- | ---: |
+| Library open, AI not initialized | 19.86 MiB |
+| AI panel open, before PDF extraction | 19.98 MiB |
+| Twenty completed proposals visible | 21.79 MiB |
+| Twenty additional panel/tag-map open-close cycles, proposals retained | 22.23 MiB |
+| Results cleared, repeated large-PDF reads and cancellation finished | 22.10 MiB |
+
+The retained JS increase in this workload was about 2.2 MiB. PDF buffers are separate: external-memory sampling peaked at 27.05 MiB during twenty-paper planning, 17.82 MiB during per-paper enrichment and 60.41 MiB for the large PDF, against a post-initialization baseline of 8.14 MiB. Thus this large-file case temporarily added about 52 MiB of external buffers. Renderer private memory peaked at 241.08 MiB in that run and later fell to 161.19 MiB; allocator caches and OS accounting make it unsuitable as a fixed plugin allocation. Sampling may miss shorter peaks, and complex real PDFs or other platforms can differ.
+
+The audit found that cancellation during `vault.readBinary`, before PDF.js received the data, left the host adapter's last-read promise holding a 26.13 MiB ArrayBuffer. A heap retaining path confirmed the owner. Extraction now covers the read itself with cleanup and transfers any remaining owned buffer after destroying the loading task, when the platform supports transfer. It does not change host adapter state or force GC. The same cancellation test reduced external memory after GC from 34.27 MiB to the 8.14 MiB baseline.
+
+All 52 created PDF tasks were destroyed, maximum concurrent tasks stayed at one, and no simulated API request began while a PDF task remained active. At the end there were no pending work items, requests, queue jobs or modal subscribers. Twenty panel/map cycles released map models and nodes on every close. Regression coverage includes cancellation during a deferred file read, oversized-read rejection and normal completion; all 55 offline suites pass. The bounded exercise found no accumulating PDF or panel allocations, but is not a universal memory ceiling. DeepSeek model inference runs remotely; this test measures local orchestration and parsing, not inference or actual HTTP transport overhead.

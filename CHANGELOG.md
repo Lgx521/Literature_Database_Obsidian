@@ -1,5 +1,15 @@
 # Changelog
 
+## 4.9.2 — 2026-10-16
+
+- Distinguish newly added, moved and already-present papers in collection transfer feedback.
+- Support Cmd-drag moves into subcategories and nested native add/move menus; flat collections remain direct menu items.
+- Preserve search queries while navigating categories, subcategories, writing projects and smart views.
+- Retain explicitly stated method names/acronyms in AI TL;DR summaries and workspace-agent instructions.
+- Release stale detail DOM, visibility listeners and native-menu callbacks during view rebuild/close.
+- Release owned PDF buffers on completion and cancellation, including cancellation before a PDF task exists.
+- Validate with 55 offline suites and isolated Obsidian interaction/AI memory tests.
+
 ## 4.9.1 — 2026-10-15
 
 - Plan Inbox categories and tags across a batch before per-paper enrichment, reusing existing canonical names.

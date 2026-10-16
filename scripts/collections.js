@@ -119,6 +119,19 @@ function enableChildColumn(text,scope,parent){
 }
 function childState(group){return {names:[...(group.subgroups||[])],members:group.members.map(m=>[m.path,m.subgroup||''])};}
 function placementState(groups,paths,target){const g=groups.find(g=>g.scope===target.scope&&g.name===target.name);return g?paths.map(path=>{const m=g.members.find(m=>m.path===path);return m?{notes:m.notes,subgroup:m.subgroup||''}:null;}):null;}
+// Describe the actual per-paper transition from the same validated source used for the write.
+function transferSummary(groups,paths,target,{from=null,move=false}={}){
+ const summary={copied:0,moved:0,existing:0};if(!target)return summary;
+ const group=groups.find(g=>g.scope===target.scope&&g.name===target.name);
+ const removeSource=move&&from&&(from.scope!==target.scope||from.name!==target.name);
+ for(const path of new Set(paths)){
+  const member=group?.members.find(m=>m.path===path);
+  if(removeSource||(member&&target.subgroup!==undefined&&(member.subgroup||'')!==target.subgroup))summary.moved++;
+  else if(member)summary.existing++;
+  else summary.copied++;
+ }
+ return summary;
+}
 function checkChildState(group,expected){if(expected&&!eq(childState(group),expected))throw new Error(tr('子类或归属已被修改，请重试'));}
 function addChild(text,scope,parent,value,expected){
  const n=childName(value),info=parse(text),g=find(info,scope,parent);checkChildState(g,expected);
@@ -178,4 +191,4 @@ function decorate(rows,groups){
   }
   return rows.map(r=>{const record=index.get(r.path);return {...r,categories:record?[...record.categories]:[],projects:record?[...record.projects]:[]};});
 }
-module.exports={CHILD_HEADERS,childState,placementState,addChild,renameChild,removeChild,reorderChild,groupRows,END,HEADERS,parse,empty,add,rename,remove,reorder,change,setNote,setVenue,setDeadline,memberships,removalPlan,decorate,link,encode,decode};
+module.exports={CHILD_HEADERS,childState,placementState,transferSummary,addChild,renameChild,removeChild,reorderChild,groupRows,END,HEADERS,parse,empty,add,rename,remove,reorder,change,setNote,setVenue,setDeadline,memberships,removalPlan,decorate,link,encode,decode};

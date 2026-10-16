@@ -6,11 +6,12 @@ class Element{
 }
 class Modal{constructor(){this.contentEl=new Element();this.titleEl=new Element();}close(){this.closed=true;}}
 class MenuItem{
+ setSubmenu(){return this.submenu=new Menu();}
  setTitle(t){this.title=t;return this;}setChecked(v){this.checked=v;return this;}setIsLabel(v){this.label=v;return this;}setDisabled(v){this.disabled=v;return this;}onClick(f){this.action=f;return this;}
 }
 class Menu{
  constructor(){this.items=[];Menu.last=this;}setUseNativeMenu(v){this.native=v;return this;}addSeparator(){this.items.push({separator:true});return this;}addItem(f){const item=new MenuItem();f(item);this.items.push(item);return this;}
- showAtPosition(p,doc){this.position=p;this.doc=doc;this.shown=true;}hide(){this.shown=false;}
+ onHide(callback){this.hiddenCallback=callback;}showAtPosition(p,doc){this.position=p;this.doc=doc;this.shown=true;}hide(){this.shown=false;const callback=this.hiddenCallback;this.hiddenCallback=null;callback?.();}
 }
 const notices=[],ctx={module:{exports:{}},setTimeout,clearTimeout,require:n=>n==='obsidian'?{Plugin:class{},ItemView:class{},Modal,Menu,Notice:class{constructor(t){notices.push(t);}}}:require(n)};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../main.js'),'utf8')+'\nmodule.exports.Controls={CollectionMembershipMenu,CollectionMoveMenu,ldbPaperVenueMenu,ldbSharedDeadlineChoice,CategoryModal,VenueModal,ldbOpenCollectionMenu,ldbChildMenu};',ctx);
@@ -44,6 +45,29 @@ const children=e=>e.children.flatMap(x=>[x,...children(x)]),get=(modal,label)=>c
  await childMenu.items.find(i=>i.title==='Methods').action();assert(C.parse(text).groups.find(g=>g.name==='A').members.every(m=>m.subgroup==='Methods'));
  childMenu=ldbChildMenu(plugin,rows,{scope:'library',name:'A'},position,doc);text=C.change(text,[rows[0].path],{scope:'library',name:'A',subgroup:'Experiments'});plugin.snapshot.collections=C.parse(text).groups;
  await childMenu.items.find(i=>i.title==='未分组').action();assert(notices.includes('Stale placement'));assert.equal(C.parse(text).groups.find(g=>g.name==='A').members[0].subgroup,'Experiments');
+ // Native parent -> child menus, including movement within the current parent.
+ plugin.changeMembership=async(rows,target,from,move,expected)=>{
+   assert(expected);const groups=C.parse(text).groups,result=C.transferSummary(groups,rows.map(r=>r.path),target,{from,move});
+   text=C.change(text,rows.map(r=>r.path),target,{from,move});plugin.snapshot.collections=C.parse(text).groups;return result;
+ };
+ const nested=new CollectionMembershipMenu(plugin,rows,position,doc);plugin.membershipMenu=nested;nested.show();
+ assert(nested.menu.items.find(i=>i.title==='A').submenu);assert(!nested.menu.items.find(i=>i.title==='B').submenu,'Flat parents have no submenu');
+ await nested.menu.items.find(i=>i.title==='A').submenu.items.find(i=>i.title==='Methods').action();
+ assert(plugin.snapshot.collections.find(g=>g.name==='A').members.every(m=>m.subgroup==='Methods'));
+ const toggleOff=nested.menu.items.find(i=>i.title==='A').submenu.items.find(i=>i.title==='属于此分类');assert(toggleOff.checked);
+ const nativeCallback=toggleOff.action;nested.menu.hide();await new Promise(r=>setTimeout(r,5));
+ assert(nested.closed);assert.equal(nested.rows.length,0);assert.equal(nested.actions.length,0);assert.equal(plugin.membershipMenu,null);
+ const dismissed=text;await nativeCallback();assert.equal(text,dismissed,'A callback retained by the native host is inert after dismissal');
+ const within=new CollectionMoveMenu(plugin,rows,{scope:'library',name:'A'},position,doc);within.show();
+ const childrenA=within.menu.items.find(i=>i.title==='A').submenu;
+ assert(childrenA.items.find(i=>i.title==='Methods').disabled);assert(!childrenA.items.find(i=>i.title==='Experiments').disabled);
+ await childrenA.items.find(i=>i.title==='Experiments').action();assert(within.closed);
+ assert(plugin.snapshot.collections.find(g=>g.name==='A').members.every(m=>m.subgroup==='Experiments'));
+ text=C.addChild(text,'library','B','Target child');plugin.snapshot.collections=C.parse(text).groups;
+ const across=new CollectionMoveMenu(plugin,rows,{scope:'library',name:'A'},position,doc);across.show();
+ await across.menu.items.find(i=>i.title==='B').submenu.items.find(i=>i.title==='Target child').action();
+ assert.equal(plugin.snapshot.collections.find(g=>g.name==='A').members.length,0);assert(plugin.snapshot.collections.find(g=>g.name==='B').members.every(m=>m.subgroup==='Target child'));
+ assert(notices.at(-1).includes('已移动 2 篇至 B / Target child'));
  // Publication Venue: native checkmarks plus explicit new-name input, without preset metadata.
  const view={detailRow:{path:'papers/One.pdf',venues:['arXiv']},plugin:{snapshot:{library:[{venues:['arXiv','CoRL 2027']}]}},contentEl:{ownerDocument:doc},venueInput:new Element(),async saveQuickField(key,value){assert.equal(key,'venues');this.detailRow.venues=value;return true;}};
  const anchor=new Element();let menu=ldbPaperVenueMenu(view,anchor);assert(menu.native);assert(menu.items.find(i=>i.title==='arXiv').checked);assert(!menu.items.find(i=>i.title==='CoRL 2027').checked);
