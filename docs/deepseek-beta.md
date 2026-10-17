@@ -23,6 +23,8 @@ Optional **Encrypt and save for sync** stores a ciphertext envelope under `deepS
 
 When plugin configuration files sync through iCloud, the encrypted envelope travels with them. Each new device opens Beta and unlocks it with the same passphrase once. With **Remember key on this device**, the key is retained in Obsidian’s vault-scoped SecretStorage when encrypted device storage is available. Opening Beta after a restart restores it without a network request. Older/unsupported devices remain session-only. The enabled state and plaintext key do not sync. The passphrase is never remembered. A changed synced envelope invalidates the local cached key; **Disable and clear this device key** removes it without deleting the encrypted sync envelope. We cannot recover a forgotten passphrase: replace the encrypted key using a new passphrase. Removing the synced key removes the current settings value; it cannot erase previous iCloud versions/backups or immediately revoke keys already unlocked on another device. Revoke the API key with the provider if required.
 
+While a key is active, its inputs are greyed out and show **Active API key**. Use **Replace key** or **Change sync passphrase** to edit them. **Lock** pauses access until you enter the key or sync passphrase again, including after reopening or restarting. Saved credentials and organization previews are preserved; **Cancel changes** keeps the current key.
+
 ## Data and performance contract
 
 - Only public `papers/` rows and `temp/` PDFs are accessible. Desktop symlink attachments are refused. Review/submission manuscripts, personal Notes, project notes and bibliography are excluded from requests. Requests go only to the official DeepSeek endpoint over HTTPS.
@@ -33,7 +35,7 @@ When plugin configuration files sync through iCloud, the encrypted envelope trav
 
 ## Validation and performance
 
-The release has 55 offline regression suites covering request boundaries, read-only previews, protected metadata, stale writes, rollback, cancellation, credential storage, model selection and custom fields. Tests use synthetic documents and keys. Demo UI checks cover desktop and mobile emulation, retained drafts, and repeated open/close cleanup; physical-device and cross-device sync testing remain separate.
+The release has 61 offline regression suites covering request boundaries, read-only previews, protected metadata, stale writes, rollback, cancellation, credential storage, model selection and custom fields. Tests use synthetic documents and keys. Demo UI checks cover desktop and mobile emulation, retained drafts, and repeated open/close cleanup; physical-device and cross-device sync testing remain separate.
 
 See [performance measurements](performance.md) for rendering and memory results. The AI feature adds no SDK, persistent worker or background polling.
 

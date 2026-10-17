@@ -36,6 +36,9 @@ Bookmarks are a user-only property of the canonical public paper. The optional 1
 
 - Detail micro-interactions use short, one-shot opacity/transform animations only for changed controls; skip initial rendering, navigation and unchanged refreshes. Respect reduced motion, clean up exit copies/animation frames on finish or close, and never await motion before persisting data. Bookmark writes retain unchanged detail/list DOM and never dim unrelated controls; retained button callbacks must use the current row to avoid stale edit/delete conflicts.
 
+- Share timing/easing and disclosure animation ownership through `LdbMotion`; preserve DOM/drafts during rapid reversals and release listeners/animations on close. Title and TL;DR support text selection, with double-click and Cmd/Ctrl+A limited to the focused field; selection must not include adjacent status controls.
+- DeepSeek credential controls reflect unlocked, remembered and locked states. Disabled inputs show an active key, and replacement/sync-passphrase changes require the corresponding edit action. Explicit Lock persists in device SecretStorage and prevents automatic restoration until manual unlock/re-entry; never discard organization previews or plans when changing credentials. Do not log credentials or retain the passphrase.
+
 ## Subcategories (4.7.0)
 
 Categories and writing projects support one level of user-created subcategories. A paper has at most one subcategory per parent, independent of its tags and placements in other parents. Parent lists group papers once by child order with Ungrouped last; child views are flat. Hide the sidebar Ungrouped entry when it has no live papers, and show it again when papers return. Keep named empty children available as drop targets. Tags only filter. Counts, export and batch operations stay unique by PDF path. Bookmarks retain their existing category grouping.

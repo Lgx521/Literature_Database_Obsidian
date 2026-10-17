@@ -1,3 +1,5 @@
+/* Shared motion tokens for panels, disclosures, tags and transient feedback. */
+:is(.ldb-browser,.ldb-navigation,.ldb-dialog,.ldb-tag-map) { --ldb-motion-duration: 180ms; --ldb-motion-easing: cubic-bezier(.2,.8,.2,1); }
 /* Scoped ItemView; Markdown source tables and other notes retain their own styling. */
 .workspace-leaf-content[data-type="literature-database-browser"] .view-content.ldb-browser {
   --ldb-line: 28px;
@@ -91,7 +93,7 @@
 }
 .ldb-splitter::before {
   content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: var(--ldb-divider); transform: translateX(-50%);
-  background: var(--ldb-divider-color, var(--background-modifier-border)); transition: width 120ms ease, height 120ms ease, background-color 120ms ease;
+  background: var(--ldb-divider-color, var(--background-modifier-border)); transition: width var(--ldb-motion-duration, 180ms) var(--ldb-motion-easing, cubic-bezier(.2,.8,.2,1)), height var(--ldb-motion-duration, 180ms) var(--ldb-motion-easing, cubic-bezier(.2,.8,.2,1)), background-color var(--ldb-motion-duration, 180ms) var(--ldb-motion-easing, cubic-bezier(.2,.8,.2,1));
 }
 .ldb-splitter:is(.is-pointer-hover,:focus-visible) { --ldb-divider: 4px; --ldb-divider-color: var(--interactive-accent); }
 .ldb-body.is-resizing .ldb-splitter { --ldb-divider: 5px; --ldb-divider-color: var(--interactive-accent); }
@@ -150,7 +152,7 @@
 .ldb-trash-errors, .ldb-trash-confirm-list { max-height: 160px; overflow-y: auto; overflow-wrap: anywhere; margin: 10px 0; }
 .ldb-eyebrow { color: var(--text-muted); font-size: 11px; font-weight: 550; }
 .ldb-edit-button { background: transparent; box-shadow: none; padding: 2px 8px; height: 24px; color: var(--text-muted); }
-.ldb-details .ldb-title { font-size: 17px; line-height: 1.5; letter-spacing: -.015em; font-weight: 650; margin: 8px 0; overflow-wrap: anywhere; }
+.ldb-details .ldb-title { -webkit-user-select: text; user-select: text; cursor: text; font-size: 17px; line-height: 1.5; letter-spacing: -.015em; font-weight: 650; margin: 8px 0; overflow-wrap: anywhere; }
 .ldb-category { font-size: 12px; color: var(--text-muted); margin: 4px 0 16px; }
 .ldb-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .ldb-actions button { height: 29px; padding: 4px 10px; }
@@ -222,10 +224,10 @@ body:not(.is-mobile) .workspace-split.mod-left-split:not(.is-sidedock-collapsed)
 .ldb-navigation .ldb-nav-item.is-child { padding-left: 15px; }
 .ldb-navigation .ldb-nav-item.is-subgroup { padding-left: 36px; }
 .ldb-tree-toggle { display: flex; flex: 0 0 14px; align-items: center; justify-content: center; color: var(--text-muted); margin-left: -10px; }
-.ldb-tree-toggle svg { width: 13px; height: 13px; transition: transform 180ms ease; }
+.ldb-tree-toggle svg { width: 13px; height: 13px; transition: transform var(--ldb-motion-duration, 180ms) var(--ldb-motion-easing, cubic-bezier(.2,.8,.2,1)); }
 .ldb-tree-toggle.is-expanded svg { transform: rotate(90deg); }
 .ldb-tree-toggle:hover { color: var(--text-normal); }
-.ldb-nav-children { display: grid; grid-template-rows: 1fr; flex: 0 0 auto; opacity: 1; transition: grid-template-rows 180ms ease, opacity 140ms ease; }
+.ldb-nav-children { display: grid; grid-template-rows: 1fr; flex: 0 0 auto; opacity: 1; transition: grid-template-rows var(--ldb-motion-duration, 180ms) var(--ldb-motion-easing, cubic-bezier(.2,.8,.2,1)), opacity var(--ldb-motion-duration, 180ms) var(--ldb-motion-easing, cubic-bezier(.2,.8,.2,1)); }
 .ldb-nav-children.is-collapsed { grid-template-rows: 0fr; opacity: 0; }
 .ldb-nav-children-inner { display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
@@ -252,7 +254,7 @@ body:not(.is-mobile) .workspace-split.mod-left-split:not(.is-sidedock-collapsed)
 .ldb-notes-input { display: block; width: 100%; resize: vertical; min-height: 130px; line-height: 1.7; margin: 8px 0; padding: 9px; font-size: 12px; }
 .ldb-browser .ldb-toolbar { padding: 9px 12px; gap: 12px; }
 .ldb-browser .ldb-details { padding: 15px; }
-.ldb-browser .ldb-details .ldb-title { font-size: 15px; line-height: 1.45; }
+.ldb-browser .ldb-details .ldb-title { -webkit-user-select: text; user-select: text; cursor: text; font-size: 15px; line-height: 1.45; }
 .ldb-browser .ldb-metadata { margin: 15px 0; padding: 12px 0; row-gap: 4px; }
 .ldb-browser .ldb-tldr { font-size: 12px; line-height: 1.7; }
 .ldb-tracking .ldb-columns, .ldb-tracking .ldb-row { grid-template-columns: minmax(0, 1fr) 195px 68px 94px; }
@@ -350,13 +352,13 @@ body:not(.is-mobile) .workspace-split.mod-left-split:not(.is-sidedock-collapsed)
 .ldb-mobile .ldb-body {
   --ldb-default-width: 42%; --ldb-default-rows: 45%; --ldb-split-hit: 24px; --ldb-divider: 3px;
   gap: 0; padding: 0;
-  grid-template-rows: minmax(0, 1fr); transition: grid-template-columns 240ms cubic-bezier(.2,.8,.2,1);
+  grid-template-rows: minmax(0, 1fr); transition: grid-template-columns var(--ldb-motion-duration, 180ms) var(--ldb-motion-easing, cubic-bezier(.2,.8,.2,1));
 }
-.ldb-mobile .ldb-splitter { transition: right 240ms cubic-bezier(.2,.8,.2,1), top 240ms cubic-bezier(.2,.8,.2,1); }
+.ldb-mobile .ldb-splitter { transition: right var(--ldb-motion-duration, 180ms) var(--ldb-motion-easing, cubic-bezier(.2,.8,.2,1)), top var(--ldb-motion-duration, 180ms) var(--ldb-motion-easing, cubic-bezier(.2,.8,.2,1)); }
 .ldb-mobile .ldb-list-pane, .ldb-browser.ldb-mobile .ldb-details {
   border: 0; border-radius: 0; background: var(--background-primary); box-shadow: none;
 }
-.ldb-mobile .ldb-list-pane { container: ldb-mobile-list / inline-size; overflow: hidden; transition: opacity 160ms ease, visibility 0s; }
+.ldb-mobile .ldb-list-pane { container: ldb-mobile-list / inline-size; overflow: hidden; transition: opacity var(--ldb-motion-duration, 180ms) var(--ldb-motion-easing, cubic-bezier(.2,.8,.2,1)), visibility 0s; }
 .ldb-browser.ldb-mobile .ldb-details { padding: 0 14px calc(14px + var(--view-bottom-spacing, 0px)); scroll-padding-top: 44px; }
 .ldb-browser.ldb-mobile button { border-radius: 5px; }
 .ldb-browser.ldb-mobile .ldb-detail-top :is(.ldb-edit-button,.ldb-bookmark-button,.ldb-delete-button) { background: transparent; box-shadow: none; }
@@ -412,7 +414,7 @@ body:not(.is-mobile) .workspace-split.mod-left-split:not(.is-sidedock-collapsed)
   .ldb-mobile .ldb-body {
     --ldb-split-axis: rows;
     grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(0, var(--ldb-list-size)) minmax(0, calc(100% - var(--ldb-list-size)));
-    transition: grid-template-rows 240ms cubic-bezier(.2,.8,.2,1);
+    transition: grid-template-rows var(--ldb-motion-duration, 180ms) var(--ldb-motion-easing, cubic-bezier(.2,.8,.2,1));
   }
   .ldb-mobile .ldb-splitter { left: 0; right: 0; top: calc(var(--ldb-list-size) - var(--ldb-split-hit) / 2); bottom: auto; width: auto; height: var(--ldb-split-hit); cursor: row-resize; }
   .ldb-mobile .ldb-splitter::before { left: 0; right: 0; top: 50%; bottom: auto; width: 100%; height: var(--ldb-divider); transform: translateY(-50%); }
@@ -435,7 +437,7 @@ body:not(.is-mobile) .workspace-split.mod-left-split:not(.is-sidedock-collapsed)
 }
 
 /* Short interaction feedback; never animate routine refreshes or the whole page. */
-.ldb-browser :is(.ldb-tag,.ldb-venue-tag,.ldb-venue-remove,.ldb-venue-picker,.ldb-bookmark-button,.ldb-inline-select) { transition: background-color 120ms ease, color 120ms ease; }
+.ldb-browser :is(.ldb-tag,.ldb-venue-tag,.ldb-venue-remove,.ldb-venue-picker,.ldb-bookmark-button,.ldb-inline-select) { transition: background-color var(--ldb-motion-duration, 180ms) var(--ldb-motion-easing, cubic-bezier(.2,.8,.2,1)), color var(--ldb-motion-duration, 180ms) var(--ldb-motion-easing, cubic-bezier(.2,.8,.2,1)); }
 .ldb-browser :is(button.ldb-tag,.ldb-bookmark-button,.ldb-venue-picker):active:not(:disabled) { transform: scale(.96); }
 .ldb-details .ldb-motion-exit { position: absolute !important; pointer-events: none !important; margin: 0 !important; z-index: 2; transform-origin: center; }
 @media (prefers-reduced-motion: reduce) {
@@ -476,7 +478,7 @@ body:not(.is-mobile) .workspace-split.mod-left-split:not(.is-sidedock-collapsed)
 .ldb-map-node.is-human input[type=checkbox] { accent-color: var(--interactive-accent); }
 .ldb-map-node .ldb-map-node-label { display: block; flex: 1; min-width: 0; height: auto; padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; font-size: inherit; font-weight: inherit; color: inherit; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ldb-map-node .ldb-map-fold { flex-basis: 15px; width: 15px; min-width: 15px; height: 22px; padding: 0; background: transparent; }
-.ldb-map-add { margin-right: -20px; opacity: 0; pointer-events: none; transition: opacity 120ms ease; background: var(--background-secondary); border: 1px solid var(--background-modifier-border); }
+.ldb-map-add { margin-right: -20px; opacity: 0; pointer-events: none; transition: opacity var(--ldb-motion-duration, 180ms) var(--ldb-motion-easing, cubic-bezier(.2,.8,.2,1)); background: var(--background-secondary); border: 1px solid var(--background-modifier-border); }
 .ldb-map-node:hover .ldb-map-add, .ldb-map-node:focus-within .ldb-map-add, .ldb-map-node.is-root .ldb-map-add, .ldb-map-node.is-group .ldb-map-add { opacity: 1; pointer-events: auto; }
 /* Left branches keep readable text while their add handle points outward. */
 .ldb-map-node.is-left { flex-direction: row-reverse; }
@@ -485,7 +487,7 @@ body:not(.is-mobile) .workspace-split.mod-left-split:not(.is-sidedock-collapsed)
 .ldb-map-node.is-editor { border-color: var(--interactive-accent); }
 .ldb-map-node.is-editor input { width: 0; min-width: 0; flex: 1; height: 26px; border: 0; background: transparent; box-shadow: none; padding: 0 3px; }
 .ldb-map-node input[aria-invalid=true] { color: var(--text-error); }
-.ldb-map-node.is-new { animation: ldb-map-appear 180ms ease-out; }
+.ldb-map-node.is-new { animation: ldb-map-appear var(--ldb-motion-duration, 180ms) var(--ldb-motion-easing, cubic-bezier(.2,.8,.2,1)); }
 @keyframes ldb-map-appear { from { opacity: .3; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
 @media (hover: none) { .ldb-map-add { opacity: .8; pointer-events: auto; } }
 @media (max-width: 600px) { .modal.ldb-tag-map-modal { width: 96vw; max-width: 96vw; height: 82dvh; padding: 14px; } .ldb-map-toolbar { gap: 5px; } }
@@ -559,7 +561,7 @@ body:not(.is-mobile) .workspace-split.mod-left-split:not(.is-sidedock-collapsed)
 .ldb-deepseek-task.is-working .ldb-deepseek-task-icon svg { animation: ldb-deepseek-spin 1.2s linear infinite; }
 .ldb-deepseek-current { font-size: 12px; margin-block: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
 .ldb-deepseek-track { height: 3px; background: var(--background-modifier-border); overflow: hidden; position: relative; margin-bottom: 8px; }
-.ldb-deepseek-bar { height: 100%; background: var(--interactive-accent); transition: width .25s ease; }
+.ldb-deepseek-bar { height: 100%; background: var(--interactive-accent); transition: width var(--ldb-motion-duration, 180ms) var(--ldb-motion-easing, cubic-bezier(.2,.8,.2,1)); }
 .ldb-deepseek-task.is-working .ldb-deepseek-track::after { content: ''; position: absolute; inset: 0; width: 25%; background: var(--interactive-accent); opacity: .45; animation: ldb-deepseek-scan 1.8s ease-in-out infinite; }
 .ldb-deepseek-result-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 20px; padding-bottom: 10px; font-size: 13px; border-bottom: 1px solid var(--background-modifier-border); }
 .ldb-deepseek-result-heading strong { margin-right: auto; }
@@ -695,3 +697,14 @@ body:not(.is-mobile) .workspace-split.mod-left-split:not(.is-sidedock-collapsed)
 
 .ldb-deepseek-footer .ldb-deepseek-plan-actions { margin: 0; }
 .ldb-deepseek-plan-actions[hidden] { display: none; }
+
+.ldb-details .ldb-tldr { -webkit-user-select: text; user-select: text; cursor: text; }
+.ldb-details :is(.ldb-title,.ldb-tldr):focus { outline: none; }
+.ldb-details :is(.ldb-title,.ldb-tldr):focus-visible { outline: 1px solid var(--interactive-accent); outline-offset: 3px; }
+.ldb-deepseek-key-status { margin-left: 12px; color: var(--text-muted); font-size: 12px; font-weight: 400; }
+.ldb-deepseek-key-actions { margin: 12px 0; }
+.ldb-deepseek-modal input[type="password"]:disabled { background: var(--background-secondary); color: var(--text-muted); opacity: .65; cursor: default; }
+.ldb-deepseek-modal button:disabled { opacity: .45; cursor: default; }
+.ldb-deepseek-modal button.mod-cta:disabled { background: var(--background-modifier-hover); color: var(--text-muted); opacity: .65; }
+.ldb-deepseek-remember input:disabled { opacity: .45; }
+.ldb-deepseek-modal .ldb-deepseek-remember:has(input:disabled) { color: var(--text-muted); }

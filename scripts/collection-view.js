@@ -194,7 +194,7 @@ class ProjectNoteModal extends Modal {
 class CitationExportModal extends Modal {
   constructor(plugin,rows,name,selected=[]){super(plugin.app);Object.assign(this,{plugin,rows:[...rows],name,selected:[...selected]});}
   onOpen(){this.modalEl?.addClass('ldb-dialog');
-    this.closed=false;this.refreshToken=0;
+    this.closed=false;this.refreshToken=0;this.motion=new LdbMotion(this.contentEl,{disclosures:true});
     this.titleEl.setText(this.name+tr(' · 导出'));
     const controls=this.contentEl.createDiv('ldb-actions');
     const format=controls.createEl('select',{attr:{'aria-label':tr('引用导出格式')}});
@@ -232,7 +232,7 @@ class CitationExportModal extends Modal {
     };
     format.addEventListener('change',refresh);scope.addEventListener('change',refresh);refresh();
   }
-  onClose(){this.closed=true;this.refreshToken++;this.contentEl.empty();}
+  onClose(){this.closed=true;this.motion?.destroy();this.motion=null;this.refreshToken++;this.contentEl.empty();}
 }
 
 // Optional, explicit DDL reuse at creation; selecting a name never merges records.

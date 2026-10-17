@@ -1,0 +1,27 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const ctx={module:{exports:{}},crypto:require('node:crypto').webcrypto,TextEncoder,TextDecoder,Uint8Array,require:n=>n==='obsidian'?{Plugin:class{},Modal:class{},ItemView:class{},Platform:{}}:require(n)};
+vm.runInNewContext(fs.readFileSync('main.js','utf8')+'\nmodule.exports.test={Beta:DeepSeekBetaModal,Secret:getDeepSeekSecret()};',ctx);
+const {Beta,Secret}=ctx.module.exports.test,secrets=new Map(),app={secretStorage:{isEncryptionAvailable:()=>true,getSecret:id=>secrets.get(id),setSecret:(id,v)=>secrets.set(id,v),deleteSecret:id=>secrets.delete(id)}};
+const el=()=>({value:'',textContent:'',setText(v){this.textContent=v;}});
+(async()=>{
+ const key='synthetic-key-123456',pass='synthetic-test-passphrase',envelope=await Secret.encrypt(key,pass);
+ Secret.rememberDevice(app,key,envelope);assert.equal(Secret.restoreDevice(app,envelope),key);
+ Secret.lockDevice(app,envelope);assert.equal(Secret.restoreDevice(app,envelope),null,'Lock survives new consumers of device storage');assert(Secret.deviceState(app,envelope).remembered);assert(Secret.deviceState(app,envelope).locked);
+ Secret.rememberDevice(app,key,envelope);assert.equal(Secret.restoreDevice(app,envelope),key,'Explicit unlock clears the persistent lock');
+ const m=Object.create(Beta.prototype),settings={deepSeekEncrypted:envelope};
+ Object.assign(m,{app,plugin:{settings,loadData:async()=>({...settings})},work:{running:false,items:[{edits:{tldr:'Keep draft'}}],plan:{keep:true}},service:{enabled:true,key,enable(k){this.enabled=true;this.key=k;this.locked=false;},disable(){this.enabled=false;this.key='';}},motion:{setOpen(d,v){d.open=v;}},config:{open:true},loadModels:async()=>{}});
+ for(const name of ['keyInput','passInput','rememberInput','keyStatus','enableButton','unlockButton','saveButton','lockButton','changeKeyButton','changeSyncButton','cancelKeyButton','disableButton','forgetButton'])m[name]=el();
+ m.rememberInput.checked=true;m.refreshDeviceState();m.syncKeyControls();assert(m.unlockButton.disabled&&m.keyInput.disabled&&m.passInput.disabled&&m.rememberInput.disabled);assert(!m.lockButton.disabled&&!m.lockButton.hidden);assert(m.saveButton.disabled);
+ assert.equal(m.keyInput.placeholder,'API Key 已启用');assert.equal(m.passInput.placeholder,'API Key 已启用');
+ m.editingKey=true;m.keyInput.value='synthetic-replacement-key';m.syncKeyControls();assert(!m.keyInput.disabled&&!m.enableButton.disabled&&!m.rememberInput.disabled);m.editingKey=false;
+ m.lockKey();m.syncKeyControls();assert(!m.service.enabled&&m.service.locked);assert(!m.passInput.disabled&&m.unlockButton.disabled);assert.equal(m.work.items[0].edits.tldr,'Keep draft');assert(m.work.plan.keep);
+ await m.restoreDeviceKey();assert(!m.service.enabled,'Closing/reopening the modal cannot bypass an explicit lock');
+ m.passInput.value=pass;m.syncKeyControls();assert(!m.unlockButton.disabled);await m.unlockSecret();m.syncKeyControls();assert(m.service.enabled&&!m.service.locked);assert.equal(m.passInput.value,'');assert.equal(m.keyInput.value,'');assert(m.passInput.disabled&&m.unlockButton.disabled);assert.equal(Secret.restoreDevice(app,envelope),key);
+ m.localBusy=true;m.syncKeyControls();assert(m.lockButton.disabled&&m.changeKeyButton.disabled&&m.rememberInput.disabled);m.localBusy=false;
+ m.service.wire={};m.syncKeyControls();assert(m.lockButton.disabled&&m.enableButton.disabled);m.service.wire=null;
+ m.lockKey();m.passInput.value='wrong-synthetic-passphrase';await assert.rejects(m.unlockSecret());assert(!m.service.enabled);assert(Secret.deviceState(app,envelope).locked);
+ m.closed=true;m.passInput.value=pass;await m.unlockSecret();assert(!m.service.enabled,'Late unlock cannot reactivate a closed view');
+ assert(!JSON.stringify(settings).includes(key));assert(!JSON.stringify(settings).includes(pass));
+ console.log('PASS: remembered/unlocked/locked controls, explicit key edits, persistent device lock, unlock, failed/late unlock, request guards and draft preservation.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

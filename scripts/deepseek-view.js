@@ -41,7 +41,7 @@ class DeepSeekBetaModal extends Modal{
  async perform(fn){if(this.working)return;this.error.setText('');this.localBusy=true;this.requestSync();try{await fn();}catch(error){if(!this.closed)this.error.setText(error.message);}finally{this.localBusy=false;this.work.emit();}}
  onOpen(){
   this.modalEl.addClass('ldb-deepseek-modal','ldb-dialog');this.titleEl.empty();this.titleEl.createSpan({text:'DeepSeek'});this.titleEl.createSpan({cls:'ldb-deepseek-beta-badge',text:'BETA'});
-  const el=this.contentEl;this.controls=[];this.scroll=el.createDiv('ldb-deepseek-scroll');this.buildConfig(this.scroll);this.error=this.scroll.createDiv({cls:'ldb-form-error',attr:{role:'alert'}});
+  const el=this.contentEl;this.motion=new LdbMotion(el,{disclosures:true});this.scroll=el.createDiv('ldb-deepseek-scroll');this.buildConfig(this.scroll);this.error=this.scroll.createDiv({cls:'ldb-form-error',attr:{role:'alert'}});
   const source=this.scroll.createDiv('ldb-deepseek-scope');const field=source.createDiv('ldb-deepseek-field');field.createEl('label',{text:tr('整理范围')});this.mode=field.createEl('select',{attr:{'aria-label':tr('整理范围')}});this.scopeOptions={};
   if(this.paths.length)this.scopeOptions.selection=this.mode.createEl('option',{value:'selection'});this.scopeOptions.inbox=this.mode.createEl('option',{value:'inbox'});this.scopeOptions.pending=this.mode.createEl('option',{value:'pending'});this.mode.value=this.paths.length?'selection':this.work.draft.mode==='selection'?'inbox':this.work.draft.mode;this.mode.addEventListener('change',()=>{this.work.draft.mode=this.mode.value;this.sync();});
   const modelRow=this.scroll.createDiv('ldb-deepseek-model-row');source.before(modelRow);const modelField=this.field(modelRow,'模型');this.modelSelect=modelField.createEl('select',{attr:{'aria-label':tr('模型')}});this.modelSelect.addEventListener('change',()=>this.perform(()=>this.changeModel(this.modelSelect.value)));this.modelsButton=this.button(modelRow,'刷新模型',()=>this.loadModels(true));
@@ -56,14 +56,47 @@ class DeepSeekBetaModal extends Modal{
   this.unsubscribe=this.work.subscribe(()=>this.requestSync());this.sync();if(!this.service.enabled)this.perform(()=>this.restoreDeviceKey());
  }
  buildConfig(parent){
-  const saved=!!this.plugin.settings.deepSeekEncrypted;this.config=parent.createEl('details',{cls:'ldb-deepseek-config'});this.config.open=!this.service.enabled;this.config.createEl('summary',{text:tr('密钥设置')});
-  this.config.createEl('p',{cls:'ldb-deepseek-caption',text:tr(saved?'已有加密密钥。解锁后可在此设备记住，下次无需重新输入。':'输入 API Key 即可开始；加密同步为可选项。')});
-  const remember=this.config.createEl('label',{cls:'ldb-deepseek-remember'});this.rememberInput=remember.createEl('input',{type:'checkbox'});this.rememberInput.checked=getDeepSeekSecret().deviceAvailable(this.app);this.rememberInput.disabled=!this.rememberInput.checked;remember.appendText(tr('在此设备记住密钥'));if(this.rememberInput.disabled)remember.title=tr('此设备暂不支持安全记忆密钥，仅本次启用');
-  const advanced=this.config.createEl('details',{cls:'ldb-deepseek-key-editor'});advanced.open=!saved;advanced.createEl('summary',{text:tr('设置或更换 API Key')});
-  this.keyInput=advanced.createEl('input',{type:'password',attr:{placeholder:'DeepSeek API Key','aria-label':'DeepSeek API Key',autocomplete:'off',spellcheck:'false'}});const session=advanced.createDiv('ldb-actions');this.controls.push(this.button(session,'启用密钥',async()=>{this.enableKey(this.keyInput.value.trim());await this.loadModels();}));
+  const saved=!!this.plugin.settings.deepSeekEncrypted;this.refreshDeviceState();
+  this.config=parent.createEl('details',{cls:'ldb-deepseek-config'});this.config.open=!this.service.enabled;
+  const summary=this.config.createEl('summary');summary.createSpan({text:tr('密钥设置')});this.keyStatus=summary.createSpan('ldb-deepseek-key-status');
+  const actions=this.config.createDiv('ldb-actions ldb-deepseek-key-actions');
+  this.lockButton=this.button(actions,'锁定',()=>this.lockKey());
+  this.changeKeyButton=this.button(actions,'更换密钥',()=>{this.editingKey=true;this.editingSync=false;this.motion.setOpen(this.keyEditor,true);});
+  this.changeSyncButton=this.button(actions,saved?'更改同步口令':'设置加密同步',()=>{this.editingSync=true;this.editingKey=false;});
+  this.cancelKeyButton=this.button(actions,'取消修改',()=>{this.editingKey=this.editingSync=false;this.keyInput.value=this.passInput.value='';this.rememberInput.checked=this.deviceState.remembered;});
+  const remember=this.config.createEl('label',{cls:'ldb-deepseek-remember'});this.rememberInput=remember.createEl('input',{type:'checkbox'});this.rememberInput.checked=this.deviceState.remembered||getDeepSeekSecret().deviceAvailable(this.app);
+  this.rememberInput.addEventListener('change',()=>{if(this.service.enabled&&!this.editingKey)this.perform(()=>{try{if(this.rememberInput.checked)getDeepSeekSecret().rememberDevice(this.app,this.service.key,this.plugin.settings.deepSeekEncrypted);else getDeepSeekSecret().forgetDevice(this.app);}catch(e){this.rememberInput.checked=this.deviceState.remembered;throw this.secretError(e);}this.refreshDeviceState();});});remember.appendText(tr('在此设备记住密钥'));
+  this.keyEditor=this.config.createEl('details',{cls:'ldb-deepseek-key-editor'});this.keyEditor.open=!saved&&!this.service.enabled;this.keyEditor.createEl('summary',{text:'API Key'});
+  this.keyInput=this.keyEditor.createEl('input',{type:'password',attr:{placeholder:'DeepSeek API Key','aria-label':'DeepSeek API Key',autocomplete:'off',spellcheck:'false'}});
+  const session=this.keyEditor.createDiv('ldb-actions');this.enableButton=this.button(session,'启用密钥',async()=>{this.enableKey(this.keyInput.value.trim());await this.loadModels();});
   this.passInput=this.config.createEl('input',{type:'password',attr:{placeholder:tr('同步口令（至少 12 个字符）'),'aria-label':tr('同步口令（至少 12 个字符）'),autocomplete:'off'}});
-  const actions=this.config.createDiv('ldb-actions');this.unlockButton=this.button(actions,'解锁同步密钥',()=>this.unlockSecret(),'mod-cta');this.saveButton=this.button(actions,'加密保存到 iCloud',()=>this.saveSecret());this.controls.push(this.unlockButton,this.saveButton);
-  const more=this.config.createEl('details',{cls:'ldb-deepseek-secret-more'});more.createEl('summary',{text:tr('同步说明与密钥管理')});more.createEl('p',{cls:'ldb-deepseek-caption',text:tr('勾选记住后，API Key 保存在此设备的 Obsidian 密钥存储，重开插件无需解锁。同步口令不会保存；iCloud 仅同步加密密钥，其他设备需先解锁一次。忘记口令可重新配置密钥。')});more.createEl('p',{text:tr('整理会将选中 PDF 的文本、分类和标签发送给 DeepSeek，不发送 Notes 或审稿材料。每批最多 20 篇，每篇最多 12 页。关闭面板后继续，退出 Obsidian 后停止。')});const extra=more.createDiv('ldb-actions');this.disableButton=this.button(extra,'关闭并清除本机密钥',()=>{try{getDeepSeekSecret().forgetDevice(this.app);}catch(e){throw this.secretError(e);}this.service.disable();this.work.clear();this.config.open=true;});this.forgetButton=this.button(extra,'移除同步密钥',()=>this.forgetSecret());this.controls.push(this.disableButton,this.forgetButton);
+  for(const input of [this.keyInput,this.passInput])input.addEventListener('input',()=>this.syncKeyControls());
+  const sync=this.config.createDiv('ldb-actions');this.unlockButton=this.button(sync,'解锁同步密钥',()=>this.unlockSecret(),'mod-cta');this.saveButton=this.button(sync,'加密保存到 iCloud',()=>this.saveSecret());
+  const more=this.config.createEl('details',{cls:'ldb-deepseek-secret-more'});more.createEl('summary',{text:tr('同步说明与密钥管理')});more.createEl('p',{cls:'ldb-deepseek-caption',text:tr('勾选记住后，API Key 保存在此设备的 Obsidian 密钥存储，重开插件无需解锁。同步口令不会保存；iCloud 仅同步加密密钥，其他设备需先解锁一次。忘记口令可重新配置密钥。')});more.createEl('p',{cls:'ldb-deepseek-caption',text:tr('锁定后需重新输入同步口令或 API Key，不会自动解锁；保留同步配置和整理结果。')});more.createEl('p',{text:tr('整理会将选中 PDF 的文本、分类和标签发送给 DeepSeek，不发送 Notes 或审稿材料。每批最多 20 篇，每篇最多 12 页。关闭面板后继续，退出 Obsidian 后停止。')});
+  const extra=more.createDiv('ldb-actions');this.disableButton=this.button(extra,'关闭并清除本机密钥',()=>{try{getDeepSeekSecret().forgetDevice(this.app);}catch(e){throw this.secretError(e);}this.service.disable();this.service.locked=true;this.resetKeyEditor();this.motion.setOpen(this.config,true);});this.forgetButton=this.button(extra,'移除同步密钥',()=>this.forgetSecret());
+ }
+ refreshDeviceState(){this.deviceState=getDeepSeekSecret().deviceState(this.app,this.plugin.settings.deepSeekEncrypted);}
+ syncKeyControls(){
+  if(!this.keyInput||this.closed)return;
+  const enabled=this.service.enabled,saved=!!this.plugin.settings.deepSeekEncrypted,blocked=this.working||!!this.service.wire,editing=!!this.editingKey||!!this.editingSync,available=getDeepSeekSecret().deviceAvailable(this.app);
+  const validKey=/^[A-Za-z0-9_-]{12,256}$/.test(this.keyInput.value.trim()),validPass=this.passInput.value.length>=12&&this.passInput.value.length<=1024;
+  ldbDeepSeekText(this.keyStatus,tr(enabled?this.deviceState.remembered?'已解锁 · 本机已记住':'已解锁':this.service.locked||this.deviceState.locked?'已锁定':saved?'待解锁':'未设置密钥'));
+  ldbDeepSeekProps(this.keyInput,{disabled:blocked||enabled&&!this.editingKey,placeholder:enabled&&!this.editingKey?tr('API Key 已启用'):'DeepSeek API Key'});
+  ldbDeepSeekProps(this.passInput,{disabled:blocked||enabled&&!editing,placeholder:enabled&&!editing?tr('API Key 已启用'):tr('同步口令（至少 12 个字符）')});
+  ldbDeepSeekProps(this.rememberInput,{disabled:blocked||!available||enabled&&this.deviceState.remembered&&!this.editingKey});
+  ldbDeepSeekProps(this.enableButton,{disabled:blocked||!validKey||enabled&&!this.editingKey});
+  ldbDeepSeekProps(this.unlockButton,{hidden:!saved,disabled:blocked||enabled||!validPass});ldbDeepSeekText(this.unlockButton,tr(enabled?'已解锁':'解锁同步密钥'));
+  ldbDeepSeekProps(this.saveButton,{disabled:blocked||!validPass||!(this.editingKey?validKey:validKey||enabled)||enabled&&!editing});
+  ldbDeepSeekProps(this.lockButton,{hidden:!enabled,disabled:blocked});
+  ldbDeepSeekProps(this.changeKeyButton,{hidden:!enabled||editing,disabled:blocked});
+  ldbDeepSeekProps(this.changeSyncButton,{hidden:!enabled||editing,disabled:blocked});ldbDeepSeekText(this.changeSyncButton,tr(saved?'更改同步口令':'设置加密同步'));
+  ldbDeepSeekProps(this.cancelKeyButton,{hidden:!editing,disabled:blocked});
+  ldbDeepSeekProps(this.disableButton,{disabled:blocked||!enabled&&!this.deviceState.remembered});ldbDeepSeekProps(this.forgetButton,{hidden:!saved,disabled:blocked});
+ }
+ resetKeyEditor(){this.keyInput.value=this.passInput.value='';this.editingKey=this.editingSync=false;this.refreshDeviceState();this.rememberInput.checked=this.deviceState.remembered||getDeepSeekSecret().deviceAvailable(this.app);}
+ lockKey(){
+  try{getDeepSeekSecret().lockDevice(this.app,this.plugin.settings.deepSeekEncrypted);}catch(e){throw this.secretError(e);}
+  this.service.disable();this.service.locked=true;this.resetKeyEditor();this.motion.setOpen(this.config,true);
  }
  needsPlan(){return this.mode.value==='inbox'||this.batch().length>0&&this.batch().every(p=>p.startsWith('temp/'));}
  refreshSources(){if(!this.closed&&!this.working)this.requestSync();}
@@ -87,8 +120,7 @@ class DeepSeekBetaModal extends Modal{
  }
  sync(){
   if(this.closed||!this.task)return;if(this.renderDoc?.hidden){this.pendingSync=true;return;}this.cancelSync();this.pendingSync=false;const w=this.work,busy=this.working,ready=this.service.enabled&&!this.service.wire,pending=w.pending.length;
-  for(const b of this.controls)ldbDeepSeekProps(b,{disabled:busy});ldbDeepSeekProps(this.disableButton,{disabled:busy});ldbDeepSeekProps(this.rememberInput,{disabled:busy||!getDeepSeekSecret().deviceAvailable(this.app)});for(const b of [this.unlockButton,this.forgetButton])ldbDeepSeekProps(b,{hidden:!this.plugin.settings.deepSeekEncrypted});
-  for(const input of [this.keyInput,this.passInput,this.mode])ldbDeepSeekProps(input,{disabled:busy||!!w.plan});ldbDeepSeekProps(this.generate,{disabled:busy||!ready||!this.service.selectedModel()||!this.batch().length||!!pending||!!w.plan,title:pending?tr('请先应用或清除当前结果'):''});
+  this.syncKeyControls();ldbDeepSeekProps(this.mode,{disabled:busy||!!w.plan});ldbDeepSeekProps(this.generate,{disabled:busy||!ready||!this.service.selectedModel()||!this.batch().length||!!pending||!!w.plan,title:pending?tr('请先应用或清除当前结果'):''});
   ldbDeepSeekText(this.generate,tr(this.needsPlan()?'规划收件箱':'开始整理'));
   this.syncModels();
   for(const [mode,opt] of Object.entries(this.scopeOptions))ldbDeepSeekText(opt,tr(mode==='selection'?'当前选择':mode==='inbox'?'收件箱':'文献库中信息不完整的论文')+' · '+this.batch(mode).length);
@@ -136,7 +168,7 @@ class DeepSeekBetaModal extends Modal{
    if(item.ignored)continue;
    if(!item.proposal){if(!this.results.querySelector('[data-error-path="'+CSS.escape(item.path)+'"]'))this.results.createDiv({cls:'ldb-form-error',text:item.filename+': '+item.error,attr:{'data-error-path':item.path}});continue;}
    let view=this.itemViews.get(item);if(!view){view=this.renderProposal(item);this.itemViews.set(item,view);}
-   view.root.hidden=!!item.ignored;view.state.setText(item.applied?tr('已应用'):item.error?tr('需要处理'):'');view.body.hidden=!!item.applied;view.error.setText(item.error||'');if(item.applied)view.root.open=false;
+   view.root.hidden=!!item.ignored;view.state.setText(item.applied?tr('已应用'):item.error?tr('需要处理'):'');view.body.hidden=!!item.applied;view.error.setText(item.error||'');if(item.applied)this.motion.setOpen(view.root,false);
   }
   for(const el of this.results.querySelectorAll('[data-error-path]'))if(!w.items.some(i=>!i.proposal&&i.path===el.dataset.errorPath))el.remove();
  }
@@ -194,22 +226,23 @@ class DeepSeekBetaModal extends Modal{
  enableKey(key){
   if(!/^[A-Za-z0-9_-]{12,256}$/.test(key))throw Error(tr('请输入有效的 DeepSeek API Key'));
   try{if(this.rememberInput.checked)getDeepSeekSecret().rememberDevice(this.app,key,this.plugin.settings.deepSeekEncrypted);else getDeepSeekSecret().forgetDevice(this.app);}catch(e){throw this.secretError(e);}
-  this.service.enable(key);this.keyInput.value=this.passInput.value='';this.config.open=false;
+  this.service.enable(key);this.resetKeyEditor();this.motion.setOpen(this.config,false);
  }
  async restoreDeviceKey(){
   const saved=await this.plugin.loadData()||{};if(this.closed||this.plugin.stopped)return;
   this.plugin.settings.deepSeekEncrypted=saved.deepSeekEncrypted;
+  this.refreshDeviceState();if(this.service.locked||this.deviceState.locked){this.service.locked=true;return;}
   let key=getDeepSeekSecret().restoreDevice(this.app,saved.deepSeekEncrypted);
-  if(key){this.service.enable(key);this.config.open=false;}key=null;
+  if(key){this.service.enable(key);this.rememberInput.checked=true;this.motion.setOpen(this.config,false);}key=null;
  }
  async writeSecret(value){const saved=await this.plugin.loadData()||{};if(this.closed)return;const next={...saved};if(value)next.deepSeekEncrypted=value;else delete next.deepSeekEncrypted;await this.plugin.saveData(next);this.plugin.settings={...this.plugin.settings,...next};if(!value)delete this.plugin.settings.deepSeekEncrypted;}
  async saveSecret(){const key=this.keyInput.value.trim()||this.service.key;let encrypted;try{encrypted=await getDeepSeekSecret().encrypt(key,this.passInput.value);}catch(e){throw this.secretError(e);}if(this.closed)return;await this.writeSecret(encrypted);if(this.closed)return;this.enableKey(key);await this.loadModels();}
  async unlockSecret(){const saved=await this.plugin.loadData()||{};if(this.closed)return;this.plugin.settings.deepSeekEncrypted=saved.deepSeekEncrypted;let key;try{key=await getDeepSeekSecret().decrypt(saved.deepSeekEncrypted,this.passInput.value);}catch(e){throw this.secretError(e);}if(this.closed)return;this.enableKey(key);await this.loadModels();}
- async forgetSecret(){try{getDeepSeekSecret().forgetDevice(this.app);}catch(e){throw this.secretError(e);}await this.writeSecret(null);if(this.closed)return;this.service.disable();this.work.clear();this.keyInput.value=this.passInput.value='';}
+ async forgetSecret(){try{getDeepSeekSecret().forgetDevice(this.app);}catch(e){throw this.secretError(e);}await this.writeSecret(null);if(this.closed)return;this.service.disable();this.service.locked=true;this.resetKeyEditor();}
  onClose(){
-  this.closed=true;this.cancelSync();this.renderDoc?.removeEventListener('visibilitychange',this.onVisibility);this.renderDoc=this.renderWin=this.onVisibility=null;
+  this.closed=true;this.motion?.destroy();this.motion=null;this.cancelSync();this.renderDoc?.removeEventListener('visibilitychange',this.onVisibility);this.renderDoc=this.renderWin=this.onVisibility=null;
   this.tagMap?.close(true);this.tagMap=null;this.unsubscribe?.();this.unsubscribe=null;if(this.plugin.deepSeekModal===this)this.plugin.deepSeekModal=null;if(this.keyInput)this.keyInput.value=this.passInput.value='';
-  this.itemViews.clear();this.planControls=[];this.renderedPlan=null;this.batchCache=this.modelOptions=null;this.paths=[];this.controls=[];this.scopeOptions={};this.contentEl.empty();
-  for(const key of ['planPanel','planActions','scroll','error','mode','modelSelect','modelsButton','generate','task','taskIcon','taskTitle','filename','track','bar','preview','resultTitle','applyAll','clearButton','results','empty','footerHint','cancelButton','closeButton','config','rememberInput','keyInput','passInput','unlockButton','saveButton','disableButton','forgetButton'])this[key]=null;
+  this.itemViews.clear();this.planControls=[];this.renderedPlan=null;this.batchCache=this.modelOptions=null;this.paths=[];this.scopeOptions={};this.contentEl.empty();
+  for(const key of ['planPanel','planActions','scroll','error','mode','modelSelect','modelsButton','generate','task','taskIcon','taskTitle','filename','track','bar','preview','resultTitle','applyAll','clearButton','results','empty','footerHint','cancelButton','closeButton','keyStatus','keyEditor','enableButton','lockButton','changeKeyButton','changeSyncButton','cancelKeyButton','config','rememberInput','keyInput','passInput','unlockButton','saveButton','disableButton','forgetButton'])this[key]=null;
  }
 }

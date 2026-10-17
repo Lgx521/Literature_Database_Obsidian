@@ -29,12 +29,15 @@ function rememberDevice(app,key,envelope){
  if(!/^[A-Za-z0-9_-]{12,256}$/.test(key))throw Error('INVALID_KEY');
  try{app.secretStorage.setSecret(DEVICE_ID,JSON.stringify({v:1,key,envelope:stamp(envelope)}));}catch(_){throw Error('DEVICE_STORAGE_FAILED');}
 }
-function restoreDevice(app,envelope){
+function deviceRecord(app,envelope){
  if(!deviceAvailable(app))return null;
- try{const raw=app.secretStorage.getSecret(DEVICE_ID);if(!raw)return null;const data=JSON.parse(raw);return data.v===1&&data.envelope===stamp(envelope)&&/^[A-Za-z0-9_-]{12,256}$/.test(data.key)?data.key:null;}catch(_){return null;}
+ try{const raw=app.secretStorage.getSecret(DEVICE_ID);if(!raw)return null;const data=JSON.parse(raw);return data.v===1&&data.envelope===stamp(envelope)&&/^[A-Za-z0-9_-]{12,256}$/.test(data.key)?data:null;}catch(_){return null;}
 }
+function deviceState(app,envelope){const data=deviceRecord(app,envelope);return {remembered:!!data,locked:!!data?.locked};}
+function restoreDevice(app,envelope){const data=deviceRecord(app,envelope);return data&&!data.locked?data.key:null;}
+function lockDevice(app,envelope){const data=deviceRecord(app,envelope);if(!data)return;try{app.secretStorage.setSecret(DEVICE_ID,JSON.stringify({...data,locked:true}));}catch(_){throw Error('DEVICE_STORAGE_FAILED');}}
 function forgetDevice(app){
  const s=app?.secretStorage;if(!s)return;
  try{if(typeof s.deleteSecret==='function')s.deleteSecret(DEVICE_ID);else if(typeof s.setSecret==='function')s.setSecret(DEVICE_ID,'');}catch(_){throw Error('DEVICE_STORAGE_FAILED');}
 }
-module.exports={encrypt,decrypt,deviceAvailable,rememberDevice,restoreDevice,forgetDevice};
+module.exports={encrypt,decrypt,deviceAvailable,rememberDevice,restoreDevice,forgetDevice,deviceState,lockDevice};

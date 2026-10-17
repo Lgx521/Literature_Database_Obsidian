@@ -42,7 +42,7 @@ module.exports=function({Plan,Engine,Collections,TagTree,Organization,Sha256,Cit
  class Service{
   constructor(plugin){this.plugin=plugin;this.enabled=false;this.key='';this.generation=0;this.busy=false;this.wire=null;this.closed=false;this.models=[];this.modelId=plugin.settings?.deepSeekModel||'';}
   featureReady(){if(this.plugin.settings?.deepSeekBetaEnabled===false)fail('请在插件设置中开启 DeepSeek Beta');}
-  enable(key){this.featureReady();if(this.busy||this.wire)fail('请等待当前请求结束');if(!/^[A-Za-z0-9_-]{12,256}$/.test(String(key).trim()))fail('请输入有效的 DeepSeek API Key');if(this.key!==key.trim())this.models=[];this.key=key.trim();this.enabled=true;}
+  enable(key){this.featureReady();if(this.busy||this.wire)fail('请等待当前请求结束');if(!/^[A-Za-z0-9_-]{12,256}$/.test(String(key).trim()))fail('请输入有效的 DeepSeek API Key');if(this.key!==key.trim())this.models=[];this.key=key.trim();this.enabled=true;this.locked=false;}
   disable(){this.enabled=false;this.key='';this.models=[];this.cancel();}
   cancel(){this.generation++;this.plugin.pdfWork?.cancelOwner(this);this.cancelRequest?.();}
   close(){this.closed=true;this.disable();}

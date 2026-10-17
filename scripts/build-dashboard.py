@@ -29,6 +29,8 @@ tag_rename = (root / 'scripts/tag-rename.js').read_text()
 tag_view = (root / 'scripts/tag-map-view.js').read_text()
 tag_filter = (root / 'scripts/tag-filter-view.js').read_text()
 splitter = (root / 'scripts/pane-splitter.js').read_text()
+motion = (root / 'scripts/ui-motion.js').read_text()
+text_selection = (root / 'scripts/text-selection.js').read_text()
 citations = (root / 'scripts/vendor/citation-engine.cjs').read_text()
 metadata = (root / 'scripts/citation-metadata.js').read_text()
 pdf_work = (root / 'scripts/pdf-work.js').read_text()
@@ -70,5 +72,5 @@ deepseek_view = (root / 'scripts/deepseek-view.js').read_text()
     'let deepSeekModule,deepSeekSecret; function ldbDeepSeek(plugin){if(!deepSeekModule){const Plan=(()=>{const module={exports:{}};\n' + deepseek_plan + '\nreturn module.exports({TagTree,Collections,tr});})();const module={exports:{}};\n' + deepseek + '\ndeepSeekModule=module.exports({Plan,Engine,Collections,TagTree,Organization,Sha256,CitationMetadata,SourceTransaction,loadPdfJs,requestUrl,tr,desktop:Platform.isDesktopApp&&!Platform.isMobile,nodeRequire:require});} return plugin.deepSeek??=new deepSeekModule.Service(plugin);}\n'
     'function getDeepSeekSecret(){if(!deepSeekSecret){const Plan=(()=>{const module={exports:{}};\n' + deepseek_plan + '\nreturn module.exports({TagTree,Collections,tr});})();const module={exports:{}};\n' + deepseek_secret + '\ndeepSeekSecret=module.exports;}return deepSeekSecret;}\n'
     'let deepSeekWorkClass; function getDeepSeekWork(){if(!deepSeekWorkClass){const Plan=(()=>{const module={exports:{}};\n' + deepseek_plan + '\nreturn module.exports({TagTree,Collections,tr});})();const module={exports:{}};\n' + deepseek_work + '\ndeepSeekWorkClass=module.exports;}return deepSeekWorkClass;}\n'
-    + splitter + '\n' + view + '\n' + tag_view + '\n' + tag_filter + '\n' + advanced_view + '\n' + collection_view + '\n' + setup + '\n' + field_settings + '\n' + deepseek_view + '\n' + tail)
+    + motion + '\n' + text_selection + '\n' + splitter + '\n' + view + '\n' + tag_view + '\n' + tag_filter + '\n' + advanced_view + '\n' + collection_view + '\n' + setup + '\n' + field_settings + '\n' + deepseek_view + '\n' + tail)
 (root / 'styles.css').write_text((root / 'scripts/library-view.css').read_text())

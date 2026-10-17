@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.9.4 — 2026-10-17
+
+- Copy paper titles and TL;DRs directly; double-click and select-all stay within the focused text instead of including nearby fields.
+- Show active API key status in disabled credential inputs, disable redundant unlock actions, and add explicit Lock, Replace key and sync-passphrase controls.
+- Keep remembered keys locked across reopening/restart until manual unlock, while preserving organization previews and plans.
+- Share short, reversible transitions across detail controls and disclosure panels, with reduced-motion support and cleanup on close.
+- Validate with 61 offline suites plus desktop and mobile-emulator interaction checks.
+
 ## 4.9.2 — 2026-10-16
 
 - Distinguish newly added, moved and already-present papers in collection transfer feedback.

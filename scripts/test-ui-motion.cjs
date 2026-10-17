@@ -1,0 +1,18 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const ctx={};vm.runInNewContext(fs.readFileSync('scripts/ui-motion.js','utf8')+'\nthis.Motion=LdbMotion;',ctx);
+const listeners=new Map(),media={matches:false,addEventListener(k,f){this.listener=f;},removeEventListener(){this.listener=null;}};
+const doc={hidden:false,defaultView:{matchMedia:()=>media,getComputedStyle:()=>({getPropertyValue:k=>k.includes('duration')?'180ms':'ease'})}};
+const root={ownerDocument:doc,addEventListener:(k,f)=>listeners.set(k,f),removeEventListener:k=>listeners.delete(k),contains:()=>true};
+let animations=[];const summary={setAttribute(k,v){this[k]=v;},focus(){doc.activeElement=this;}},body={inert:false};
+const details={ownerDocument:doc,tagName:'DETAILS',open:false,style:{overflow:''},children:[summary,body],contains:el=>el===body,querySelector:()=>summary,getBoundingClientRect(){const active=animations.find(a=>!a.cancelled);return {height:active?60:this.open?120:20};},animate(frames,options){const a={frames,options,cancelled:false,cancel(){this.cancelled=true;}};animations.push(a);return a;}};summary.parentElement=details;summary.closest=s=>s==='summary'?summary:null;
+const motion=new ctx.Motion(root,{disclosures:true});
+listeners.get('click')({target:summary,preventDefault(){}});assert(details.open);assert.equal(motion.disclosures.get(details).open,true);assert.equal(animations.length,1);assert.equal(animations[0].options.duration,180);
+doc.activeElement=body;motion.setOpen(details,false);assert.equal(doc.activeElement,summary);assert(body.inert);assert.equal(motion.animations.size,1);assert.equal(animations[1].frames[0].height,'60px','Rapid reversal starts at the rendered height');
+// A cancelled callback delivered late must not overwrite the current target.
+animations[0].oncancel();assert.equal(motion.disclosures.get(details).open,false);
+animations[1].onfinish();assert(!details.open);assert(!body.inert);assert.equal(details.style.overflow,'');assert.equal(motion.animations.size,0);assert.equal(motion.disclosures.size,0);
+const animationCount=animations.length;media.matches=true;motion.setOpen(details,true);assert(details.open);assert.equal(animations.length,animationCount);media.matches=false;
+motion.setOpen(details,false);media.matches=true;media.listener();assert(!details.open);assert.equal(motion.animations.size,0);media.matches=false;
+motion.setOpen(details,true);motion.destroy();assert(details.open);assert.equal(motion.animations.size,0);assert.equal(motion.disclosures.size,0);assert.equal(listeners.size,0);assert.equal(media.listener,null);assert.equal(details.style.overflow,'');
+console.log('PASS: native disclosure interaction, reversible height motion, focus/inert restoration, reduced motion and teardown.');
