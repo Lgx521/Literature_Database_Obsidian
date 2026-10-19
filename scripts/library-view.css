@@ -1,5 +1,5 @@
 /* Shared motion tokens for panels, disclosures, tags and transient feedback. */
-:is(.ldb-browser,.ldb-navigation,.ldb-dialog,.ldb-tag-map) { --ldb-motion-duration: 180ms; --ldb-motion-easing: cubic-bezier(.2,.8,.2,1); }
+:is(.ldb-browser,.ldb-navigation,.ldb-dialog,.ldb-tag-map,.ldb-search-popover) { --ldb-motion-duration: 180ms; --ldb-motion-easing: cubic-bezier(.2,.8,.2,1); }
 /* Scoped ItemView; Markdown source tables and other notes retain their own styling. */
 .workspace-leaf-content[data-type="literature-database-browser"] .view-content.ldb-browser {
   --ldb-line: 28px;
@@ -708,3 +708,26 @@ body:not(.is-mobile) .workspace-split.mod-left-split:not(.is-sidedock-collapsed)
 .ldb-deepseek-modal button.mod-cta:disabled { background: var(--background-modifier-hover); color: var(--text-muted); opacity: .65; }
 .ldb-deepseek-remember input:disabled { opacity: .45; }
 .ldb-deepseek-modal .ldb-deepseek-remember:has(input:disabled) { color: var(--text-muted); }
+
+/* Search is a transient picker; typing does not rebuild or scroll the paper list. */
+.ldb-search-popover { position: fixed; z-index: var(--layer-popover, 100); display: flex; flex-direction: column; box-sizing: border-box; max-width: min(640px, calc(100vw - 16px)); overflow: hidden; border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m, 8px); background: var(--background-primary); box-shadow: var(--shadow-s); }
+.ldb-search-options { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 0 0 auto; min-height: 40px; padding: 6px 12px; border-bottom: 1px solid var(--background-modifier-border); font-size: var(--font-ui-small); }
+.ldb-search-options label { display: flex; align-items: center; gap: 8px; min-height: 28px; cursor: pointer; }
+.ldb-search-options input[type=checkbox] { flex: 0 0 auto; margin: 0; }
+.ldb-search-result-count { color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ldb-search-results { min-height: 0; min-width: 0; width: 100%; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; overflow-anchor: none; touch-action: pan-y; }
+.ldb-search-popover [hidden] { display: none !important; }
+.ldb-search-result { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; max-width: 100%; height: 56px; min-height: 56px; box-sizing: border-box; overflow: hidden; padding: 7px 12px; cursor: pointer; }
+.ldb-search-result:hover, .ldb-search-result.is-active { background: var(--background-modifier-hover); }
+.ldb-search-result.is-active { box-shadow: inset 3px 0 var(--interactive-accent); }
+.ldb-search-result-icon { display: flex; flex: 0 0 16px; color: var(--text-muted); }
+.ldb-search-result-icon svg { width: 16px; height: 16px; }
+.ldb-search-result-body { min-width: 0; overflow: hidden; flex: 1; }
+.ldb-search-result-title, .ldb-search-result-location { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 20px; }
+.ldb-search-result-title { font-size: var(--font-ui-small); color: var(--text-normal); }
+.ldb-search-result-location { font-size: var(--font-ui-smaller); color: var(--text-muted); }
+.ldb-search-empty { padding: 20px 12px; color: var(--text-muted); font-size: var(--font-ui-small); text-align: center; }
+.ldb-mobile-search .ldb-search-options { min-height: 48px; gap: 8px; padding: 2px 4px 2px 12px; }
+.ldb-mobile-search .ldb-search-options label { min-height: 44px; flex: 1; }
+.ldb-mobile-search .ldb-search-dismiss { display: flex; align-items: center; justify-content: center; flex: 0 0 44px; width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; border: none; background: transparent; box-shadow: none; }
+.ldb-mobile-search .ldb-search-dismiss svg { width: 20px; height: 20px; flex: 0 0 20px; }

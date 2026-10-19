@@ -599,6 +599,17 @@ module.exports=class LiteratureManager extends Plugin {
     const path=folder+'/'+stem+'-'+stamp+'-'+Math.random().toString(36).slice(2,6)+'.'+extension;
     await this.app.vault.create(path,content);return path;
   }
+  async revealPDF(path){
+    if(!Platform.isDesktopApp||Platform.isMobile)return;
+    try{
+      const file=this.app.vault.getAbstractFileByPath(path);
+      if(!(file instanceof TFile)||file.extension.toLowerCase()!=='pdf'||!await this.app.vault.adapter.exists(file.path))throw new Error(tr('PDF 尚未下载或路径无效'));
+      const base=this.app.vault.adapter.getBasePath?.();if(!base)throw new Error(tr('无法读取本机 PDF 路径'));
+      const paths=require('path'),fullPath=paths.resolve(base,file.path),relative=paths.relative(base,fullPath);
+      if(relative==='..'||relative.startsWith('..'+paths.sep)||paths.isAbsolute(relative))throw new Error(tr('PDF 尚未下载或路径无效'));
+      require('electron').shell.showItemInFolder(fullPath);
+    }catch(e){new Notice(e.message,8000);}
+  }
   async openPDF(path){
     try{
       const file=this.app.vault.getAbstractFileByPath(path);if(!(file instanceof TFile)||file.extension.toLowerCase()!=='pdf')throw new Error(tr('PDF 尚未下载或路径无效'));

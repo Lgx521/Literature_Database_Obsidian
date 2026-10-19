@@ -49,7 +49,7 @@ vm.runInNewContext(fs.readFileSync('main.js','utf8')+'\nmodule.exports.Browser=L
  await view.setState(view.getState());assert.equal(view.filters.advanced.match,'any');
  view.filters.query='VPP2';await view.navigate({category:'Robotics'});assert.equal(view.filters.query,'VPP2');assert.equal(view.filters.advanced.conditions.length,1);
  await view.navigate({scope:'projects',category:'Writing'});assert.equal(view.filters.advanced.conditions.length,1);
- view.searchEl={focus(){}};view.clearSearch();assert.equal(view.filters.query,'');assert.equal(view.filters.advanced.conditions.length,1);
+ view.renderSearchResults=()=>{};view.searchEl={focus(){}};view.clearSearch();assert.equal(view.filters.query,'');assert.equal(view.filters.advanced.conditions.length,1);
  view.notesDirty=true;view.filters.query='keep';assert.equal(view.applyAdvancedSearch({}),false);view.clearSearch();assert.equal(view.filters.query,'keep');view.clearFilters();assert.equal(view.filters.advanced.conditions.length,1);view.notesDirty=false;
  view.clearFilters();assert.equal(view.filters.advanced.conditions.length,0);
  view.applyAdvancedSearch({conditions:[c('title','contains','world')]});await view.navigate({scope:'library',revealPaths:['a']});assert.equal(view.filters.advanced.conditions.length,0);

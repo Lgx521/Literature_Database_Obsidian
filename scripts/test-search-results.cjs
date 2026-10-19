@@ -1,0 +1,51 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+class Target{constructor(){this.listeners=new Map();}addEventListener(k,f){if(!this.listeners.has(k))this.listeners.set(k,new Set());this.listeners.get(k).add(f);}removeEventListener(k,f){this.listeners.get(k)?.delete(f);}emit(k,e={}){for(const f of [...(this.listeners.get(k)||[])])f(e);}count(){return [...this.listeners.values()].reduce((n,s)=>n+s.size,0);}}
+const doc=new Target(),win=new Target(),frames=new Map();let seq=0;doc.defaultView=win;doc.hidden=false;win.innerWidth=1000;win.innerHeight=800;win.requestAnimationFrame=f=>(frames.set(++seq,f),seq);win.cancelAnimationFrame=id=>frames.delete(id);
+const flush=()=>{const jobs=[...frames.values()];frames.clear();jobs.forEach(f=>f());};
+class Element extends Target{
+ constructor(o={}){super();if(typeof o==='string')o={cls:o};this.children=[];this.attributes={...o.attr};this.textContent=o.text||'';this.classes=new Set((o.cls||'').split(' '));this.value='';this.dataset={};this.style={};this.scrollTop=0;this.clientHeight=280;this.ownerDocument=doc;this.isConnected=true;this.offsetWidth=400;this.offsetHeight=320;}
+ createEl(tag,o){const e=new Element(o);e.tag=tag;e.type=o?.type;e.parentElement=this;this.children.push(e);return e;}createDiv(o){return this.createEl('div',o);}createSpan(o){return this.createEl('span',o);}
+ empty(){this.children=[];}remove(){if(this.parentElement)this.parentElement.children=this.parentElement.children.filter(c=>c!==this);this.isConnected=false;}
+ setText(s){this.textContent=s;}setAttribute(k,v){this.attributes[k]=v;}removeAttribute(k){delete this.attributes[k];}addClass(c){this.classes.add(c);}toggleClass(c,on){on?this.classes.add(c):this.classes.delete(c);}contains(e){return e===this||this.children.some(c=>c.contains(e));}focus(){doc.activeElement=this;this.emit('focus');}blur(){if(doc.activeElement===this)doc.activeElement=null;}getBoundingClientRect(){return {left:20,right:420,top:50,bottom:80,width:400};}
+}
+doc.body=new Element();class ItemView{constructor(leaf){this.leaf=leaf;this.contentEl=new Element();this.app={workspace:{requestSaveLayout(){}}};}async setState(){}}
+const Platform={},notices=[],ctx={module:{exports:{}},require:n=>{assert.equal(n,'obsidian');return {Plugin:class{},ItemView,Modal:class{},Platform,setIcon(){},Notice:class{constructor(t){notices.push(t);}}};}};
+vm.runInNewContext(fs.readFileSync('main.js','utf8')+'\nmodule.exports.Browser=LiteratureBrowser;module.exports.Search=PaperSearchPopover;',ctx);
+const {Browser,Search}=ctx.module.exports;
+const row=(id,categories=['Robotics'],projects=[])=>({path:`papers/${id}.pdf`,filename:`${id}.pdf`,title:`World model ${id}`,categories,projects,tags:'#research/wm',tldr:'A policy',notes:'',published:'2026.10',status:'待读',priority:'—'});
+const rows=[row('One'),row('Two',['ML','Robotics']),row('Three',['ML']),row('Four',[],['Writing']),row('Five',[])];
+const data={library:rows,inbox:[{...row('inbox'),path:'temp/inbox.pdf',category:''}],reviews:[{...row('private'),category:'ICLR',pdfPath:'reviews/private.pdf'}],submissions:[],categories:['Robotics','ML'],groups:{projects:['Writing']},collections:[{scope:'library',name:'Robotics',members:[{path:rows[0].path,subgroup:'WM'},{path:rows[1].path}],subgroups:['WM']}]};
+(async()=>{
+ const v=new Browser({id:'search-test'},{snapshot:data});v.filters.category='Robotics';v.visibleRows=rows.slice(0,2);v.searchWrap=new Element();v.searchEl=v.searchWrap.createEl('input');v.listEl=new Element();v.searchEl.addEventListener('focus',()=>{if(!v.suppressSearchFocus)v.renderSearchResults();});v.syncControls=()=>{};v.syncSearchControls=()=>{};
+ let listRenders=0;v.renderList=()=>listRenders++;
+ v.searchEl.focus();let m=v.searchMenu;assert.equal(m.results.length,0);assert.equal(m.all.checked,false);assert.equal(v.searchEl.attributes['aria-expanded'],'true');
+ v.searchEl.value='world';v.onSearchInput();v.searchEl.value='world model';v.onSearchInput();assert.equal(frames.size,1);flush();assert.equal(m.results.length,2);assert.equal(listRenders,0);assert.equal(m.location(rows[0]),'Robotics › WM');assert.equal(m.list.children[1].title,'World model One\nRobotics › WM');
+ m.all.checked=true;m.all.emit('change');assert.equal(m.results.length,5);assert(v.filters.searchAll);assert.equal(v.getState().searchAll,true);assert(!m.results.some(r=>r.path.startsWith('reviews/')));
+ v.searchComposing=true;v.searchEl.value='世界';v.onSearchInput({isComposing:true});assert.equal(frames.size,0);assert.equal(m.results.length,5);v.searchComposing=false;v.onSearchInput();flush();assert.equal(m.results.length,0);
+ v.filters.query='world';m.refresh();const event=key=>({key,preventDefault(){},stopPropagation(){}});m.keydown(event('ArrowDown'));assert.equal(m.active,0);assert(v.searchEl.attributes['aria-activedescendant']);m.keydown(event('ArrowDown'));assert.equal(m.active,1);
+ assert.equal(Search.destination(v,rows[1],'library').category,'Robotics');v.filters.category='ML';assert.equal(Search.destination(v,rows[1],'library').category,'ML');v.filters.category='';assert.equal(Search.destination(v,rows[1],'library').category,'Robotics');assert.equal(Search.destination(v,rows[3],'library').scope,'projects');assert.equal(Search.destination(v,rows[4],'library').category,'');
+ v.scope='projects';v.filters.category='Writing';assert.equal(Search.destination(v,{...rows[1],projects:['Writing']},'library').scope,'projects');v.scope='library';
+ const actualNavigate=v.navigate;let nav;v.navigate=async n=>{nav=n;};v.notesDirty=true;await m.choose(0);assert(!nav);v.notesDirty=false;
+ const index=m.results.findIndex(r=>r.path===rows[2].path);await m.choose(index);assert.equal(nav.category,'ML');assert.deepEqual([...nav.revealPaths],[rows[2].path]);assert(nav.preserveSearch);assert.equal(v.filters.query,'world');assert.equal(v.searchMenu,null);assert.equal(m.results.length,0);assert.equal(m.session.rows,null);assert.equal(doc.count(),0);assert.equal(win.count(),0);
+ // A stale menu cannot navigate to a removed/replaced paper.
+ v.renderSearchResults();m=v.searchMenu;const staleIndex=m.results.findIndex(r=>r.path===rows[0].path);data.library=rows.slice(1);nav=null;await m.choose(staleIndex);assert.equal(nav,null);assert.equal(m.results.length,4);assert.equal(notices.length,1);data.library=rows;
+ // Large matches retain only a small DOM window; scrolling and closing release frames.
+ data.library=Array.from({length:5000},(_,i)=>row(String(i)));m.refresh();assert.equal(m.results.length,5000);assert(m.list.children.length<=14);m.list.scrollTop=4000*56;for(let i=0;i<20;i++)m.list.emit('scroll');assert.equal(frames.size,1);flush();assert(m.list.children.length<=14);assert.equal(m.list.scrollTop,4000*56);assert.equal(m.list.children[1].dataset.searchIndex,'3997');
+ m.list.emit('scroll');m.all.focus();doc.emit('keydown',event('Escape'));assert.equal(v.searchMenu,null);assert.equal(frames.size,0);assert.equal(doc.activeElement,v.searchEl);assert.equal(doc.count(),0);assert.equal(win.count(),0);assert.equal(v.searchEl.attributes['aria-expanded'],'false','Escape must not reopen the menu through focus');
+ // Current inbox/private scope stays separate; global selection is public only.
+ data.library=rows;v.scope='reviews';v.filters.searchAll=false;v.visibleRows=data.reviews;v.renderSearchResults();m=v.searchMenu;assert.equal(m.results.length,1);await m.choose(0);assert.equal(nav.scope,'reviews');assert.equal(nav.category,'ICLR');assert.deepEqual([...nav.revealPaths],['reviews/private.pdf']);
+ v.scope='inbox';v.visibleRows=data.inbox;v.renderSearchResults();m=v.searchMenu;assert.equal(m.results.length,1);m.all.checked=true;m.all.emit('change');assert.equal(m.results.length,5);doc.emit('pointerdown',{target:new Element()});assert.equal(v.searchMenu,null);
+ // Real navigation clears hiding filters, retains the query and marks the destination for reveal.
+ v.navigate=actualNavigate;v.filters.query='world';v.filters.advanced={conditions:[{field:'title',op:'contains',value:'missing'}]};v.filters.tags=['#missing'];let revealed;v.reload=async()=>{revealed=[...v.pendingRevealPaths];};v.revealSelection=()=>{};
+ await v.navigate({scope:'library',category:'ML',revealPaths:[rows[2].path],preserveSearch:true});assert.equal(v.filters.query,'world');assert.equal(v.filters.advanced.conditions.length,0);assert.equal(v.filters.tags.length,0);assert.deepEqual(revealed,[rows[2].path]);
+ await v.navigate({scope:'library',revealPaths:[rows[2].path]});assert.equal(v.filters.query,'','Import reveal still clears plain query');
+ for(let i=0;i<30;i++){v.renderSearchResults();v.searchMenu.close();assert.equal(doc.count(),0);assert.equal(win.count(),0);}
+ v.renderSearchResults();doc.hidden=true;doc.emit('visibilitychange');assert.equal(v.searchMenu,null);doc.hidden=false;
+ Platform.isMobile=true;v.filters.query='world';v.searchEl.focus();assert(v.searchMenu.dismiss);v.searchEl.value='queued';v.onSearchInput();v.clearSearch();assert.equal(v.filters.query,'');assert.equal(v.searchMenu,null);assert.notEqual(doc.activeElement,v.searchEl);flush();assert.equal(v.searchMenu,null,'Mobile clear must close rather than reopen the picker');v.searchEl.value='late IME commit';v.onSearchInput();flush();assert.equal(v.filters.query,'');assert.equal(v.searchEl.value,'');assert.equal(v.searchMenu,null);
+ v.filters.query='world';v.searchEl.focus();assert(v.searchMenu.dismiss);v.searchMenu.dismiss.emit('click');assert.equal(v.searchMenu,null);assert.notEqual(doc.activeElement,v.searchEl);
+ v.searchEl.focus();doc.emit('pointerdown',{target:new Element()});assert.equal(v.searchMenu,null);assert.notEqual(doc.activeElement,v.searchEl);
+ v.searchEl.focus();const note=new Element();note.focus();doc.emit('focusin',{target:note});assert.equal(doc.activeElement,note,'Closing search must not blur the field the user tapped');assert.equal(v.searchMenu,null);
+ v.renderSearchResults();await v.onClose();assert.equal(v.searchMenu,null);assert.equal(doc.count(),0);assert.equal(win.count(),0);
+ console.log('PASS: scoped/global result menus, no main-list renders, workspace preference, IME/keyboard, stable category/project destinations, draft/stale guards, 5k-result bounded DOM, reveal/query behavior and complete dismissal/teardown.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

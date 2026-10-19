@@ -31,7 +31,7 @@ const doc={hidden:false,defaultView:win};class ItemView{constructor(){this.conte
 const ctx={module:{exports:{}},require:n=>{assert.equal(n,'obsidian');return {Plugin:class{},ItemView,Modal:class{},Platform:{}};}};
 vm.runInNewContext(fs.readFileSync('main.js','utf8')+'\nmodule.exports.Browser=LiteratureBrowser;',ctx);
 (async()=>{
- const v=new ctx.module.exports.Browser({},{});v.searchEl={value:'',focus(){}};v.syncSearchControls=()=>{};v.syncControls=()=>{};v.renderList=()=>{v.cancelSearchRender();renders++;};
+ const v=new ctx.module.exports.Browser({},{});v.searchEl={value:'',focus(){}};v.syncSearchControls=()=>{};v.syncControls=()=>{};v.renderList=()=>{throw Error('Typing must not rebuild the paper list');};v.renderSearchResults=()=>{renders++;};v.remember=()=>{};
  const flush=()=>{const work=[...frames.values()];frames.clear();work.forEach(f=>f());};
  for(const value of ['w','wo','world']){v.searchEl.value=value;v.onSearchInput();}assert.equal(frames.size,1);assert.equal(renders,0);flush();assert.equal(renders,1);assert.equal(v.filters.query,'world');
  v.searchComposing=true;v.searchEl.value='世界';v.onSearchInput({isComposing:true});assert.equal(frames.size,0);assert.equal(renders,1);v.searchComposing=false;v.onSearchInput();v.onSearchInput();assert.equal(frames.size,1);flush();assert.equal(renders,2);

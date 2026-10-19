@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.9.5 — 2026-10-19
+
+- Search in a dropdown without changing the paper list. Check **Search all papers** to search across the public library, then select a result to open its category and focus the paper.
+- Keep search terms across navigation, with keyboard selection, Chinese input support and a bounded result window for large libraries.
+- On mobile, the search-field × clears and closes search and the keyboard. Closing search also handles delayed input events without reopening the menu.
+- Keep result menus within 640px and the screen width, scroll vertically, and hover to read complete titles and category paths.
+- Add **Show in Finder / file manager** at the top of desktop paper menus. Move subcategory actions below category actions, and current-collection removal beside Trash.
+- Validate with 63 offline suites and synthetic desktop/mobile viewport checks, including long text, delayed input and 5,000-result scrolling.
+
 ## 4.9.4 — 2026-10-17
 
 - Copy paper titles and TL;DRs directly; double-click and select-all stay within the focused text instead of including nearby fields.

@@ -1,6 +1,6 @@
 # Development
 
-This repository contains the plugin source and synthetic tests, with no personal library data. The first version-controlled baseline was 4.2.3; the current release is 4.9.1.
+This repository contains the plugin source and synthetic tests, with no personal library data. The first version-controlled baseline was 4.2.3; the current release is 4.9.5.
 
 ## Build and test
 
@@ -21,6 +21,7 @@ The build assembles source modules into `main.js` and copies the plugin CSS to `
 | --- | --- |
 | `dashboard.js`, `collections.js`, `organization.js` | Markdown parsing, metadata and collection membership |
 | `library-view.js`, `collection-view.js`, `library-view.css` | Navigation, compact lists, details and controls |
+| `library-search.js`, `advanced-search.js`, `advanced-search-view.js`, `search-results-view.js` | Cached local search, advanced criteria and virtualized search-and-jump menus |
 | `pane-splitter.js` | Accessible mouse/touch pane resizing and workspace-only size preferences |
 | `tag-tree.js`, `tag-map-view.js`, `tag-filter-view.js` | Optional Markdown tag vocabulary and editable map; assignments remain in the library |
 | `tag-rename.js`, `source-transaction.js` | Provenance-preserving global tag rename and guarded multi-source writes |

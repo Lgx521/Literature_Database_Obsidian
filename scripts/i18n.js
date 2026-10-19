@@ -1,6 +1,12 @@
 'use strict';
 // Source table values and user content are never translated in storage.
 const english = {
+  "收起搜索和键盘": "Close search and keyboard",
+  "在全部文献中搜索": "Search all papers",
+  "搜索结果": "Search results",
+  "输入关键词搜索文献": "Type to search papers",
+  "没有匹配文献": "No matching papers",
+  "文献已发生变化，请重新搜索": "This paper has changed. Search again.",
   "高级搜索": "Advanced search",
   "清空搜索": "Clear search",
   "匹配方式": "Match",
@@ -481,6 +487,8 @@ const english = {
   "加入分类／项目…": "Add to category / project…",
   "移到…": "Move to…",
   "导出选中文献…": "Export selected papers…",
+  "在 Finder 中显示": "Show in Finder",
+  "在文件管理器中显示": "Show in file manager",
   "选中文献": "Selected papers",
   "移至回收站": "Move to trash",
   "仅有一个归属": "Only one collection",
