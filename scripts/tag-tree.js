@@ -41,6 +41,18 @@ function effective(model,rows){
   group.tags.push(tag);known.add(fold(tag));
  }return validate(next);
 }
+// Add only a preview's small vocabulary delta to a fresh catalog. Do not move
+// existing tags between groups when a different draft/user changed the catalog.
+function mergeAdditions(model,additions){
+ if(!additions?.groups?.length)return model;
+ const next=clone(model),groups=new Map(next.groups.map(g=>[fold(g.name),g])),owners=new Map();
+ for(const g of next.groups)for(const tag of g.tags)owners.set(fold(tag),g);
+ for(const addition of additions?.groups||[]){
+  let group=groups.get(fold(addition.name));if(!group){group={name:addition.name,tags:[]};groups.set(fold(group.name),group);next.groups.push(group);}
+  for(const tag of addition.tags){const owner=owners.get(fold(tag));if(owner&&owner!==group)throw Error(tr('标签目录已改变，请重新打开；输入已保留'));if(!owner){group.tags.push(tag);owners.set(fold(tag),group);}}
+ }
+ return validate(next);
+}
 function addGroup(model,name){const next=clone(model);next.groups.push({name:groupName(name),tags:[]});return validate(next);}
 function addTag(model,group,parent,value){
  const next=clone(model),g=next.groups.find(g=>g.name===group);if(!g)throw Error(tr('标签分组已改变，请重新打开'));
@@ -130,4 +142,4 @@ function layout(tree,{collapsed=new Set(),editor=null,sides=new Map()}={}){
  for(const n of visible){n.x-=left;n.y+=12;}
  return {nodes:visible,width:right-left,height:height+60};
 }
-module.exports={remove,FILE,START,END,parse,serialize,validate,validTag,label,family,effective,addGroup,addTag,moveFamily,rename,tree,layout,read,save,fold};
+module.exports={remove,FILE,START,END,parse,serialize,validate,validTag,label,family,effective,mergeAdditions,addGroup,addTag,moveFamily,rename,tree,layout,read,save,fold};

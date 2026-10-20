@@ -4,7 +4,19 @@
 // only the guarded, explicit Apply path below can change the vault.
 module.exports=function({Plan,Engine,Collections,TagTree,Organization,Sha256,CitationMetadata,SourceTransaction,loadPdfJs,requestUrl,tr,desktop=false,nodeRequire=null}){
  const ENDPOINT='https://api.deepseek.com/chat/completions';
- const MAX_PAGES=12,MAX_CHARS=48000,MAX_BYTES=30*1024*1024;
+ const MAX_PAGES=12,MAX_CHARS=48000,MAX_BYTES=50*1024*1024;
+ function pageText(items,limit){
+  // Match items.map(...).join(' ').slice(0, limit) without first assembling a
+  // potentially huge page string or retaining its backing store in a slice.
+  const parts=[];let left=limit;
+  for(let i=0;i<items.length&&left;i++){
+   if(i){parts.push(' ');if(!--left)break;}
+   const value=String(items[i].str||''),length=Math.min(left,value.length);
+   if(length)parts.push(length===value.length?value:value.slice(0,length).split('').join(''));
+   left-=length;
+  }
+  return parts.join('');
+ }
  const fail=key=>{throw Error(tr(key));};
  const blank=value=>!String(value||'').trim()||['待整理','待核实','—'].includes(value);
  const revision=file=>JSON.stringify([file.path,file.stat.size,file.stat.mtime]);
@@ -56,7 +68,7 @@ module.exports=function({Plan,Engine,Collections,TagTree,Organization,Sha256,Cit
   file(path,data){
    if(typeof path!=='string'||! /^(papers|temp)\/.+\.pdf$/i.test(path)||path.includes('\\')||path.split('/').some(s=>!s||s==='.'||s==='..'))fail('仅支持公开文献与收件箱 PDF');
    const file=this.plugin.app.vault.getAbstractFileByPath(path);if(!file||file.children||path.startsWith('papers/')&&!data.rows.some(r=>r.path===path))fail('PDF 已改变或不在公开文献库中');
-   if(file.stat.size>MAX_BYTES)fail('Beta 暂不处理超过 30 MB 的 PDF');return file;
+   if(file.stat.size>MAX_BYTES)fail('Beta 暂不处理超过 50 MB 的 PDF');return file;
   }
   async confined(path){
    if(!desktop)return;
@@ -75,11 +87,11 @@ module.exports=function({Plan,Engine,Collections,TagTree,Organization,Sha256,Cit
     let bytes,task,off;
     try{
      bytes=await this.plugin.app.vault.readBinary(file);check();work.check();
-     if(bytes.byteLength>MAX_BYTES)fail('Beta 暂不处理超过 30 MB 的 PDF');
+     if(bytes.byteLength>MAX_BYTES)fail('Beta 暂不处理超过 50 MB 的 PDF');
      task=pdfjs.getDocument({data:new Uint8Array(bytes),isEvalSupported:false,useSystemFonts:true});off=work.onCancel(()=>task.destroy?.());
      const doc=await task.promise;check();work.check();if(!Number.isInteger(start)||start<1||start>doc.numPages)fail('页码超出 PDF 范围');
      const numbers=Array.from({length:Math.min(limits.pages||MAX_PAGES,doc.numPages-start+1)},(_,i)=>start+i),pages=[];let remaining=limits.chars||MAX_CHARS;
-     for(const n of numbers){check();work.check();const page=await doc.getPage(n);try{const content=await page.getTextContent();check();work.check();const value=content.items.map(i=>i.str||'').join(' ').slice(0,Math.min(8000,remaining));pages.push({page:n,text:value});remaining-=value.length;}finally{page.cleanup();}if(remaining<=0)break;}
+     for(const n of numbers){check();work.check();const page=await doc.getPage(n);try{const content=await page.getTextContent();check();work.check();const value=pageText(content.items,Math.min(8000,remaining));pages.push({page:n,text:value});remaining-=value.length;}finally{page.cleanup();}if(remaining<=0)break;}
      check();work.check();if(revision(file)!==before)fail('PDF 已改变或不在公开文献库中');if(!pages.some(p=>p.text.trim()))fail('PDF 没有可提取文本，未发送请求');
      return {pages,total:doc.numPages,revision:before};
     }finally{
@@ -238,7 +250,7 @@ module.exports=function({Plan,Engine,Collections,TagTree,Organization,Sha256,Cit
      if('placements' in prepared.edits)for(const group of data.groups.filter(g=>g.scope==='library'&&g.members.some(m=>m.path===proposal.path)&&!placements.some(t=>t.name===g.name)))collections=Collections.change(collections,[destination],null,{from:{scope:'library',name:group.name}});
      for(const target of placements)collections=Collections.change(collections,[destination],target);
      const newTags=prepared.values.tags.split(/\s+/).filter(t=>!known.has(t));
-     let model=TagTree.effective(data.catalog.model,data.rows);for(const addition of prepared.edits.tagAdditions?.groups||[]){let group=model.groups.find(g=>TagTree.fold(g.name)===TagTree.fold(addition.name));if(!group){group={name:addition.name,tags:[]};model.groups.push(group);}for(const tag of addition.tags){const owner=model.groups.find(g=>g.tags.some(t=>TagTree.fold(t)===TagTree.fold(tag)));if(owner&&owner!==group)fail('标签目录已改变，请重新打开；输入已保留');if(!owner)group.tags.push(tag);}}
+     const model=TagTree.mergeAdditions(TagTree.effective(data.catalog.model,data.rows),prepared.edits.tagAdditions);
      const tags=newTags.length||prepared.edits.tagAdditions?TagTree.serialize(TagTree.effective(model,[{tags:prepared.values.tags}]),data.catalog.text):data.catalog.text;
      await SourceTransaction.write(vault,{'library.md':data.library,'collections.md':data.collections,'tags.md':data.catalog.text},{'library.md':library,'collections.md':collections,'tags.md':tags},'deepseek-beta');
      return destination;

@@ -16,7 +16,8 @@ const vault={getAbstractFileByPath:p=>files.get(p),read:async f=>store.get(f.pat
  delete:async f=>{files.delete(f.path);store.delete(f.path);},adapter:{exists:async p=>files.has(p),mkdir:async p=>folder(p),write:async(p,t)=>put(p,t)}};
 let dirty=false;const plugin={app:{vault,workspace:{getLeavesOfType:()=>[]}},ready:true,stopped:false,hasPendingEdit:()=>dirty,recordAction:async fn=>{if(dirty)throw Error('dirty');return fn();},refresh:async()=>{},pdfWork:new Q()};
 const evidence='Synthetic Evidence Title. The method uses reinforcement learning for robotic control. Evidence is limited to the supplied pages.';
-const loadPdfJs=async()=>({getDocument:()=>{activePdfs++;let done=false;return {promise:Promise.resolve({numPages:pageCount,getPage:async()=>({getTextContent:async()=>({items:[{str:emptyPdf?'':evidence}]}),cleanup(){}})}),destroy:async()=>{if(!done){done=true;destroyed++;activePdfs--;}}};}});
+let textItems=null;
+const loadPdfJs=async()=>({getDocument:()=>{activePdfs++;let done=false;return {promise:Promise.resolve({numPages:pageCount,getPage:async()=>({getTextContent:async()=>({items:textItems||[{str:emptyPdf?'':evidence}]}),cleanup(){}})}),destroy:async()=>{if(!done){done=true;destroyed++;activePdfs--;}}};}});
 const good=()=>({title:'Synthetic Evidence Title',tldr:'A grounded synthetic summary.',tags:['#research/rl'],placement:{category:0,subgroup:''},uncertainty:''});
 let responseValue=good,requestOverride=null;
 const requestUrl=async request=>{
@@ -100,11 +101,22 @@ function update(path,changes){const row=E.parseLibrary(store.get('library.md')).
   const cancelledRead=service.organize('temp/D.pdf','en');while(!finishRead)await new Promise(resolve=>setImmediate(resolve));
   service.cancel();finishRead(retainedBuffer);await assert.rejects(cancelledRead,/cancelled/i);
   assert.equal(retainedBuffer.byteLength,0);assert.equal(destroyed,beforeReadPdfs);assert.equal(requests,beforeReadRequests);assert.equal(plugin.pdfWork.active,null);
-  const oversized=new ArrayBuffer(30*1024*1024+1);vault.readBinary=async()=>oversized;
-  await assert.rejects(service.organize('temp/D.pdf','en'),/30 MB/);assert.equal(oversized.byteLength,0);assert.equal(requests,beforeReadRequests);
+  const file=files.get('temp/D.pdf'),oldSize=file.stat.size,limit=50*1024*1024;
+  let reads=0;vault.readBinary=async()=>{reads++;return new ArrayBuffer(128);};
+  file.stat.size=limit+1;
+  await assert.rejects(service.organize('temp/D.pdf','en'),/50 MB/);assert.equal(reads,0,'Oversize stat is rejected before reading');
+  file.stat.size=limit;const boundary=new ArrayBuffer(limit);vault.readBinary=async()=>boundary;
+  await service.organize('temp/D.pdf','en');assert.equal(boundary.byteLength,0,'Exactly 50 MiB is accepted and released');
+  file.stat.size=oldSize;const beforeOversized=requests;
+  const oversized=new ArrayBuffer(limit+1);vault.readBinary=async()=>oversized;
+  await assert.rejects(service.organize('temp/D.pdf','en'),/50 MB/);assert.equal(oversized.byteLength,0);assert.equal(requests,beforeOversized);
   const completedBuffer=new ArrayBuffer(128);vault.readBinary=async()=>completedBuffer;
   await service.organize('temp/D.pdf','en');assert.equal(completedBuffer.byteLength,0);assert.equal(activePdfs,0);
   vault.readBinary=readBinary;
+  // Excerpts must not assemble or inspect the remainder of a huge page.
+  textItems=[{str:'x'.repeat(32000)},{get str(){throw Error('Unneeded page tail was read');}}];
+  let excerpt=await service.extract(file,()=>{});assert.equal(excerpt.pages.length,6);assert(excerpt.pages.every(p=>p.text==='x'.repeat(8000)));
+  textItems=[{str:''},{str:'a😀b'},{},{str:' c'}];excerpt=await service.extract(file,()=>{},1,{pages:1,chars:7});assert.equal(excerpt.pages[0].text,textItems.map(i=>i.str||'').join(' ').slice(0,7));textItems=null;
   service.disable();assert.equal(service.key,'');assert.equal(service.enabled,false);assert(!service.busy);assert.equal(service.cancelRequest,null);
  }finally{service.close();plugin.pdfWork.close();}
  console.log('PASS: offline DeepSeek proposals, bounded PDF lifetime, protected fields, provenance, guarded filing/rollback, editable previews, catalog transactions, cancellation and redacted errors.');

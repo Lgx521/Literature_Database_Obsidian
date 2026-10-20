@@ -6,7 +6,7 @@ const doc={hidden:false,defaultView:{matchMedia:()=>media,getComputedStyle:()=>(
 const root={ownerDocument:doc,addEventListener:(k,f)=>listeners.set(k,f),removeEventListener:k=>listeners.delete(k),contains:()=>true};
 let animations=[];const summary={setAttribute(k,v){this[k]=v;},focus(){doc.activeElement=this;}},body={inert:false};
 const details={ownerDocument:doc,tagName:'DETAILS',open:false,style:{overflow:''},children:[summary,body],contains:el=>el===body,querySelector:()=>summary,getBoundingClientRect(){const active=animations.find(a=>!a.cancelled);return {height:active?60:this.open?120:20};},animate(frames,options){const a={frames,options,cancelled:false,cancel(){this.cancelled=true;}};animations.push(a);return a;}};summary.parentElement=details;summary.closest=s=>s==='summary'?summary:null;
-const motion=new ctx.Motion(root,{disclosures:true});
+const events=[],motion=new ctx.Motion(root,{disclosures:true,prepareDisclosure:(el,open)=>events.push(['prepare',open]),finishDisclosure:(el,open)=>events.push(['finish',open])});
 listeners.get('click')({target:summary,preventDefault(){}});assert(details.open);assert.equal(motion.disclosures.get(details).open,true);assert.equal(animations.length,1);assert.equal(animations[0].options.duration,180);
 doc.activeElement=body;motion.setOpen(details,false);assert.equal(doc.activeElement,summary);assert(body.inert);assert.equal(motion.animations.size,1);assert.equal(animations[1].frames[0].height,'60px','Rapid reversal starts at the rendered height');
 // A cancelled callback delivered late must not overwrite the current target.
@@ -15,4 +15,6 @@ animations[1].onfinish();assert(!details.open);assert(!body.inert);assert.equal(
 const animationCount=animations.length;media.matches=true;motion.setOpen(details,true);assert(details.open);assert.equal(animations.length,animationCount);media.matches=false;
 motion.setOpen(details,false);media.matches=true;media.listener();assert(!details.open);assert.equal(motion.animations.size,0);media.matches=false;
 motion.setOpen(details,true);motion.destroy();assert(details.open);assert.equal(motion.animations.size,0);assert.equal(motion.disclosures.size,0);assert.equal(listeners.size,0);assert.equal(media.listener,null);assert.equal(details.style.overflow,'');
-console.log('PASS: native disclosure interaction, reversible height motion, focus/inert restoration, reduced motion and teardown.');
+assert.deepEqual(events,[['prepare',true],['finish',true],['prepare',false],['finish',false],['prepare',true],['finish',true],['prepare',false],['finish',false],['prepare',true],['finish',true]]);
+assert.equal(motion.prepareDisclosure,null);assert.equal(motion.finishDisclosure,null);
+console.log('PASS: native disclosure interaction, reversible height motion, lazy-content hooks, focus/inert restoration, reduced motion and teardown.');

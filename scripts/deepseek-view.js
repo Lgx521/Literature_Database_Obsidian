@@ -20,6 +20,7 @@ function ldbDeepSeekLabel(plugin){
  if(w?.pending.length)return w.pending.length+' '+tr('项待确认');
  if(w?.phase==='error')return tr('需要处理');
  if(w?.phase==='stopped')return tr('已停止');
+ if(w?.queuedCount)return tr('待继续下一批');
  if(w?.phase==='done')return tr('已完成');
  return tr(plugin.deepSeek?.enabled?'已就绪':plugin.settings?.deepSeekEncrypted?'待解锁':'未启用');
 }
@@ -33,7 +34,7 @@ function ldbDeepSeekNav(parent,plugin){
  const b=ldbButton(parent,'',()=>ldbOpenDeepSeek(plugin),'ldb-nav-item ldb-deepseek-nav');b.hidden=!ldbDeepSeekAvailable(plugin);setIcon(b.createSpan('ldb-nav-icon'),'sparkles');const text=b.createSpan('ldb-deepseek-nav-text');text.createSpan({text:'DeepSeek Beta'});text.createSpan({cls:'ldb-deepseek-nav-status',text:ldbDeepSeekLabel(plugin)});b.toggleClass('is-working',!!plugin.deepSeekWork?.running);b.toggleClass('has-results',!!plugin.deepSeekWork?.pending.length);
 }
 class DeepSeekBetaModal extends Modal{
- constructor(plugin,paths=[]){super(plugin.app);this.plugin=plugin;this.paths=[...new Set(paths)].slice(0,20);this.work=ldbDeepSeekWork(plugin);this.service=this.work.service;this.closed=false;this.localBusy=false;this.itemViews=new Map();}
+ constructor(plugin,paths=[]){super(plugin.app);this.plugin=plugin;this.paths=[...new Set(paths)];this.work=ldbDeepSeekWork(plugin);this.service=this.work.service;this.closed=false;this.localBusy=false;this.itemViews=new Map();this.proposalViews=new WeakMap();}
  get working(){return this.work.running||this.localBusy;}
  open(){if(!ldbDeepSeekAvailable(this.plugin))return;if(this.plugin.deepSeekModal){this.plugin.deepSeekModal.modalEl.focus();return;}this.plugin.deepSeekModal=this;super.open();}
  button(parent,label,fn,cls=''){return ldbButton(parent,tr(label),()=>this.perform(fn),cls);}
@@ -41,14 +42,15 @@ class DeepSeekBetaModal extends Modal{
  async perform(fn){if(this.working)return;this.error.setText('');this.localBusy=true;this.requestSync();try{await fn();}catch(error){if(!this.closed)this.error.setText(error.message);}finally{this.localBusy=false;this.work.emit();}}
  onOpen(){
   this.modalEl.addClass('ldb-deepseek-modal','ldb-dialog');this.titleEl.empty();this.titleEl.createSpan({text:'DeepSeek'});this.titleEl.createSpan({cls:'ldb-deepseek-beta-badge',text:'BETA'});
-  const el=this.contentEl;this.motion=new LdbMotion(el,{disclosures:true});this.scroll=el.createDiv('ldb-deepseek-scroll');this.buildConfig(this.scroll);this.error=this.scroll.createDiv({cls:'ldb-form-error',attr:{role:'alert'}});
+  const el=this.contentEl;this.motion=new LdbMotion(el,{disclosures:true,prepareDisclosure:(root,open)=>{if(open)this.mountProposal(this.proposalViews.get(root));},finishDisclosure:(root,open)=>{if(!open)this.unmountProposal(this.proposalViews.get(root));}});this.scroll=el.createDiv('ldb-deepseek-scroll');this.buildConfig(this.scroll);this.error=this.scroll.createDiv({cls:'ldb-form-error',attr:{role:'alert'}});
   const source=this.scroll.createDiv('ldb-deepseek-scope');const field=source.createDiv('ldb-deepseek-field');field.createEl('label',{text:tr('整理范围')});this.mode=field.createEl('select',{attr:{'aria-label':tr('整理范围')}});this.scopeOptions={};
   if(this.paths.length)this.scopeOptions.selection=this.mode.createEl('option',{value:'selection'});this.scopeOptions.inbox=this.mode.createEl('option',{value:'inbox'});this.scopeOptions.pending=this.mode.createEl('option',{value:'pending'});this.mode.value=this.paths.length?'selection':this.work.draft.mode==='selection'?'inbox':this.work.draft.mode;this.mode.addEventListener('change',()=>{this.work.draft.mode=this.mode.value;this.sync();});
   const modelRow=this.scroll.createDiv('ldb-deepseek-model-row');source.before(modelRow);const modelField=this.field(modelRow,'模型');this.modelSelect=modelField.createEl('select',{attr:{'aria-label':tr('模型')}});this.modelSelect.addEventListener('change',()=>this.perform(()=>this.changeModel(this.modelSelect.value)));this.modelsButton=this.button(modelRow,'刷新模型',()=>this.loadModels(true));
   this.generate=this.taskButton(source,'开始整理',()=>this.needsPlan()?this.work.planInbox(this.batch()):this.work.organize(this.batch()),'mod-cta');
   this.task=this.scroll.createDiv({cls:'ldb-deepseek-task',attr:{role:'status','aria-live':'polite'}});const taskTop=this.task.createDiv('ldb-deepseek-task-heading');this.taskIcon=taskTop.createSpan('ldb-deepseek-task-icon');this.taskTitle=taskTop.createEl('strong');this.filename=this.task.createDiv('ldb-deepseek-current');this.track=this.task.createDiv('ldb-deepseek-track');this.bar=this.track.createDiv('ldb-deepseek-bar');
+  this.batchBar=this.scroll.createDiv('ldb-deepseek-result-heading');this.batchStatus=this.batchBar.createEl('strong');this.nextBatchButton=this.taskButton(this.batchBar,'继续下一批',()=>this.work.nextBatch(),'mod-cta');this.discardQueueButton=this.button(this.batchBar,'取消剩余批次',()=>this.work.discardQueue());
   this.planPanel=this.scroll.createDiv('ldb-deepseek-plan');
-  this.preview=this.scroll.createDiv();const resultTop=this.preview.createDiv('ldb-deepseek-result-heading');this.resultTitle=resultTop.createEl('strong');this.applyAll=this.taskButton(resultTop,'全部应用',()=>this.work.apply(this.work.ready),'mod-cta');this.clearButton=this.button(resultTop,'清除结果',()=>this.work.clear(),'ldb-deepseek-text-button');this.results=this.preview.createDiv('ldb-deepseek-results');
+  this.preview=this.scroll.createDiv();const resultTop=this.preview.createDiv('ldb-deepseek-result-heading');this.resultTitle=resultTop.createEl('strong');this.applyAll=this.taskButton(resultTop,'全部应用',()=>this.work.apply(this.work.ready),'mod-cta');this.clearButton=this.button(resultTop,'清除结果',()=>this.work.clearResults(),'ldb-deepseek-text-button');this.results=this.preview.createDiv('ldb-deepseek-results');
   this.empty=this.scroll.createDiv({cls:'ldb-deepseek-empty',text:tr('生成篇名、TL;DR、标签和分类，修改后应用。')});
   const footer=el.createDiv('ldb-deepseek-footer');this.footerHint=footer.createSpan();this.planActions=footer.createDiv('ldb-actions ldb-deepseek-plan-actions');this.cancelButton=ldbButton(footer,tr('停止处理'),()=>this.work.stop(),'ldb-deepseek-stop');this.closeButton=ldbButton(footer,tr('关闭'),()=>this.close());
   this.renderDoc=this.modalEl.ownerDocument;this.renderWin=this.renderDoc.defaultView;
@@ -72,7 +74,7 @@ class DeepSeekBetaModal extends Modal{
   this.passInput=this.config.createEl('input',{type:'password',attr:{placeholder:tr('同步口令（至少 12 个字符）'),'aria-label':tr('同步口令（至少 12 个字符）'),autocomplete:'off'}});
   for(const input of [this.keyInput,this.passInput])input.addEventListener('input',()=>this.syncKeyControls());
   const sync=this.config.createDiv('ldb-actions');this.unlockButton=this.button(sync,'解锁同步密钥',()=>this.unlockSecret(),'mod-cta');this.saveButton=this.button(sync,'加密保存到 iCloud',()=>this.saveSecret());
-  const more=this.config.createEl('details',{cls:'ldb-deepseek-secret-more'});more.createEl('summary',{text:tr('同步说明与密钥管理')});more.createEl('p',{cls:'ldb-deepseek-caption',text:tr('勾选记住后，API Key 保存在此设备的 Obsidian 密钥存储，重开插件无需解锁。同步口令不会保存；iCloud 仅同步加密密钥，其他设备需先解锁一次。忘记口令可重新配置密钥。')});more.createEl('p',{cls:'ldb-deepseek-caption',text:tr('锁定后需重新输入同步口令或 API Key，不会自动解锁；保留同步配置和整理结果。')});more.createEl('p',{text:tr('整理会将选中 PDF 的文本、分类和标签发送给 DeepSeek，不发送 Notes 或审稿材料。每批最多 20 篇，每篇最多 12 页。关闭面板后继续，退出 Obsidian 后停止。')});
+  const more=this.config.createEl('details',{cls:'ldb-deepseek-secret-more'});more.createEl('summary',{text:tr('同步说明与密钥管理')});more.createEl('p',{cls:'ldb-deepseek-caption',text:tr('勾选记住后，API Key 保存在此设备的 Obsidian 密钥存储，重开插件无需解锁。同步口令不会保存；iCloud 仅同步加密密钥，其他设备需先解锁一次。忘记口令可重新配置密钥。')});more.createEl('p',{cls:'ldb-deepseek-caption',text:tr('锁定后需重新输入同步口令或 API Key，不会自动解锁；保留同步配置和整理结果。')});more.createEl('p',{text:tr('整理会将选中 PDF 的文本、分类和标签发送给 DeepSeek，不发送 Notes 或审稿材料。超过 20 篇时分批处理，每篇最多 50 MB、12 页。关闭面板后继续，退出 Obsidian 后停止。')});
   const extra=more.createDiv('ldb-actions');this.disableButton=this.button(extra,'关闭并清除本机密钥',()=>{try{getDeepSeekSecret().forgetDevice(this.app);}catch(e){throw this.secretError(e);}this.service.disable();this.service.locked=true;this.resetKeyEditor();this.motion.setOpen(this.config,true);});this.forgetButton=this.button(extra,'移除同步密钥',()=>this.forgetSecret());
  }
  refreshDeviceState(){this.deviceState=getDeepSeekSecret().deviceState(this.app,this.plugin.settings.deepSeekEncrypted);}
@@ -108,7 +110,7 @@ class DeepSeekBetaModal extends Modal{
   const filed=mode==='pending'?new Set((s.collections||[]).filter(g=>g.scope==='library').flatMap(g=>g.members.map(m=>m.path))):null,paths=new Set();
   for(const r of (mode==='inbox'?s.inbox:s.library)||[]){
    if(mode==='pending'&&(r.organizing==='人工完成'||!Organization.temporaryTitle(r)&&r.tags?.trim()&&r.tldr?.trim()&&r.tldr!=='待整理'&&filed.has(r.path)))continue;
-   paths.add(r.path);if(paths.size===20)break;
+   paths.add(r.path);
   }
   return cache[mode]=[...paths];
  }
@@ -120,8 +122,9 @@ class DeepSeekBetaModal extends Modal{
  }
  sync(){
   if(this.closed||!this.task)return;if(this.renderDoc?.hidden){this.pendingSync=true;return;}this.cancelSync();this.pendingSync=false;const w=this.work,busy=this.working,ready=this.service.enabled&&!this.service.wire,pending=w.pending.length;
-  this.syncKeyControls();ldbDeepSeekProps(this.mode,{disabled:busy||!!w.plan});ldbDeepSeekProps(this.generate,{disabled:busy||!ready||!this.service.selectedModel()||!this.batch().length||!!pending||!!w.plan,title:pending?tr('请先应用或清除当前结果'):''});
+  this.syncKeyControls();ldbDeepSeekProps(this.mode,{disabled:busy||!!w.plan||!!w.queuedCount});ldbDeepSeekProps(this.generate,{disabled:busy||!!w.queuedCount||!ready||!this.service.selectedModel()||!this.batch().length||!!pending||!!w.plan,title:pending?tr('请先应用或清除当前结果'):''});
   ldbDeepSeekText(this.generate,tr(this.needsPlan()?'规划收件箱':'开始整理'));
+  this.syncBatches();
   this.syncModels();
   for(const [mode,opt] of Object.entries(this.scopeOptions))ldbDeepSeekText(opt,tr(mode==='selection'?'当前选择':mode==='inbox'?'收件箱':'文献库中信息不完整的论文')+' · '+this.batch(mode).length);
   ldbDeepSeekProps(this.task,{hidden:['idle','ready','done','plan'].includes(w.phase)});ldbDeepSeekClass(this.task,'is-working',w.running);ldbDeepSeekClass(this.task,'is-error',w.phase==='error');ldbDeepSeekText(this.taskTitle,ldbDeepSeekLabel(this.plugin));ldbDeepSeekText(this.filename,w.filename||w.error||'');ldbDeepSeekProps(this.filename,{hidden:!w.filename&&!w.error,title:w.filename||w.error});ldbDeepSeekProps(this.track,{hidden:!w.running});ldbDeepSeekProps(this.bar.style,{width:(w.total?100*w.done/w.total:0)+'%'});const icon=w.running?'loader-circle':w.phase==='error'?'circle-alert':w.phase==='stopped'?'pause':'check';if(icon!==this.taskIconName){this.taskIconName=icon;setIcon(this.taskIcon,icon);}
@@ -131,10 +134,19 @@ class DeepSeekBetaModal extends Modal{
   ldbDeepSeekText(this.empty,tr(this.needsPlan()?'先统一规划本批分类与标签，确认后再逐篇整理。':'生成篇名、TL;DR、标签和分类，修改后应用。'));
   if(this.renderedRevision!==w.revision&&this.renderResults()!==false)this.renderedRevision=w.revision;
   for(const [item,view] of this.itemViews){
+   if(!view.body)continue;
    const review=w.review(item),disabled=busy||!!item.applied;
    if(view.controlsDisabled!==disabled){view.controlsDisabled=disabled;for(const input of view.body.querySelectorAll('input,textarea,select,button'))input.disabled=disabled;for(const select of view.body.querySelectorAll('[data-child]'))select.disabled=disabled||!select.dataset.parent;}
    ldbDeepSeekProps(view.apply,{disabled:disabled||!ready||!!item.tagInput?.trim()||!!review.error});ldbDeepSeekProps(view.ignore,{disabled:busy});ldbDeepSeekText(view.validation,item.tagError||review.error||'');
   }
+ }
+ syncBatches(){
+  const w=this.work,q=w.queue,busy=this.working,queued=w.queuedCount;
+  ldbDeepSeekProps(this.batchBar,{hidden:!q||q.count===1&&!queued});
+  ldbDeepSeekText(this.batchStatus,q?tr('第 {0} / {1} 批',q.index,q.count):'');
+  const waiting=busy||!!w.plan;ldbDeepSeekProps(this.nextBatchButton,{hidden:!queued||waiting,disabled:!!w.pending.length||!this.service.enabled||!!this.service.wire||!this.service.selectedModel(),title:w.pending.length?tr('应用或忽略本批结果后，继续下一批'):''});
+  ldbDeepSeekText(this.nextBatchButton,tr(q?.active.length?'重试本批':'继续下一批'));
+  ldbDeepSeekProps(this.discardQueueButton,{hidden:!queued||waiting,disabled:busy});
  }
  syncPlan(){
   const w=this.work,plan=w.plan;this.planPanel.hidden=!plan;this.planActions.hidden=!plan;
@@ -168,7 +180,7 @@ class DeepSeekBetaModal extends Modal{
    if(item.ignored)continue;
    if(!item.proposal){if(!this.results.querySelector('[data-error-path="'+CSS.escape(item.path)+'"]'))this.results.createDiv({cls:'ldb-form-error',text:item.filename+': '+item.error,attr:{'data-error-path':item.path}});continue;}
    let view=this.itemViews.get(item);if(!view){view=this.renderProposal(item);this.itemViews.set(item,view);}
-   view.root.hidden=!!item.ignored;view.state.setText(item.applied?tr('已应用'):item.error?tr('需要处理'):'');view.body.hidden=!!item.applied;view.error.setText(item.error||'');if(item.applied)this.motion.setOpen(view.root,false);
+   view.root.hidden=!!item.ignored;view.state.setText(item.applied?tr('已应用'):item.error?tr('需要处理'):'');view.error?.setText(item.error||'');if(item.applied){this.motion.setOpen(view.root,false);if(!this.motion.disclosures.has(view.root))this.unmountProposal(view);}
   }
   for(const el of this.results.querySelectorAll('[data-error-path]'))if(!w.items.some(i=>!i.proposal&&i.path===el.dataset.errorPath))el.remove();
  }
@@ -176,13 +188,23 @@ class DeepSeekBetaModal extends Modal{
  edit(item,field,value){if(this.working||item.applied)return;const equal=(a,b)=>a===b||typeof a==='object'&&typeof b==='object'&&JSON.stringify(a)===JSON.stringify(b);if(equal(this.values(item)[field],value))return;const edits={...item.edits};if(equal(value,item.proposal.preview[field]))delete edits[field];else edits[field]=value;item.edits=edits;this.requestSync();}
  field(parent,label){const box=parent.createDiv('ldb-deepseek-field');box.createEl('label',{text:tr(label)});return box;}
  renderProposal(item){
-  const p=item.proposal,root=this.results.createEl('details',{cls:'ldb-deepseek-proposal'});root.open=this.itemViews.size===0;const summary=root.createEl('summary');summary.title=p.filename;const icon=summary.createSpan();setIcon(icon,'file-text');const title=summary.createSpan({cls:'ldb-deepseek-proposal-title',text:this.values(item).title});const state=summary.createSpan('ldb-deepseek-item-state');const body=root.createDiv('ldb-deepseek-proposal-body');
+  const p=item.proposal,root=this.results.createEl('details',{cls:'ldb-deepseek-proposal'});root.open=this.itemViews.size===0&&!item.applied;const summary=root.createEl('summary');summary.title=p.filename;const icon=summary.createSpan();setIcon(icon,'file-text');const title=summary.createSpan({cls:'ldb-deepseek-proposal-title',text:this.values(item).title});const state=summary.createSpan('ldb-deepseek-item-state'),view={item,root,title,state};
+  this.proposalViews.set(root,view);
+  root.addEventListener('toggle',()=>{if(this.closed||this.itemViews.get(item)!==view||this.motion.disclosures.has(root))return;if(root.open)this.mountProposal(view);else this.unmountProposal(view);this.requestSync();});
+  if(root.open)this.mountProposal(view);return view;
+ }
+ unmountProposal(view){
+  if(!view?.body)return;view.body.remove();for(const key of ['body','apply','ignore','error','validation','controlsDisabled'])view[key]=null;
+ }
+ mountProposal(view){
+  if(!view||view.body||view.item.applied||this.closed)return;
+  const {item,root,title}=view,p=item.proposal,body=view.body=root.createDiv('ldb-deepseek-proposal-body');
   const titleInput=this.field(body,'篇名').createEl('input',{type:'text',attr:{'aria-label':tr('篇名'),maxlength:'600'}});titleInput.value=this.values(item).title;titleInput.addEventListener('input',()=>{this.edit(item,'title',titleInput.value);title.setText(titleInput.value||p.filename);});
   const tldr=this.field(body,'TL;DR').createEl('textarea',{attr:{rows:'4',maxlength:'1500','aria-label':'TL;DR'}});tldr.value=this.values(item).tldr;tldr.addEventListener('input',()=>this.edit(item,'tldr',tldr.value));
   this.buildTags(this.field(body,'标签'),item);this.buildPlacements(this.field(body,'分类'),item);
   const novelties=[...(p.taxonomy?.tags||[]).map(t=>TagTree.label(t.tag)+': '+t.reason),...(p.taxonomy?.category?[p.taxonomy.category.name+': '+p.taxonomy.category.reason]:[]),...(p.taxonomy?.subgroup?[p.taxonomy.subgroup.category+' / '+p.taxonomy.subgroup.name+': '+p.taxonomy.subgroup.reason]:[])];if(novelties.length){const notes=body.createEl('details',{cls:'ldb-deepseek-novelty'});notes.open=true;notes.createEl('summary',{text:tr('新建建议')});for(const text of novelties)notes.createEl('p',{text});}
   if(p.uncertainty)body.createEl('p',{cls:'ldb-deepseek-uncertainty',text:p.uncertainty});
-  const validation=body.createDiv({cls:'ldb-deepseek-validation',attr:{role:'status'}}),error=body.createDiv({cls:'ldb-form-error',attr:{role:'alert'}}),actions=body.createDiv('ldb-actions');const apply=this.taskButton(actions,'应用到文献库',()=>this.work.apply([item]),'mod-cta'),ignore=this.button(actions,'忽略',()=>this.work.ignore(item),'ldb-deepseek-text-button');return {root,body,state,apply,ignore,error,validation};
+  const validation=body.createDiv({cls:'ldb-deepseek-validation',attr:{role:'status'}}),error=body.createDiv({cls:'ldb-form-error',attr:{role:'alert'}}),actions=body.createDiv('ldb-actions');const apply=this.taskButton(actions,'应用到文献库',()=>this.work.apply([item]),'mod-cta'),ignore=this.button(actions,'忽略',()=>this.work.ignore(item),'ldb-deepseek-text-button');Object.assign(view,{apply,ignore,error,validation});this.requestSync();
  }
  tagHuman(item,tag){const base=new Set(item.proposal.preview.tags.split(/\s+/)),row=this.plugin.snapshot.library.find(r=>r.path===item.path);return !base.has(tag)||!!row&&Organization.source(row,tag,true).kind==='human';}
  buildTags(parent,item){
@@ -193,12 +215,28 @@ class DeepSeekBetaModal extends Modal{
  }
  openDraftTagMap(item,draw){
   if(this.working||this.tagMap)return;const owner=this;
+  let original=null,base=null,model=null,active=true;
   const view={app:this.app,plugin:this.plugin,get detailRow(){return {tags:owner.values(item).tags};},detailTitle:()=>owner.values(item).title,tagMapState:item.tagMapState,dirty:()=>false,lockFilters(){},reload(){item.tagMapState=view.tagMapState;owner.tagMap=null;if(!owner.closed){draw();owner.sync();}},
    async saveMapTag(tag,checked){const tags=owner.values(item).tags.split(/\s+/).filter(Boolean),next=checked?[...new Set([...tags,tag])]:tags.filter(t=>TagTree.fold(t)!==TagTree.fold(tag));owner.edit(item,'tags',next.join(' '));return true;}};
   const draft={
-   async read(){if(!item.tagModel){const source=await TagTree.read(owner.app.vault);item.originalTagModel=TagTree.effective(source.model,owner.plugin.snapshot.library);item.tagModel=TagTree.effective(item.originalTagModel,[{tags:owner.values(item).tags}]);item.tagBase=item.tagModel;}return {text:TagTree.serialize(item.tagModel),model:item.tagModel};},
-   async store(model){TagTree.validate(model);const groups=model.groups.map(g=>{const before=item.tagBase.groups.find(b=>b.name===g.name);return {name:g.name,tags:g.tags.filter(t=>!before?.tags.includes(t)),fresh:!before};}).filter(g=>g.fresh||g.tags.length).map(({name,tags})=>({name,tags}));item.tagModel=JSON.parse(JSON.stringify(model));owner.edit(item,'tagAdditions',{groups});return TagTree.serialize(model);},
-   canRemove(node){const original=item.originalTagModel;if(!original)return false;if(node.kind==='group')return !original.groups.some(g=>g.name===node.group);const prefix=TagTree.fold(node.tag);return !original.groups.some(g=>g.tags.some(t=>TagTree.fold(t)===prefix||TagTree.fold(t).startsWith(prefix+'/')));},
+   async read(){
+    if(!model){
+     const source=await TagTree.read(owner.app.vault);if(!active||owner.closed)return {text:null,model:{groups:[]}};
+     original=TagTree.effective(source.model,owner.plugin.snapshot.library);base=TagTree.effective(original,[{tags:item.proposal.preview.tags}]);
+     const removed=item.tagDraftRemoved||{},known=new Set(original.groups.flatMap(g=>g.tags.map(TagTree.fold)));
+     model={groups:base.groups.filter(g=>!removed.groups?.includes(g.name)||original.groups.some(o=>o.name===g.name)).map(g=>({name:g.name,tags:g.tags.filter(t=>!removed.tags?.includes(t)||known.has(TagTree.fold(t)))}))};
+     model=TagTree.mergeAdditions(model,item.edits.tagAdditions);model=TagTree.effective(model,[{tags:owner.values(item).tags}]);
+    }
+    return {text:TagTree.serialize(model),model};
+   },
+   async store(next){
+    if(!active||owner.closed)return null;TagTree.validate(next);
+    const groups=next.groups.map(g=>{const before=base.groups.find(b=>b.name===g.name);return {name:g.name,tags:g.tags.filter(t=>!before?.tags.includes(t)),fresh:!before};}).filter(g=>g.fresh||g.tags.length).map(({name,tags})=>({name,tags}));
+    const present=new Set(next.groups.flatMap(g=>g.tags));item.tagDraftRemoved={tags:base.groups.flatMap(g=>g.tags.filter(t=>!present.has(t))),groups:base.groups.filter(g=>!next.groups.some(n=>n.name===g.name)).map(g=>g.name)};
+    model=next;owner.edit(item,'tagAdditions',{groups});return TagTree.serialize(model);
+   },
+   close(){active=false;original=base=model=null;},
+   canRemove(node){if(!original)return false;if(node.kind==='group')return !original.groups.some(g=>g.name===node.group);const prefix=TagTree.fold(node.tag);return !original.groups.some(g=>g.tags.some(t=>TagTree.fold(t)===prefix||TagTree.fold(t).startsWith(prefix+'/')));},
    async remove(change){const removed=new Set(change.removed.map(TagTree.fold));owner.edit(item,'tags',owner.values(item).tags.split(/\s+/).filter(t=>!removed.has(TagTree.fold(t))).join(' '));await this.store(change.model);},
    isHuman:tag=>owner.tagHuman(item,tag)
   };
@@ -206,7 +244,7 @@ class DeepSeekBetaModal extends Modal{
  }
  buildPlacements(parent,item){
   const rows=parent.createDiv('ldb-deepseek-placements');
-  const draw=()=>{rows.empty();const saved=this.values(item).placements,current=saved.length?saved:[{scope:'library',name:'',subgroup:''}],groups=(this.plugin.snapshot.collections||[]).filter(g=>g.scope==='library').map(g=>({...g,subgroups:[...(g.subgroups||[])]}));const novelty=item.proposal.taxonomy;if(novelty?.category&&!groups.some(g=>g.name===novelty.category.name))groups.push({name:novelty.category.name,subgroups:[],fresh:true});if(novelty?.subgroup){const g=groups.find(g=>g.name===novelty.subgroup.category);if(g&&!g.subgroups.includes(novelty.subgroup.name))g.subgroups.push(novelty.subgroup.name);}
+  const draw=()=>{rows.empty();const saved=this.values(item).placements,current=saved.length?saved:[{scope:'library',name:'',subgroup:''}],groups=(this.plugin.snapshot.collections||[]).filter(g=>g.scope==='library').map(g=>({name:g.name,subgroups:[...(g.subgroups||[])]}));const novelty=item.proposal.taxonomy;if(novelty?.category&&!groups.some(g=>g.name===novelty.category.name))groups.push({name:novelty.category.name,subgroups:[],fresh:true});if(novelty?.subgroup){const g=groups.find(g=>g.name===novelty.subgroup.category);if(g&&!g.subgroups.includes(novelty.subgroup.name))g.subgroups.push(novelty.subgroup.name);}
    current.forEach((placement,index)=>{const row=rows.createDiv('ldb-deepseek-placement'),category=row.createEl('select',{attr:{'aria-label':tr('分类')}}),child=row.createEl('select',{attr:{'aria-label':tr('子类'),'data-child':'true','data-parent':placement.name}});
     category.createEl('option',{value:'',text:tr('选择分类')});for(const g of groups)category.createEl('option',{value:g.name,text:g.name+(g.fresh?' · '+tr('新建'):'')});category.value=placement.name;
     const children=()=>{const group=groups.find(g=>g.name===category.value);child.empty();child.createEl('option',{value:'',text:tr('未分组')});for(const s of group?.subgroups||[])child.createEl('option',{value:s,text:s});child.value=(group?.subgroups||[]).includes(placement.subgroup)?placement.subgroup:'';child.dataset.parent=category.value;child.disabled=!category.value;};children();
@@ -242,7 +280,7 @@ class DeepSeekBetaModal extends Modal{
  onClose(){
   this.closed=true;this.motion?.destroy();this.motion=null;this.cancelSync();this.renderDoc?.removeEventListener('visibilitychange',this.onVisibility);this.renderDoc=this.renderWin=this.onVisibility=null;
   this.tagMap?.close(true);this.tagMap=null;this.unsubscribe?.();this.unsubscribe=null;if(this.plugin.deepSeekModal===this)this.plugin.deepSeekModal=null;if(this.keyInput)this.keyInput.value=this.passInput.value='';
-  this.itemViews.clear();this.planControls=[];this.renderedPlan=null;this.batchCache=this.modelOptions=null;this.paths=[];this.scopeOptions={};this.contentEl.empty();
-  for(const key of ['planPanel','planActions','scroll','error','mode','modelSelect','modelsButton','generate','task','taskIcon','taskTitle','filename','track','bar','preview','resultTitle','applyAll','clearButton','results','empty','footerHint','cancelButton','closeButton','keyStatus','keyEditor','enableButton','lockButton','changeKeyButton','changeSyncButton','cancelKeyButton','config','rememberInput','keyInput','passInput','unlockButton','saveButton','disableButton','forgetButton'])this[key]=null;
+  this.itemViews.clear();this.proposalViews=new WeakMap();this.planControls=[];this.renderedPlan=null;this.batchCache=this.modelOptions=null;this.paths=[];this.scopeOptions={};this.contentEl.empty();
+  for(const key of ['batchBar','batchStatus','nextBatchButton','discardQueueButton','planPanel','planActions','scroll','error','mode','modelSelect','modelsButton','generate','task','taskIcon','taskTitle','filename','track','bar','preview','resultTitle','applyAll','clearButton','results','empty','footerHint','cancelButton','closeButton','keyStatus','keyEditor','enableButton','lockButton','changeKeyButton','changeSyncButton','cancelKeyButton','config','rememberInput','keyInput','passInput','unlockButton','saveButton','disableButton','forgetButton'])this[key]=null;
  }
 }

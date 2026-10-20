@@ -18,7 +18,7 @@ const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve
  assert.equal(w.ask,undefined);w.clear();assert.equal(w.items.length,0);assert.equal(w.phase,'idle');
  // An already-started atomic apply completes on Stop; later writes don't run.
  w.items=[{proposal:{path:'papers/a.pdf'},filename:'a.pdf'},{proposal:{path:'papers/b.pdf'},filename:'b.pdf'}];let write=deferred(),writes=0;service.apply=async()=>{writes++;await write.promise;};const applying=w.apply(w.ready);w.stop();write.resolve();await applying;assert.equal(writes,1);assert(w.items[0].applied);assert.equal(w.phase,'stopped');
- const unloading=w.organize(['temp/a.pdf','temp/b.pdf']);w.close();await unloading;assert.equal(w.items.length,0);assert.equal(w.listeners.size,0);assert.equal(service.onPhase,null);assert.equal(service.onIdle,null);assert.deepEqual(w.draft,{});
+ w.clear();const unloading=w.organize(['temp/a.pdf','temp/b.pdf']);w.close();await unloading;assert.equal(w.items.length,0);assert.equal(w.listeners.size,0);assert.equal(service.onPhase,null);assert.equal(service.onIdle,null);assert.deepEqual(w.draft,{});
  // Planning stops at a human gate; no per-paper call until confirmation.
  const planDeferred=deferred();let organized=0,applied=0,approved=0;
  const ps={enabled:true,cancel(){},planInbox:()=>planDeferred.promise,approvePlan:async p=>{approved++;return p;},organize:async(path,language,plan)=>{assert(plan);organized++;return {path,filename:path};},apply:async()=>applied++,review:()=>({error:''})};

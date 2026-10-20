@@ -193,6 +193,7 @@ class TagMapModal extends Modal {
     for(const id of this.pointers.keys())if(this.viewport?.hasPointerCapture?.(id))this.viewport.releasePointerCapture(id);
     this.pointers.clear();this.nodes.clear();this.edges?.clear();this.positions?.clear();this.collapsed.clear();this.branchSides.clear();
     this.layout=this.tree=this.model=this.catalogText=this.editor=null;
+    this.draft?.close?.();
     this.contentEl.empty();this.stage=this.lines=this.viewport=this.search=this.zoomLabel=this.error=null;this.mapDoc=this.mapWin=null;
     if(view.tagMap===this)view.tagMap=null;if(plugin.tagMap===this)plugin.tagMap=null;
     if(!plugin.stopped&&!view.closed){view.lockFilters(view.dirty());if(!view.dirty())view.reload();}

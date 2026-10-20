@@ -1,6 +1,6 @@
 # Development
 
-This repository contains the plugin source and synthetic tests, with no personal library data. The first version-controlled baseline was 4.2.3; the current release is 4.9.5.
+This repository contains the plugin source and synthetic tests, with no personal library data. The first version-controlled baseline was 4.2.3; the current release is 4.9.6.
 
 ## Build and test
 

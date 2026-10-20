@@ -1,6 +1,7 @@
 // One owner per view: short transitions, native disclosures and explicit teardown.
 class LdbMotion {
-  constructor(root,{disclosures=false}={}){
+  constructor(root,{disclosures=false,prepareDisclosure=null,finishDisclosure=null}={}){
+    this.prepareDisclosure=prepareDisclosure;this.finishDisclosure=finishDisclosure;
     this.root=root;this.win=root.ownerDocument.defaultView;this.animations=new Set();this.disclosures=new Map();
     const style=this.win.getComputedStyle?.(root);
     this.duration=parseFloat(style?.getPropertyValue('--ldb-motion-duration'))||180;
@@ -22,8 +23,9 @@ class LdbMotion {
   setOpen(details,open){
     const previous=this.disclosures.get(details);if((previous?.open??details.open)===open)return;
     const start=details.getBoundingClientRect().height;if(previous?.animation){previous.animation.cancel();previous.animation.oncancel?.();}
+    this.prepareDisclosure?.(details,open);
     const summary=details.querySelector(':scope > summary');
-    if(!summary||!start||this.media?.matches||details.ownerDocument.hidden){details.open=open;summary?.setAttribute('aria-expanded',String(open));return;}
+    if(!summary||!start||this.media?.matches||details.ownerDocument.hidden){details.open=open;summary?.setAttribute('aria-expanded',String(open));this.finishDisclosure?.(details,open);return;}
     const overflow=details.style.overflow,children=[...details.children].filter(el=>el!==summary).map(el=>[el,el.inert]);
     if(!open&&details.contains(details.ownerDocument.activeElement))summary.focus({preventScroll:true});
     details.open=open;const end=details.getBoundingClientRect().height;details.open=true;
@@ -32,8 +34,9 @@ class LdbMotion {
     state.animation=this.animate(details,[{height:start+'px'},{height:end+'px'}],()=>{
       details.open=open;details.style.overflow=overflow;for(const [el,inert]of children)el.inert=inert;
       if(this.disclosures.get(details)===state)this.disclosures.delete(details);
+      this.finishDisclosure?.(details,open);
     },{fill:'both'});
   }
   cancelAnimations(){for(const animation of [...this.animations]){animation.cancel();animation.oncancel?.();}this.animations.clear();}
-  destroy(){this.cancelAnimations();this.disclosures.clear();this.media?.removeEventListener?.('change',this.reduce);if(this.click)this.root.removeEventListener('click',this.click);this.click=null;}
+  destroy(){this.cancelAnimations();this.disclosures.clear();this.media?.removeEventListener?.('change',this.reduce);if(this.click)this.root.removeEventListener('click',this.click);this.click=this.prepareDisclosure=this.finishDisclosure=null;}
 }

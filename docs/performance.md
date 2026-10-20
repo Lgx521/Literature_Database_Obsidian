@@ -120,3 +120,23 @@ These timings cover warm filtering and sorting, not painting. Cold first-call ti
 In the actual Obsidian demo renderer, 1,000 synthetic rows held only in memory took a median 1.2 ms in `renderList` JavaScript during consecutive searches retaining the same results. Adding or removing many visible DOM rows still costs more; full list virtualization remains separate work. Input bursts and IME commits each produced one render, with focus retained. Forty search-dialog and ten tag-map open/close cycles left mounted document nodes unchanged at 968 and released map models and callbacks. Demo source files remained byte-identical.
 
 All 58 offline suites pass, including 200 cached/stateless equivalence cases, cache invalidation, long Notes beyond the cache budget, AND/OR and date semantics, composition handling, hidden views, draft protection and teardown. The package check passes. These changes ship in 4.9.3.
+
+## 4.9.6 preview memory audit — 2026-10-20
+
+AI preview editors now mount on expansion and unmount after the collapse animation finishes. Draft values survive in the work item; completed previews retain their summary. Placement controls capture only category names and subcategories, rather than membership arrays. Tag-map sessions release their full catalog on close and keep only additions, removed suggestions and primitive view preferences. Reopening uses the current catalog and rejects conflicting additions. PDF excerpt construction stops at the existing character budget instead of joining an entire large page before truncation.
+
+`benchmark-ai-memory.cjs` compares the local build before this optimization with 4.9.6 using Chromium and lightweight Obsidian host shims. The fixture has 20 previews, 100 categories, 1,000 synthetic papers and 1,000 tags. It edits a summary, exercises collapse/reopen, opens and edits each proposal's tag map, then opens/closes the AI panel twenty times and checks a narrow viewport with reduced motion. No provider requests, real PDFs or personal data are used. The script accepts an external Playwright installation; it adds no runtime dependency.
+
+| Measurement | Before | 4.9.6 |
+| --- | ---: | ---: |
+| Initially mounted document elements | 2,880 | 334 |
+| Mounted preview editors | 20 | 1 |
+| Mounted preview select options | 2,080 | 104 |
+| Serialized retained draft state after 20 tag maps | 1,290,992 bytes | 18,512 bytes |
+| Full tag catalogs retained per closed-map batch | 20 | 0 |
+| Renderer JS heap after 20 panel reopen cycles | 4.182 MiB | 3.244 MiB |
+| Renderer JS heap after final close and focus release | 4.050 MiB | 3.257 MiB |
+
+Both final-close samples had 22 DOM nodes and 30 event listeners in Chromium's counters, with zero task subscribers; the page had seven mounted elements. Diagnostic GC is used only by this benchmark. Serialized draft size is a payload comparison, not measured heap allocation. These component-harness heap readings exclude the real Obsidian shell and do not establish a total-application memory ceiling. The separate 50 MiB extraction boundary tests retain serial PDF ownership and buffer cleanup.
+
+65 offline suites cover batch continuation/retry, protected writes, compact draft reconstruction and conflicts, late-read teardown, bounded excerpt assembly, disclosure reversals, mobile execution and existing library interactions.
