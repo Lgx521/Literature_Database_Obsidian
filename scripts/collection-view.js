@@ -16,7 +16,10 @@ class LdbCollectionPicker {
   action(run){const slot={run};this.actions.push(slot);return ldbCollectionAction(slot);}
   createMenu(){
     clearTimeout(this.timer);this.releaseMenu();const menu=this.menu=new Menu().setUseNativeMenu(!Platform?.isMobile);
-    menu.onHide?.(()=>{if(this.menu===menu)this.timer=setTimeout(()=>{if(!this.busy&&this.menu===menu)this.close();},0);});
+    // Desktop native menus emit menu-will-close before their click crosses IPC.
+    // Keep callbacks briefly alive for that click; explicit close/replacement
+    // still revokes them immediately, and dismissed menus release them shortly.
+    menu.onHide?.(()=>{if(this.menu===menu)this.timer=setTimeout(()=>{if(!this.busy&&this.menu===menu)this.close();},Platform?.isMobile?0:300);});
     return menu;
   }
 }
@@ -63,24 +66,25 @@ class CollectionMembershipMenu extends LdbCollectionPicker {
               if(decision.action==='trash'){
                 await this.plugin.deleteRecords('library',this.rows,decision.memberships);this.close();new Notice(tr('已移至回收站'));
               }else if(decision.action==='remove')await this.plugin.changeMembership(this.rows,null,target,false,{...expected,allMemberships:decision.memberships});
-            }else await this.plugin.changeMembership(this.rows,target,null,false,expected);
+            }else {const result=await this.plugin.changeMembership(this.rows,target,null,false,expected);if(result?.updatedRows)this.rows=result.updatedRows;}
           }catch(e){new Notice(e.message,8000);this.close();}
           finally{this.busy=false;}
           // Reopen in place with the saved checkmarks, allowing another click to toggle back.
           this.show();
         });
         menu.addItem(item=>{
-          item.setTitle(group.name+(count&&!checked?tr('（部分）'):'')).setChecked(checked);
-          if(!group.subgroups?.length||typeof item.setSubmenu!=='function'){item.onClick(toggle);return;}
+          const title=group.name+(count&&!checked?tr('（部分）'):'');
+          if(!group.subgroups?.length||typeof item.setSubmenu!=='function'){item.setTitle(title).setChecked(checked).onClick(toggle);return;}
+          // Obsidian translates any boolean checked value to Electron's checkbox
+          // type, which cannot open a native submenu. Show membership in its title.
+          item.setTitle((checked?'✓ ':'')+title);
           const children=item.setSubmenu();
-          children.addItem(child=>child.setTitle(tr(scope==='projects'?'属于此项目':'属于此分类')).setChecked(checked).onClick(toggle));
-          children.addSeparator();
           for(const subgroup of [...group.subgroups,'']){
             const placed=expected.placements.every(m=>m&&(m.subgroup||'')===subgroup);
-            children.addItem(child=>child.setTitle(subgroup||tr('未分组')).setChecked(placed).onClick(this.action(async()=>{
+            children.addItem(child=>child.setTitle(subgroup||tr('未分组')).setChecked(placed).onClick(placed?toggle:this.action(async()=>{
               if(this.busy||this.closed)return;this.busy=true;menu.hide();
               const destination={...target,subgroup};
-              try{ldbTransferNotice(await this.plugin.changeMembership(this.rows,destination,null,false,expected),destination);}
+              try{const result=await this.plugin.changeMembership(this.rows,destination,null,false,expected);if(result?.updatedRows)this.rows=result.updatedRows;ldbTransferNotice(result,destination);}
               catch(e){new Notice(e.message,8000);this.close();}
               finally{this.busy=false;}this.show();
             })));
@@ -147,8 +151,8 @@ class CollectionMoveMenu extends LdbCollectionPicker {
       const current=group.name===this.from.name;
       const target={scope:group.scope,name:group.name};
       menu.addItem(item=>{
-        item.setTitle(group.name).setChecked(current);
-        if(!group.subgroups?.length||typeof item.setSubmenu!=='function'){item.setDisabled(current).onClick(choose(target));return;}
+        if(!group.subgroups?.length||typeof item.setSubmenu!=='function'){item.setTitle(group.name).setChecked(current).setDisabled(current).onClick(choose(target));return;}
+        item.setTitle((current?'✓ ':'')+group.name);
         const children=item.setSubmenu(),placements=Collections.placementState(groups,paths,target);
         for(const subgroup of [...group.subgroups,'']){
           const placed=placements.every(m=>m&&(m.subgroup||'')===subgroup);

@@ -44,7 +44,7 @@ class TagMapModal extends Modal {
       const source=await (this.draft?this.draft.read():TagTree.read(this.plugin.app.vault));if(this.closed)return;
       this.catalogText=source.text;this.model=TagTree.effective(source.model,[...this.plugin.snapshot.library,...(this.draft?[this.view.detailRow]:[])]);this.tree=TagTree.tree(this.model);
       if(initial&&this.view.tagMapState){const saved=this.view.tagMapState,keys=new Set(this.descendants(this.tree).map(n=>n.key));this.collapsed=new Set(saved.collapsed.filter(k=>keys.has(k)));this.branchSides=new Map(saved.sides.filter(([k])=>keys.has(k)));this.zoom=saved.zoom;this.pan={...saved.pan};this.search.value=saved.search||'';}
-      if(initial&&!this.view.tagMapState){const selected=this.selected();for(const group of this.tree.children)if(!this.descendants(group).some(n=>n.tag&&selected.has(TagTree.fold(n.tag))))this.collapsed.add(group.key);}
+      if(initial&&!this.view.tagMapState&&!this.draft?.expandAll){const selected=this.selected();for(const group of this.tree.children)if(!this.descendants(group).some(n=>n.tag&&selected.has(TagTree.fold(n.tag))))this.collapsed.add(group.key);}
       this.error.hidden=true;this.render();if(initial&&!this.view.tagMapState){this.fit();if(this.viewport.clientWidth<600){this.zoom=1;const selected=this.selected(),focus=this.descendants(this.tree).find(n=>n.tag&&selected.has(TagTree.fold(n.tag)));this.focusNode(focus?.key||'root');}}
     }catch(e){this.showError(e);}
   }

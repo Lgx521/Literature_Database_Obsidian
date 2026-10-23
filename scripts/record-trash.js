@@ -1,4 +1,5 @@
 const {t:tr}=require('./i18n');
+const WebResources=require('./web-resources');
 // Recoverable deletions live under maintenance backups, never in the active tables.
 const TRASH_ROOT='.maintenance-backups/deleted';
 const SOURCES={library:'library.md',reviews:'reviews.md',submissions:'submissions.md'};
@@ -22,7 +23,8 @@ class RecordTrash {
     if(!new RegExp('^'+TRASH_ROOT+'/[a-zA-Z0-9-]+$').test(folder))throw new Error(tr('无效回收记录'));
     const receipt=JSON.parse(await this.adapter.read(folder+'/record.json'));
     if(receipt.folder!==folder||!['library','inbox','reviews','submissions'].includes(receipt.scope)||!Array.isArray(receipt.files))throw new Error(tr('回收记录不完整'));
-    const pdf=receipt.scope==='library'||receipt.scope==='inbox'?receipt.row.path:receipt.row.pdfPath;
+    const web=WebResources.isWeb(receipt.row);if(web&&(receipt.scope!=='library'||!WebResources.ID.test(receipt.row.path)||receipt.files.length))throw Error(tr('网页记录格式无效'));
+    const pdf=web?'':receipt.scope==='library'||receipt.scope==='inbox'?receipt.row.path:receipt.row.pdfPath;
     if(pdf&&!this.validPath(receipt.scope,pdf))throw new Error(tr('无效附件路径'));
     for(const f of receipt.files){
       if(!pdf||f.from.replace(/\.(pdf|skim|fdf|xfdf)$/i,'')!==pdf.slice(0,-4)||! /\.(pdf|skim|fdf|xfdf)$/i.test(f.from)||f.to!==folder+'/files/'+f.from.split('/').pop())throw new Error(tr('无效回收附件'));
@@ -43,8 +45,9 @@ class RecordTrash {
     return this.engine.restoreRecord(text,scope,row);
   }
   async remove(scope,row,beforeRemove=null){
+    if(WebResources.isWeb(row))scope='library';
     if(scope!=='inbox')this.engine.removeRecord(await this.readSource(scope),scope,row);
-    const pdf=scope==='library'||scope==='inbox'?row.path:row.pdfPath;
+    const pdf=WebResources.isWeb(row)?'':scope==='library'||scope==='inbox'?row.path:row.pdfPath;
     if(pdf&&!this.validPath(scope,pdf))throw new Error(tr('无效附件路径'));
     const folder=TRASH_ROOT+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,10);
     const receipt={folder,scope,row,deletedAt:new Date().toISOString(),state:'pending',files:[]};

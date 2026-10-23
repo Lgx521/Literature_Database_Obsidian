@@ -15,7 +15,7 @@ function ldbDeepSeekWork(plugin){
 }
 function ldbDeepSeekLabel(plugin){
  const w=plugin.deepSeekWork;
- if(w?.running)return tr(w.stopping?'正在停止…':w.phase==='reading'?'读取 PDF':w.phase==='applying'?'正在应用':'DeepSeek 分析中')+' '+Math.min(w.done+1,w.total)+' / '+w.total;
+ if(w?.running)return tr(w.stopping?'正在停止…':w.phase==='reading'?'读取内容':w.phase==='applying'?'正在应用':'DeepSeek 分析中')+' '+Math.min(w.done+1,w.total)+' / '+w.total;
  if(w?.plan)return tr('分类方案待确认');
  if(w?.pending.length)return w.pending.length+' '+tr('项待确认');
  if(w?.phase==='error')return tr('需要处理');
@@ -74,7 +74,7 @@ class DeepSeekBetaModal extends Modal{
   this.passInput=this.config.createEl('input',{type:'password',attr:{placeholder:tr('同步口令（至少 12 个字符）'),'aria-label':tr('同步口令（至少 12 个字符）'),autocomplete:'off'}});
   for(const input of [this.keyInput,this.passInput])input.addEventListener('input',()=>this.syncKeyControls());
   const sync=this.config.createDiv('ldb-actions');this.unlockButton=this.button(sync,'解锁同步密钥',()=>this.unlockSecret(),'mod-cta');this.saveButton=this.button(sync,'加密保存到 iCloud',()=>this.saveSecret());
-  const more=this.config.createEl('details',{cls:'ldb-deepseek-secret-more'});more.createEl('summary',{text:tr('同步说明与密钥管理')});more.createEl('p',{cls:'ldb-deepseek-caption',text:tr('勾选记住后，API Key 保存在此设备的 Obsidian 密钥存储，重开插件无需解锁。同步口令不会保存；iCloud 仅同步加密密钥，其他设备需先解锁一次。忘记口令可重新配置密钥。')});more.createEl('p',{cls:'ldb-deepseek-caption',text:tr('锁定后需重新输入同步口令或 API Key，不会自动解锁；保留同步配置和整理结果。')});more.createEl('p',{text:tr('整理会将选中 PDF 的文本、分类和标签发送给 DeepSeek，不发送 Notes 或审稿材料。超过 20 篇时分批处理，每篇最多 50 MB、12 页。关闭面板后继续，退出 Obsidian 后停止。')});
+  const more=this.config.createEl('details',{cls:'ldb-deepseek-secret-more'});more.createEl('summary',{text:tr('同步说明与密钥管理')});more.createEl('p',{cls:'ldb-deepseek-caption',text:tr('勾选记住后，API Key 保存在此设备的 Obsidian 密钥存储，重开插件无需解锁。同步口令不会保存；iCloud 仅同步加密密钥，其他设备需先解锁一次。忘记口令可重新配置密钥。')});more.createEl('p',{cls:'ldb-deepseek-caption',text:tr('锁定后需重新输入同步口令或 API Key，不会自动解锁；保留同步配置和整理结果。')});more.createEl('p',{text:tr('整理会将选中 PDF 或网页的正文、分类和标签发送给 DeepSeek，不发送 Notes 或审稿材料。网页优先使用 DeepSeek Fetch，失败时直接读取原网址。每批最多 20 篇，每篇最多 48,000 字符；PDF 最多 50 MB、12 页。关闭面板后继续，退出 Obsidian 后停止。')});
   const extra=more.createDiv('ldb-actions');this.disableButton=this.button(extra,'关闭并清除本机密钥',()=>{try{getDeepSeekSecret().forgetDevice(this.app);}catch(e){throw this.secretError(e);}this.service.disable();this.service.locked=true;this.resetKeyEditor();this.motion.setOpen(this.config,true);});this.forgetButton=this.button(extra,'移除同步密钥',()=>this.forgetSecret());
  }
  refreshDeviceState(){this.deviceState=getDeepSeekSecret().deviceState(this.app,this.plugin.settings.deepSeekEncrypted);}
@@ -100,15 +100,23 @@ class DeepSeekBetaModal extends Modal{
   try{getDeepSeekSecret().lockDevice(this.app,this.plugin.settings.deepSeekEncrypted);}catch(e){throw this.secretError(e);}
   this.service.disable();this.service.locked=true;this.resetKeyEditor();this.motion.setOpen(this.config,true);
  }
- needsPlan(){return this.mode.value==='inbox'||this.batch().length>0&&this.batch().every(p=>p.startsWith('temp/'));}
+ needsPlan(){
+  if(this.mode.value==='inbox')return true;
+  const paths=this.batch(),inbox=new Set(this.batch('inbox'));
+  return paths.length>0&&paths.every(p=>p.startsWith('temp/')||inbox.has(p));
+ }
  refreshSources(){if(!this.closed&&!this.working)this.requestSync();}
  batch(mode=this.mode.value){
   const s=this.plugin.snapshot||{};
   if(!this.batchCache||this.batchCache.library!==s.library||this.batchCache.inbox!==s.inbox||this.batchCache.collections!==s.collections)this.batchCache={library:s.library,inbox:s.inbox,collections:s.collections,batches:{}};
   const cache=this.batchCache.batches;if(cache[mode])return cache[mode];
-  if(mode==='selection')return cache[mode]=this.paths;
+  if(mode==='selection'){
+   const web=new Set((s.library||[]).filter(r=>r.kind==='web').map(r=>r.path));
+   return cache[mode]=this.paths.filter(path=>/^(papers|temp)\/.*\.pdf$/i.test(path)||web.has(path));
+  }
   const filed=mode==='pending'?new Set((s.collections||[]).filter(g=>g.scope==='library').flatMap(g=>g.members.map(m=>m.path))):null,paths=new Set();
   for(const r of (mode==='inbox'?s.inbox:s.library)||[]){
+   if(r.organizing==='人工完成'||mode==='pending'&&r.inbox)continue;
    if(mode==='pending'&&(r.organizing==='人工完成'||!Organization.temporaryTitle(r)&&r.tags?.trim()&&r.tldr?.trim()&&r.tldr!=='待整理'&&filed.has(r.path)))continue;
    paths.add(r.path);
   }
@@ -150,29 +158,55 @@ class DeepSeekBetaModal extends Modal{
  }
  syncPlan(){
   const w=this.work,plan=w.plan;this.planPanel.hidden=!plan;this.planActions.hidden=!plan;
-  if(this.renderedPlan!==plan){this.planPanel.empty();this.planActions.empty();this.renderedPlan=plan;this.planControls=[];if(plan)this.renderPlan(plan);}
+  if(this.renderedPlan!==plan){this.planPanel.empty();this.planActions.empty();this.renderedPlan=plan;this.planControls=[];this.refreshPlanTags=null;if(plan)this.renderPlan(plan);}
   for(const input of this.planControls||[])input.disabled=this.working||!this.service.enabled;
+  for(const button of this.planPanel.querySelectorAll('.ldb-deepseek-tags button'))button.disabled=this.working||!this.service.enabled;
  }
  renderPlan(plan){
   const root=this.planPanel,w=this.work,heading=root.createDiv('ldb-deepseek-result-heading');heading.createEl('strong',{text:tr('整批分类方案')+' · '+plan.papers.length});
   root.createEl('p',{cls:'ldb-deepseek-plan-intro',text:tr('确认后补充篇名与 TL;DR，沿用本方案。相同名称会合并；已有分类和标签不会被重命名。')});
-  const paperRows=[];
+  const paperRows=[],tagRows=[];
   const mapped=(kind,name)=>Object.hasOwn(w.planEdits[kind]||{},name)?w.planEdits[kind][name]:name;
-  const updatePapers=()=>{for(const {p,category,tags} of paperRows){category.setText(mapped('categories',p.category));tags.setText([...new Set(p.tags.map(t=>mapped('tags',t)))].map(t=>TagTree.label(t)).join(' · '));}};
+  const updatePapers=()=>{
+   for(const {p,category,draw} of paperRows){category.setText(mapped('categories',p.category));draw();}
+   for(const {name,row,count} of tagRows){const total=plan.papers.filter(p=>this.planTagValues(p).some(t=>TagTree.fold(t)===TagTree.fold(mapped('tags',name)))).length;count.setText(String(total));row.hidden=!total;}
+  };this.refreshPlanTags=updatePapers;
   const section=(kind,label,entries,key,existing)=>{
    const box=root.createDiv('ldb-deepseek-plan-section');box.createEl('h4',{text:tr(label)});const rows=box.createDiv('ldb-deepseek-plan-grid');
    const id='ldb-plan-'+kind+'-'+Math.random().toString(36).slice(2),options=box.createEl('datalist',{attr:{id}});for(const name of existing)options.createEl('option',{value:kind==='tags'?TagTree.label(name):name});
    for(const item of entries){const name=item[key],row=rows.createDiv('ldb-deepseek-plan-row'),input=row.createEl('input',{type:'text',attr:{'aria-label':tr(label)+' '+name,list:id,maxlength:kind==='tags'?'160':'80'}});input.value=kind==='tags'?TagTree.label(mapped(kind,name)):mapped(kind,name);input.title=item.reason||name;
     const canonical=()=>{const value=input.value.trim();if(kind!=='tags'||value.startsWith('#'))return value;const old=existing.find(t=>TagTree.fold(TagTree.label(t))===TagTree.fold(value));return old||(name.startsWith('#research/')?'#research/':'#')+value;};
-    const count=plan.papers.filter(p=>kind==='tags'?p.tags.includes(name):p.category===name).length;row.createSpan({cls:'ldb-deepseek-plan-count',text:String(count)});
+    const count=plan.papers.filter(p=>kind==='tags'?p.tags.includes(name):p.category===name).length,countEl=row.createSpan({cls:'ldb-deepseek-plan-count',text:String(count)});
     const badge=row.createSpan('ldb-deepseek-plan-badge'),syncBadge=()=>{const reused=existing.some(x=>TagTree.fold(x)===TagTree.fold(canonical()));badge.setText(tr(reused?'复用':'新建'));badge.toggleClass('is-existing',reused);};syncBadge();
-    input.addEventListener('input',()=>{w.planEdits={...w.planEdits,[kind]:{...w.planEdits[kind],[name]:canonical()}};syncBadge();updatePapers();});this.planControls.push(input);
+    input.addEventListener('input',()=>{this.setPlanName(kind,name,canonical());syncBadge();});this.planControls.push(input);
+    if(kind==='tags'){
+     tagRows.push({name,row,count:countEl});const remove=ldbButton(row,'',()=>{const tag=mapped('tags',name);for(const p of plan.papers){const current=this.planTagValues(p);if(current.some(t=>TagTree.fold(t)===TagTree.fold(tag)))this.setPlanTags(p,current.filter(t=>TagTree.fold(t)!==TagTree.fold(tag)));}},'ldb-deepseek-tag-remove');setIcon(remove,'x');remove.setAttribute('aria-label',tr('从本批移除标签')+' '+TagTree.label(name));this.planControls.push(remove);
+    }
    }
   };
   section('categories','分类',plan.categories,'name',plan.base.categories.map(c=>c.name));section('tags','标签',plan.tags,'tag',plan.base.tags);
   const assignments=root.createEl('details',{cls:'ldb-deepseek-plan-papers'});assignments.open=true;assignments.createEl('summary',{text:tr('文献归属')});
-  for(const p of plan.papers){const row=assignments.createDiv('ldb-deepseek-plan-paper');row.createDiv({cls:'ldb-deepseek-plan-title',text:p.title,attr:{title:p.filename}});const category=row.createSpan('ldb-deepseek-plan-category'),tags=row.createDiv('ldb-deepseek-plan-paper-tags');paperRows.push({p,category,tags});}updatePapers();
+  for(const p of plan.papers){const row=assignments.createDiv('ldb-deepseek-plan-paper');row.createDiv({cls:'ldb-deepseek-plan-title',text:p.title,attr:{title:p.filename}});const category=row.createSpan('ldb-deepseek-plan-category'),tags=this.field(row,'标签');tags.addClass('ldb-deepseek-plan-paper-tags','ldb-deepseek-tag-field');const chips=tags.createDiv('ldb-deepseek-tags');
+   const draw=()=>{chips.empty();for(const tag of this.planTagValues(p)){const chip=chips.createSpan({cls:'ldb-deepseek-tag',text:TagTree.label(tag)});chip.toggleClass('is-human',!p.tags.includes(tag));const remove=ldbButton(chip,'',()=>this.setPlanTags(p,this.planTagValues(p).filter(t=>t!==tag)),'ldb-deepseek-tag-remove');setIcon(remove,'x');remove.setAttribute('aria-label',tr('移除标签')+' '+TagTree.label(tag));remove.disabled=this.working||!this.service.enabled;}};
+   const add=ldbButton(tags,'',()=>this.openPlanTagMap(p),'ldb-deepseek-icon-button');setIcon(add,'plus');add.setAttribute('aria-label',tr('选择标签'));this.planControls.push(add);paperRows.push({p,category,draw});
+  }updatePapers();
   const actions=this.planActions;this.planControls.push(this.taskButton(actions,'确认方案并逐篇整理',()=>w.confirmPlan(),'mod-cta'),this.button(actions,'放弃方案',()=>w.clear()));
+ }
+ planTagValues(p){const edits=this.work.planEdits;if(Object.hasOwn(edits.paperTags||{},p.path))return edits.paperTags[p.path];return [...new Set(p.tags.map(t=>Object.hasOwn(edits.tags||{},t)?edits.tags[t]:t))];}
+ setPlanName(kind,name,value){
+  if(this.working||!this.work.plan)return;const edits=this.work.planEdits,previous=edits[kind]?.[name]??name;
+  const paperTags=kind==='tags'&&edits.paperTags?Object.fromEntries(Object.entries(edits.paperTags).map(([path,tags])=>[path,[...new Set(tags.map(tag=>TagTree.fold(tag)===TagTree.fold(previous)?value:tag))]])):edits.paperTags;
+  this.work.planEdits={...edits,[kind]:{...edits[kind],[name]:value},...(paperTags?{paperTags}:{})};this.refreshPlanTags?.();
+ }
+ setPlanTags(p,tags){
+  if(this.working||!this.work.plan?.papers.includes(p))return;
+  const edits=this.work.planEdits;this.work.planEdits={...edits,paperTags:{...edits.paperTags,[p.path]:[...new Set(tags)]}};this.refreshPlanTags?.();this.requestSync();
+ }
+ openPlanTagMap(p){
+  if(this.working||this.tagMap)return;const owner=this,plan=this.work.plan;let selected=[...this.planTagValues(p)];
+  const view={app:this.app,plugin:this.plugin,get detailRow(){return {tags:selected.join(' ')};},detailTitle:()=>p.title,dirty:()=>false,lockFilters(){},reload(){},async saveMapTag(tag,checked){selected=selected.filter(t=>TagTree.fold(t)!==TagTree.fold(tag));if(checked)selected.push(tag);return true;}};
+  const draft={selectionOnly:true,expandAll:true,isHuman:()=>true,async read(){const source=await TagTree.read(owner.app.vault);return {text:source.text,model:TagTree.effective(source.model,[...owner.plugin.snapshot.library,{tags:plan.base.tags.join(' ')},{tags:plan.tags.map(t=>owner.work.planEdits.tags?.[t.tag]??t.tag).filter(TagTree.validTag).join(' ')}])};}};
+  const map=new SearchTagMapModal(view,draft,tags=>{if(!owner.closed&&owner.work.plan===plan)owner.setPlanTags(p,tags);},()=>{owner.tagMap=null;selected=[];if(!owner.closed)owner.sync();});this.tagMap=view.tagMap=this.plugin.tagMap=map;map.open();
  }
  renderResults(){
   if(!this.plugin.snapshot)return false;const w=this.work;for(const [item,view] of this.itemViews)if(!w.items.includes(item)||item.ignored){view.root.remove();this.itemViews.delete(item);}
@@ -218,7 +252,7 @@ class DeepSeekBetaModal extends Modal{
   let original=null,base=null,model=null,active=true;
   const view={app:this.app,plugin:this.plugin,get detailRow(){return {tags:owner.values(item).tags};},detailTitle:()=>owner.values(item).title,tagMapState:item.tagMapState,dirty:()=>false,lockFilters(){},reload(){item.tagMapState=view.tagMapState;owner.tagMap=null;if(!owner.closed){draw();owner.sync();}},
    async saveMapTag(tag,checked){const tags=owner.values(item).tags.split(/\s+/).filter(Boolean),next=checked?[...new Set([...tags,tag])]:tags.filter(t=>TagTree.fold(t)!==TagTree.fold(tag));owner.edit(item,'tags',next.join(' '));return true;}};
-  const draft={
+  const draft={expandAll:true,
    async read(){
     if(!model){
      const source=await TagTree.read(owner.app.vault);if(!active||owner.closed)return {text:null,model:{groups:[]}};
@@ -280,7 +314,7 @@ class DeepSeekBetaModal extends Modal{
  onClose(){
   this.closed=true;this.motion?.destroy();this.motion=null;this.cancelSync();this.renderDoc?.removeEventListener('visibilitychange',this.onVisibility);this.renderDoc=this.renderWin=this.onVisibility=null;
   this.tagMap?.close(true);this.tagMap=null;this.unsubscribe?.();this.unsubscribe=null;if(this.plugin.deepSeekModal===this)this.plugin.deepSeekModal=null;if(this.keyInput)this.keyInput.value=this.passInput.value='';
-  this.itemViews.clear();this.proposalViews=new WeakMap();this.planControls=[];this.renderedPlan=null;this.batchCache=this.modelOptions=null;this.paths=[];this.scopeOptions={};this.contentEl.empty();
+  this.itemViews.clear();this.proposalViews=new WeakMap();this.planControls=[];this.renderedPlan=this.refreshPlanTags=null;this.batchCache=this.modelOptions=null;this.paths=[];this.scopeOptions={};this.contentEl.empty();
   for(const key of ['batchBar','batchStatus','nextBatchButton','discardQueueButton','planPanel','planActions','scroll','error','mode','modelSelect','modelsButton','generate','task','taskIcon','taskTitle','filename','track','bar','preview','resultTitle','applyAll','clearButton','results','empty','footerHint','cancelButton','closeButton','keyStatus','keyEditor','enableButton','lockButton','changeKeyButton','changeSyncButton','cancelKeyButton','config','rememberInput','keyInput','passInput','unlockButton','saveButton','disableButton','forgetButton'])this[key]=null;
  }
 }

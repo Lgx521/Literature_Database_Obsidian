@@ -63,6 +63,7 @@ module.exports=class LiteratureManager extends Plugin {
     this.addCommand({id:'change-language',name:tr('切换界面语言…'),callback:()=>new LanguageModal(this).open()});
     this.addCommand({id:'open-library',name:tr('打开文献管理器'),callback:()=>this.openLibrary()});
     this.addCommand({id:'open-inbox',name:tr('打开收件箱'),callback:()=>this.openLibrary({scope:'inbox'})});
+    this.addCommand({id:'add-web-link',name:tr('添加网页'),callback:()=>new WebResourceModal(this,{scope:'inbox'}).open()});
     this.addCommand({id:'new-category',name:tr('新建分类'),callback:()=>new CategoryModal(this).open()});
     this.addCommand({id:'deepseek-beta',name:'DeepSeek Beta',checkCallback:checking=>{if(!ldbDeepSeekAvailable(this))return false;if(!checking)ldbOpenDeepSeek(this);return true;}});
     this.addCommand({id:'refresh-citations',name:tr('重新识别缺失引用'),callback:()=>this.ensureCitationRows(this.snapshot?.library||[]).then(rows=>new Notice(tr('引用识别完成：')+rows.filter(r=>r.bibtex).length+' / '+rows.length)).catch(e=>new Notice(e.message,8000))});
@@ -272,12 +273,13 @@ module.exports=class LiteratureManager extends Plugin {
     });
   }
   beginPaperDrag(event,row,scope='library',selected=[row],sourceCategory=''){
+    const webInbox=scope==='inbox'&&WebResources.isWeb(row);
     if(scope==='projects'&&!this.snapshot?.collections)return false;
     if(this.hasPendingEdit()||this.lastError){new Notice(tr('请先保存或取消编辑，并等待源数据同步完整'));return false;}
-    if(!['library','projects','reviews','submissions'].includes(scope)||!event.dataTransfer||!this.snapshot?.[scope==='projects'?'library':scope].some(r=>r.path===row.path))return false;
+    if(!(['library','projects','reviews','submissions'].includes(scope)||webInbox)||!event.dataTransfer||!this.snapshot?.[scope==='projects'?'library':scope].some(r=>r.path===row.path))return false;
     const token=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
-    this.dragState={token,scope,row:{...row,cells:[...row.cells]},rows:selected.map(r=>({...r,cells:[...r.cells]})),from:sourceCategory?{scope,name:sourceCategory}:null,memberships:this.snapshot.collections?Collections.removalPlan(this.snapshot.collections,selected.map(r=>r.path)).memberships:null};
-    event.dataTransfer.setData(PAPER_DRAG,token);event.dataTransfer.effectAllowed=this.snapshot.collections&&['library','projects'].includes(scope)?'copyMove':'move';return true;
+    this.dragState={token,scope:webInbox?'library':scope,row:{...row,cells:[...row.cells]},rows:selected.map(r=>({...r,cells:[...r.cells]})),from:sourceCategory?{scope,name:sourceCategory}:null,memberships:this.snapshot.collections?Collections.removalPlan(this.snapshot.collections,selected.map(r=>r.path)).memberships:null};
+    event.dataTransfer.setData(PAPER_DRAG,token);event.dataTransfer.effectAllowed=this.snapshot.collections&&(['library','projects'].includes(scope)||webInbox)?'copyMove':'move';return true;
   }
   endPaperDrag(){
     this.dragState=null;
@@ -302,10 +304,23 @@ module.exports=class LiteratureManager extends Plugin {
   }
   async pasteInboxFiles(){
     if(this.importing||this.recordBusy)throw new Error(tr('请等待当前操作完成'));
-    if(!Platform.isDesktopApp||!Platform.isMacOS)throw new Error(tr('粘贴本地 PDF 目前支持 Mac；其他设备可将文件放入 temp'));
+    if(Platform.isDesktopApp){const clipboard=require('electron').clipboard,links=WebResources.links(clipboard.readText?.()||'');if(links.length)return this.importWebLinks(links,{scope:'inbox'});}
+    if(!Platform.isDesktopApp||!Platform.isMacOS){new WebResourceModal(this,{scope:'inbox'}).open();return;}
     const files=await InboxImport.readClipboardFiles(require('electron').clipboard);
     if(this.stopped)return;
     return this.importDroppedFiles(files,{scope:'inbox'});
+  }
+  async importWebLinks(links,nav={scope:'inbox'}){
+    const scope=nav.scope,target=['library','projects'].includes(scope)&&nav.category&&nav.category!==Engine.UNFILED_CATEGORY?{scope,name:nav.category,...(typeof nav.subgroup==='string'?{subgroup:nav.subgroup}:{})}:null;
+    if(!['inbox','library','projects'].includes(scope))throw Error(tr('网页请加入收件箱、分类或写作项目'));
+    let result;
+    await this.recordAction(()=>this.mutateDeadlineSources(texts=>{
+      result=Engine.planWebIntake(texts[LIBRARY_SOURCE],texts[COLLECTION_SOURCE],links,target,Collections,()=>WebResources.newId(globalThis.crypto));
+      return {[LIBRARY_SOURCE]:result.library,[COLLECTION_SOURCE]:result.collections};
+    },[LIBRARY_SOURCE,COLLECTION_SOURCE],'web-import'));
+    const navScope=target?scope:result.paths.some(path=>this.snapshot.inbox.some(r=>r.path===path))?'inbox':'library';
+    await this.openLibrary({scope:navScope,category:target?.name||'',status:'',revealPaths:result.paths,...(!nav.stayInParent&&typeof nav.subgroup==='string'?{subgroup:nav.subgroup}:{})});
+    new Notice(tr('网页已收录')+' · '+result.added+tr(' 新增')+(result.existing?' / '+result.existing+tr(' 已存在，保留原内容'):''));return result;
   }
   async importDroppedFiles(files,nav={scope:'inbox'}){
     if(this.importing)throw new Error(tr('正在导入上一批 PDF，请稍候'));
@@ -398,7 +413,7 @@ module.exports=class LiteratureManager extends Plugin {
       this.snapshotCache??=new SnapshotCache(Engine,Collections,DeadlineSharing,TFile,tr);
       const snapshot=await this.snapshotCache.read(this.app.vault,dirty);if(this.stopped){this.snapshotCache.clear();return;}
       this.snapshot=snapshot;this.lastError='';
-      const library=snapshot.library,added=this.citationKnown?library.filter(r=>!this.citationKnown.has(r.path)):[];this.citationKnown=new Set(library.map(r=>r.path));
+      const library=snapshot.library,added=this.citationKnown?library.filter(r=>!WebResources.isWeb(r)&&!this.citationKnown.has(r.path)):[];this.citationKnown=new Set(library.map(r=>r.path));
       if(added.length&&!this.importing&&typeof loadPdfJs==='function')this.ensureCitationRows(added).catch(e=>new Notice(e.message,8000));
     }catch(e){if(this.stopped){this.snapshotCache?.clear();return;}const message=tr('保留上次列表：')+e.message;if(message!==this.lastError)new Notice(message,8000);this.lastError=message;}
     if(this.snapshot===previous&&this.lastError===previousError)return;
@@ -512,7 +527,7 @@ module.exports=class LiteratureManager extends Plugin {
       const source=this.app.vault.getAbstractFileByPath(LIBRARY_SOURCE),current=Engine.parseLibrary(await this.app.vault.read(source));
       for(const row of rows){const found=current.find(r=>r.path===row.path);if(!found||JSON.stringify(found.cells)!==JSON.stringify(row.cells))throw new Error(tr('文献已在其他窗口或设备中修改，请刷新后重试'));}
       let result;
-      await this.mutate(COLLECTION_SOURCE,text=>{
+      const change=text=>{
         const groups=Collections.parse(text).groups,plan=Collections.removalPlan(groups,rows.map(r=>r.path),from);
         if(expected?.allMemberships&&JSON.stringify(plan.memberships)!==JSON.stringify(expected.allMemberships))throw new Error(tr('文献归属或项目备注已改变，请重新选择删除方式'));
         if(!target&&from){
@@ -527,7 +542,13 @@ module.exports=class LiteratureManager extends Plugin {
         }
         const paths=rows.map(r=>r.path),next=Collections.change(text,paths,target,{from,move});
         result=Collections.transferSummary(groups,paths,target,{from,move});return next;
-      });
+      };
+      if(target&&rows.some(r=>r.inbox))await this.mutateDeadlineSources(texts=>{
+        let library=texts[LIBRARY_SOURCE];
+        for(const row of rows){const fresh=Engine.parseLibrary(library).find(r=>r.path===row.path);if(!fresh||JSON.stringify(fresh.cells)!==JSON.stringify(row.cells))throw Error(tr('文献已在其他窗口或设备中修改，请刷新后重试'));if(fresh.inbox)library=Engine.updateLibraryEntry(library,fresh,{resource:{...fresh.resource,inbox:false}},{kind:'human',name:'user'});}
+        const collections=change(texts[COLLECTION_SOURCE]);result.updatedRows=Engine.parseLibrary(library).filter(r=>rows.some(selected=>selected.path===r.path));return {[LIBRARY_SOURCE]:library,[COLLECTION_SOURCE]:collections};
+      },[LIBRARY_SOURCE,COLLECTION_SOURCE],'web-file');
+      else await this.mutate(COLLECTION_SOURCE,change);
       return result;
     });
   }
@@ -544,6 +565,7 @@ module.exports=class LiteratureManager extends Plugin {
       for(const [index,selected] of unique.entries()){
         if(this.stopped||options.cancelled?.())break;
         let row=this.snapshot?.library.find(r=>r.path===selected.path);if(!row)continue;
+        if(WebResources.isWeb(row)){output.push(row);onProgress(index+1,unique.length);continue;}
         if(options.titleOnly&&!Organization.temporaryTitle(row)&&row.title?.trim()){output.push(row);onProgress(index+1,unique.length);continue;}
         let changes={},error='',recognized=false,evidenceSources={};
         try{
@@ -612,6 +634,14 @@ module.exports=class LiteratureManager extends Plugin {
   }
   async openPDF(path){
     try{
+    if(WebResources.ID.test(path)){
+      const source=this.app.vault.getAbstractFileByPath(LIBRARY_SOURCE),row=Engine.parseLibrary(await this.app.vault.read(source)).find(r=>r.path===path);
+      if(!row)throw Error(tr('文献已发生变化，请重新搜索'));
+      const url=WebResources.normalizeURL(row.url);
+      if(Platform.isDesktopApp&&!Platform.isMobile)await require('electron').shell.openExternal(url);
+      else window.open(url,'_blank','noopener,noreferrer');
+      return;
+    }
       const file=this.app.vault.getAbstractFileByPath(path);if(!(file instanceof TFile)||file.extension.toLowerCase()!=='pdf')throw new Error(tr('PDF 尚未下载或路径无效'));
       if(Platform.isDesktopApp&&Platform.isMacOS){
         const base=this.app.vault.adapter.getBasePath?.();if(!base)throw new Error(tr('无法读取本机 PDF 路径'));
@@ -621,5 +651,5 @@ module.exports=class LiteratureManager extends Plugin {
       else await this.app.workspace.getLeaf('tab').openFile(file);
     }catch(e){new Notice(e.message,8000);}
   }
-  onunload(){this.stopped=true;this.advancedSearchModal?.close();this.deepSeekModal?.close();this.deepSeekWork?.close();this.deepSeek?.close();for(const [win,frame] of this.resumeFrames||[])win.cancelAnimationFrame(frame);this.resumeFrames?.clear();this.pdfWork?.close();this.tagFilterMenu?.close();this.tagMap?.close(true);this.membershipMenu?.close();this.removalModal?.close();clearTimeout(this.timer);this.snapshotCache?.clear();this.refreshDirty?.clear();for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))leaf.view.stopCountdowns?.();this.endPaperDrag();this.endGroupDrag();}
+  onunload(){this.stopped=true;this.webResourceModal?.close();this.advancedSearchModal?.close();this.deepSeekModal?.close();this.deepSeekWork?.close();this.deepSeek?.close();for(const [win,frame] of this.resumeFrames||[])win.cancelAnimationFrame(frame);this.resumeFrames?.clear();this.pdfWork?.close();this.tagFilterMenu?.close();this.tagMap?.close(true);this.membershipMenu?.close();this.removalModal?.close();clearTimeout(this.timer);this.snapshotCache?.clear();this.refreshDirty?.clear();for(const leaf of this.app.workspace.getLeavesOfType(NAV_VIEW))leaf.view.stopCountdowns?.();this.endPaperDrag();this.endGroupDrag();}
 };

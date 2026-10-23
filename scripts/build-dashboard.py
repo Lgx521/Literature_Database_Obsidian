@@ -13,6 +13,9 @@ library_search = (root / 'scripts/library-search.js').read_text()
 search_view = (root / 'scripts/search-results-view.js').read_text()
 advanced_view = (root / 'scripts/advanced-search-view.js').read_text()
 field_settings = (root / 'scripts/field-settings-view.js').read_text()
+web_resources = (root / 'scripts/web-resources.js').read_text()
+web_view = (root / 'scripts/web-resource-view.js').read_text()
+web_excerpt = (root / 'scripts/web-excerpt.js').read_text()
 engine = (root / 'scripts/dashboard.js').read_text()
 view = (root / 'scripts/library-view.js').read_text()
 tail = (root / 'scripts/plugin-tail.js').read_text()
@@ -32,6 +35,7 @@ tag_filter = (root / 'scripts/tag-filter-view.js').read_text()
 splitter = (root / 'scripts/pane-splitter.js').read_text()
 motion = (root / 'scripts/ui-motion.js').read_text()
 text_selection = (root / 'scripts/text-selection.js').read_text()
+inline_math = (root / 'scripts/inline-math.js').read_text()
 citations = (root / 'scripts/vendor/citation-engine.cjs').read_text()
 metadata = (root / 'scripts/citation-metadata.js').read_text()
 pdf_work = (root / 'scripts/pdf-work.js').read_text()
@@ -49,11 +53,12 @@ deepseek_view = (root / 'scripts/deepseek-view.js').read_text()
     'const LDB_TEMPLATES = ' + json.dumps(templates, ensure_ascii=False) + ';\n'
     'const LdbI18n = (() => { const module = { exports: {} };\n' + i18n + '\nreturn module.exports; })();\n'
     'const Sha256 = (() => { const module = { exports: {} };\n' + sha256 + '\nreturn module.exports; })();\n'
-    'const tr=LdbI18n.t, ldbRequire=id=>id==="./i18n"?LdbI18n:id==="./sha256"?Sha256:id==="./organization"?Organization:id==="./custom-fields"?CustomFields:id==="./advanced-search"?AdvancedSearch:require(id);\n'
+    'const tr=LdbI18n.t, ldbRequire=id=>id==="./i18n"?LdbI18n:id==="./sha256"?Sha256:id==="./organization"?Organization:id==="./custom-fields"?CustomFields:id==="./advanced-search"?AdvancedSearch:id==="./web-resources"?WebResources:require(id);\n'
     'const StorageMigration = ((require) => { const module = { exports: {} };\n' + storage + '\nreturn module.exports; })(ldbRequire);\n'
     'const Organization = ((require) => { const module = { exports: {} };\n' + organization + '\nreturn module.exports; })(ldbRequire);\n'
     'const CustomFields = ((require) => { const module = { exports: {} };\n' + custom_fields + '\nreturn module.exports; })(ldbRequire);\n'
     'const AdvancedSearch = (() => { const module = { exports: {} };\n' + advanced_search + '\nreturn module.exports; })();\n'
+    'const WebResources = ((require) => { const module = { exports: {} };\n' + web_resources + '\nreturn module.exports; })(ldbRequire);\n'
     'const Engine = ((require) => { const module = { exports: {} };\n' + engine + '\nreturn module.exports; })(ldbRequire);\n'
     'const LibrarySearch = (() => { const module = { exports: {} };\n' + library_search + '\nreturn module.exports(Engine,AdvancedSearch); })();\n'
     'const Collections = ((require) => { const module = { exports: {} };\n' + collections + '\nreturn module.exports; })(ldbRequire);\n'
@@ -70,8 +75,8 @@ deepseek_view = (root / 'scripts/deepseek-view.js').read_text()
     'const InboxImport = ((require) => { const module = { exports: {} };\n' + inbox + '\nreturn module.exports; })(ldbRequire);\n'
     'const MobileImport = ((require) => { const module = { exports: {} };\n' + mobile_import + '\nreturn module.exports; })(ldbRequire);\n'
     'const TrashStore = ((require) => { const module = { exports: {} };\n' + trash + '\nreturn module.exports; })(ldbRequire);\n'
-    'let deepSeekModule,deepSeekSecret; function ldbDeepSeek(plugin){if(!deepSeekModule){const Plan=(()=>{const module={exports:{}};\n' + deepseek_plan + '\nreturn module.exports({TagTree,Collections,tr});})();const module={exports:{}};\n' + deepseek + '\ndeepSeekModule=module.exports({Plan,Engine,Collections,TagTree,Organization,Sha256,CitationMetadata,SourceTransaction,loadPdfJs,requestUrl,tr,desktop:Platform.isDesktopApp&&!Platform.isMobile,nodeRequire:require});} return plugin.deepSeek??=new deepSeekModule.Service(plugin);}\n'
+    'let deepSeekModule,deepSeekSecret; function ldbDeepSeek(plugin){if(!deepSeekModule){const Plan=(()=>{const module={exports:{}};\n' + deepseek_plan + '\nreturn module.exports({TagTree,Collections,tr});})();const WebExcerpt=(()=>{const module={exports:{}};\n' + web_excerpt + '\nreturn module.exports({tr});})();const module={exports:{}};\n' + deepseek + '\ndeepSeekModule=module.exports({Plan,WebExcerpt,WebResources,Engine,Collections,TagTree,Organization,Sha256,CitationMetadata,SourceTransaction,loadPdfJs,requestUrl,tr,desktop:Platform.isDesktopApp&&!Platform.isMobile,nodeRequire:require});} return plugin.deepSeek??=new deepSeekModule.Service(plugin);}\n'
     'function getDeepSeekSecret(){if(!deepSeekSecret){const Plan=(()=>{const module={exports:{}};\n' + deepseek_plan + '\nreturn module.exports({TagTree,Collections,tr});})();const module={exports:{}};\n' + deepseek_secret + '\ndeepSeekSecret=module.exports;}return deepSeekSecret;}\n'
     'let deepSeekWorkClass; function getDeepSeekWork(){if(!deepSeekWorkClass){const Plan=(()=>{const module={exports:{}};\n' + deepseek_plan + '\nreturn module.exports({TagTree,Collections,tr});})();const module={exports:{}};\n' + deepseek_work + '\ndeepSeekWorkClass=module.exports;}return deepSeekWorkClass;}\n'
-    + motion + '\n' + text_selection + '\n' + splitter + '\n' + view + '\n' + tag_view + '\n' + tag_filter + '\n' + search_view + '\n' + advanced_view + '\n' + collection_view + '\n' + setup + '\n' + field_settings + '\n' + deepseek_view + '\n' + tail)
+    + motion + '\n' + text_selection + '\n' + inline_math + '\n' + splitter + '\n' + view + '\n' + tag_view + '\n' + tag_filter + '\n' + search_view + '\n' + advanced_view + '\n' + collection_view + '\n' + setup + '\n' + field_settings + '\n' + deepseek_view + '\n' + web_view + '\n' + tail)
 (root / 'styles.css').write_text((root / 'scripts/library-view.css').read_text())

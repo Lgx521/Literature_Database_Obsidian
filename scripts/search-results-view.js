@@ -18,6 +18,7 @@ class PaperSearchPopover {
   open(){
     const id=`ldb-search-${this.view.leaf.id}`;
     this.root=this.doc.body.createDiv({cls:'ldb-search-popover',attr:{role:'dialog','aria-label':tr('搜索文献')}});
+    this.inlineMath=new LdbInlineMath(this.root);
     const header=this.root.createDiv('ldb-search-options'),label=header.createEl('label');
     this.all=label.createEl('input',{type:'checkbox'});label.createSpan({text:tr('在全部文献中搜索')});
     this.count=header.createSpan({cls:'ldb-search-result-count',attr:{role:'status','aria-live':'polite'}});
@@ -50,7 +51,7 @@ class PaperSearchPopover {
     this.scope=this.all.checked?'library':v.scope;
     const query=v.filters.query.trim(),publicRows=this.scope==='library'||this.scope==='projects';
     this.query=query;
-    const rows=this.all.checked?(v.plugin.snapshot?.library||[]):v.visibleRows;
+    const rows=this.all.checked?(v.plugin.snapshot?.filedLibrary||v.plugin.snapshot?.library||[]):v.visibleRows;
     this.results=query?this.session.filter(rows,{query,sort:publicRows?'title':'filename',fieldSearchKey:v.fieldSettingsKey||LdbI18n.getLanguage(),fieldSearch:publicRows?r=>v.fieldDefinitions().map(f=>v.fieldText(f.id,v.fieldValue(r,f.id))).join(' '):null}):[];
     this.active=-1;this.list.scrollTop=0;this.count.setText(query?tr`${this.results.length} 篇`:'');
     this.empty.setText(query?tr('没有匹配文献'):tr('输入关键词搜索文献'));this.empty.hidden=!!this.results.length;this.list.hidden=!this.results.length;
@@ -75,7 +76,7 @@ class PaperSearchPopover {
       // A native tooltip reveals the unabridged text without expanding the row,
       // creating another overlay or retaining pointer listeners per result.
       el.title=title+'\n'+location;
-      body.createDiv({cls:'ldb-search-result-title',text:title});
+      this.inlineMath.set(body.createDiv({cls:'ldb-search-result-title',text:title}),title);
       body.createDiv({cls:'ldb-search-result-location',text:location});
     }
     this.list.createDiv({attr:{'aria-hidden':'true'}}).style.height=((this.results.length-end)*height)+'px';
@@ -119,7 +120,7 @@ class PaperSearchPopover {
     if(Platform?.isMobile){const active=this.doc.activeElement;if(active===this.view.searchEl||this.root?.contains(active))active?.blur();}
     for(const off of this.cleanups)off();this.cleanups=[];
     if(this.frame)this.win.cancelAnimationFrame(this.frame);this.frame=0;
-    this.motion?.destroy();this.session.clear();this.results=[];this.root?.remove();
+    this.motion?.destroy();this.inlineMath?.destroy();this.inlineMath=null;this.session.clear();this.results=[];this.root?.remove();
     if(this.view.searchMenu===this)this.view.searchMenu=null;
     this.view.cancelSearchRender();this.view.searchEl?.setAttribute('aria-expanded','false');this.view.searchEl?.removeAttribute('aria-activedescendant');this.view.searchEl?.removeAttribute('aria-controls');
     if(restoreFocus&&!Platform?.isMobile&&!this.view.closed){this.view.suppressSearchFocus=true;try{this.view.searchEl?.focus({preventScroll:true});}finally{this.view.suppressSearchFocus=false;}}

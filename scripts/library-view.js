@@ -25,21 +25,22 @@ function ldbDropTarget(element,plugin,target=null,enabled=()=>true,feedback={}){
       }
       return (drag.scope||'library')===nav.scope?'move':null;
     }
+    if(types(e).some(t=>['text/uri-list','text/plain','text/html'].includes(t))&&!types(e).includes('Files'))return !plugin.hasPendingEdit()&&['inbox','library','projects'].includes(nav.scope)?'copy':null;
     return types(e).includes('Files')&&!plugin.hasPendingEdit()&&(['inbox','reviews','submissions'].includes(nav.scope)||(plugin.snapshot?.collections&&['library','projects'].includes(nav.scope)&&nav.category&&nav.category!==Engine.UNFILED_CATEGORY))?'copy':null;
   };
   const over=e=>{
-    if(!enabled()||!types(e).some(t=>t==='Files'||t===PAPER_DRAG))return;
+    if(!enabled()||!types(e).some(t=>t==='Files'||t===PAPER_DRAG||['text/uri-list','text/plain','text/html'].includes(t)))return;
     e.preventDefault();e.stopPropagation();const effect=mode(e);
     e.dataTransfer.dropEffect=effect||'none';highlight(e,effect);feedback.over?.(e,effect);
   };
   element.addEventListener('dragenter',over);element.addEventListener('dragover',over);
   element.addEventListener('dragleave',e=>{if(!element.contains(e.relatedTarget)){clear();feedback.end?.();}});
   element.addEventListener('drop',async e=>{
-    if(!enabled()||!types(e).some(t=>t==='Files'||t===PAPER_DRAG))return;
+    if(!enabled()||!types(e).some(t=>t==='Files'||t===PAPER_DRAG||['text/uri-list','text/plain','text/html'].includes(t)))return;
     e.preventDefault();e.stopPropagation();const nav=destination(e),effect=mode(e);clear();feedback.end?.();
     try{
       if(effect&&types(e).includes(PAPER_DRAG))await plugin.moveDraggedPaper(e.dataTransfer.getData(PAPER_DRAG),nav.category,nav.scope,effect==='move',nav.subgroup??undefined);
-      else if(effect==='copy')await plugin.importDroppedFiles(Array.from(e.dataTransfer.files),nav);
+      else if(effect==='copy'){const links=WebResources.fromTransfer(e.dataTransfer,element.ownerDocument);if(links.length)await plugin.importWebLinks(links,nav);else if(e.dataTransfer.files.length)await plugin.importDroppedFiles(Array.from(e.dataTransfer.files),nav);else throw Error(tr('没有找到有效网址'));}
       else new Notice(tr('PDF 请拖到收件箱、具体分类或项目、审稿或投稿'));
     }catch(error){new Notice(error.message,8000);}
   });
@@ -140,7 +141,7 @@ class LibraryNavigation extends ItemView {
     };
     add(tr('全部文献'),'library',{scope:'library',category:'',status:''},data?.library.length||0);
     const inbox=add(tr('收件箱'),'inbox',{scope:'inbox',category:'',status:''},data?.inbox.length||0);
-    inbox.title=tr('将本地 PDF 拖到这里导入');ldbDropTarget(inbox,this.plugin);
+    inbox.title=tr('拖入 PDF 或网页链接');ldbDropTarget(inbox,this.plugin);
     add(tr('书签'),'bookmark',{scope:'library',bookmarked:true},data?.library.filter(r=>r.bookmarked).length||0);
     add(tr('在读'),'book-open',{scope:'library',category:'',status:'在读'},data?.library.filter(r=>r.status==='在读').length||0);
     add(tr('待读'),'bookmark',{scope:'library',category:'',status:'待读'},data?.library.filter(r=>r.status==='待读').length||0);
@@ -543,6 +544,8 @@ class LiteratureBrowser extends ItemView {
   getViewType(){return LIBRARY_VIEW;}
   getDisplayText(){return tr('文献库');}
   isPublic(){return this.scope==='library'||this.scope==='projects';}
+  isPublicRecord(row=this.detailRow){return this.isPublic()||WebResources.isWeb(row);}
+  intakeTarget(){return {scope:this.scope,category:this.filters.category,subgroup:this.filters.subgroup};}
   fieldDefinitions(){const raw=this.plugin.settings?.libraryFields,language=LdbI18n.getLanguage();if(this.fieldCache&&this.fieldCacheSource===raw&&this.fieldCacheLanguage===language)return this.fieldCache;let fields;try{fields=CustomFields.definitions(raw);}catch(_){fields=CustomFields.definitions();}this.fieldCacheSource=raw;this.fieldCacheLanguage=language;return this.fieldCache=fields;}
   field(id){return this.fieldDefinitions().find(f=>f.id===id);}
   fieldValue(row,id){return CustomFields.value(row,id);}
@@ -556,7 +559,7 @@ class LiteratureBrowser extends ItemView {
     if(configured){const width={published:'70px',status:'90px',priority:'80px'},ids=['published','status','priority'],visible=ids.filter(id=>!this.field(id).hidden);this.contentEl.style.setProperty('--ldb-user-grid-wide','minmax(0,1fr) '+visible.map(id=>width[id]).join(' '));this.contentEl.style.setProperty('--ldb-user-grid-compact','minmax(0,1fr) '+visible.filter(id=>id!=='priority').map(id=>id==='status'?'60px':'62px').join(' '));for(const id of ids)this.contentEl.style.setProperty('--ldb-'+id+'-display',this.field(id).hidden?'none':'block');}
   }
   sourceLabel(row,key,tag=false){const source=Organization.source({...row,tldr:libraryText(row.tldr||'')},key,tag);return source.kind==='human'?tr('人工填写'):source.kind==='ai'?tr('AI 填写')+' · '+source.name:source.kind==='import'?tr('临时篇名，待核实'):source.kind==='system'?tr('PDF 或官方元数据'):tr('来源未记录');}
-  detailTitle(row){return this.isPublic()?(row.title?.trim()||row.filename):(row.filename||tr('新任务'));}
+  detailTitle(row){return this.isPublicRecord(row)?(row.title?.trim()||row.filename):(row.filename||tr('新任务'));}
   selectedRows(){return this.visibleRows.filter(r=>this.selectedPaths.has(r.path));}
   getIcon(){return 'library';}
   getState(){
@@ -607,7 +610,8 @@ class LiteratureBrowser extends ItemView {
   }
   async onOpen(){
     this.searchMenu?.close();this.cancelSearchRender();this.searchComposing=false;this.searchSession.clear();
-    this.advancedSearchModal?.close();this.tagFilterMenu?.close();this.paneSplitter?.destroy();this.detailMotion?.destroy();this.detailMotion=null;this.textSelection?.destroy();this.textSelection=null;this.closed=false;this.detailRenderKey=this.listRenderKey=null;this.fieldSettingsKey=null;this.listGroups=new Map();this.renderedRows=[];const root=this.contentEl;root.empty();root.addClass('ldb-browser');root.lang=LdbI18n.getLanguage();
+    this.advancedSearchModal?.close();this.tagFilterMenu?.close();this.paneSplitter?.destroy();this.detailMotion?.destroy();this.detailMotion=null;this.textSelection?.destroy();this.textSelection=null;this.inlineMath?.destroy();this.inlineMath=null;this.closed=false;this.detailRenderKey=this.listRenderKey=null;this.fieldSettingsKey=null;this.listGroups=new Map();this.renderedRows=[];const root=this.contentEl;root.empty();root.addClass('ldb-browser');root.lang=LdbI18n.getLanguage();
+    this.inlineMath=new LdbInlineMath(root,()=>{const shown=ldbViewVisible(this);if(!shown)this.pendingReload=true;return shown;});
     if(Platform?.isMobile)root.addClass('ldb-mobile');
     if(!this.visibilityRegistered){this.registerDomEvent?.(root.ownerDocument,'visibilitychange',()=>{if(root.ownerDocument.hidden)this.searchMenu?.close();if(root.ownerDocument.hidden&&this.searchFrame){this.cancelSearchRender();this.pendingReload=true;}if(this.pendingReload&&ldbViewVisible(this))this.reload();});this.visibilityRegistered=true;}
     const toolbar=root.createDiv('ldb-toolbar');
@@ -628,6 +632,7 @@ class LiteratureBrowser extends ItemView {
     this.searchClearEl=this.button(search,'',()=>this.clearSearch(),'ldb-search-clear clickable-icon');setIcon(this.searchClearEl,'x');this.searchClearEl.title=tr('清空搜索');this.searchClearEl.setAttribute('aria-label',tr('清空搜索'));this.searchClearEl.hidden=true;
     this.advancedEl=this.button(search,'',()=>this.openAdvancedSearch(),'ldb-advanced-trigger');setIcon(this.advancedEl.createSpan(),'sliders-horizontal');this.advancedLabel=this.advancedEl.createSpan({text:tr('高级搜索')});this.advancedEl.setAttribute('aria-haspopup','dialog');
     this.venueDeadlineEl=this.button(toolbar,'',()=>new VenueDeadlineModal(this.plugin,this.scope,this.filters.category).open(),'ldb-venue-deadline');this.venueDeadlineEl.hidden=true;
+    this.webAddEl=this.button(toolbar,'',()=>new WebResourceModal(this.plugin,this.intakeTarget()).open(),'ldb-web-add clickable-icon');setIcon(this.webAddEl,'link');this.webAddEl.title=tr('添加网页');this.webAddEl.setAttribute('aria-label',tr('添加网页'));
     this.actionEl=this.button(toolbar,'',()=>this.primaryAction());
     this.exportEl=this.button(toolbar,tr('导出…'),()=>new CitationExportModal(this.plugin,this.visibleRows,this.filters.category||tr('文献库'),this.selectedRows()).open());
     const filterbar=root.createDiv('ldb-filterbar');this.filterbar=filterbar;
@@ -651,25 +656,27 @@ class LiteratureBrowser extends ItemView {
     this.listEl.addEventListener('click',e=>{const t=e.target.closest('[data-paper-path]');if(t)this.select(t.dataset.paperPath,e);});
     this.listEl.addEventListener('dblclick',e=>{const t=e.target.closest('[data-paper-path]');if(t&&!this.dirty())this.openPDF(this.rows.find(r=>r.path===t.dataset.paperPath));});
     this.listEl.addEventListener('keydown',e=>this.listKeydown(e));
+    this.listEl.addEventListener('paste',e=>{if(e.target.closest('input,textarea,[contenteditable=true]')||this.dirty()||!['inbox','library','projects'].includes(this.scope))return;const links=WebResources.fromTransfer(e.clipboardData,this.contentEl.ownerDocument);if(!links.length)return;e.preventDefault();e.stopPropagation();this.plugin.importWebLinks(links,this.intakeTarget()).catch(error=>new Notice(error.message,8000));});
     this.listEl.addEventListener('contextmenu',e=>{
       const target=e.target.closest('[data-paper-path]'),row=target&&this.rows.find(r=>r.path===target.dataset.paperPath);
       if(!row){
-        if(this.scope!=='inbox')return;
+        if(!['inbox','library','projects'].includes(this.scope))return;
         e.preventDefault();e.stopPropagation();
         const menu=new Menu().setUseNativeMenu(!Platform?.isMobile);
         menu.addItem(item=>item.setTitle(tr('粘贴')).setIcon('clipboard-paste').setDisabled(!!this.plugin.importing||!!this.plugin.recordBusy).onClick(async()=>{
-          try{await this.plugin.pasteInboxFiles();}catch(error){new Notice(error.message,8000);}
-        }));menu.showAtMouseEvent(e);return;
+          try{if(this.scope==='inbox')await this.plugin.pasteInboxFiles();else if(Platform.isDesktopApp){const links=WebResources.links(require('electron').clipboard.readText());if(!links.length)throw Error(tr('没有找到有效网址'));await this.plugin.importWebLinks(links,this.intakeTarget());}else new WebResourceModal(this.plugin,this.intakeTarget()).open();}catch(error){new Notice(error.message,8000);}
+        }));menu.addItem(item=>item.setTitle(tr('添加网页')).setIcon('link').onClick(()=>new WebResourceModal(this.plugin,this.intakeTarget()).open()));menu.showAtMouseEvent(e);return;
       }
       e.preventDefault();if(!this.selectedPaths.has(row.path)&&!this.dirty())this.select(row.path);
       const menu=new Menu(),rows=this.selectedRows();
-      if(Platform.isDesktopApp&&!Platform.isMobile){
+      if(WebResources.isWeb(row))menu.addItem(item=>item.setTitle(tr('在浏览器中打开')).setIcon('external-link').onClick(()=>this.openPDF(row)));
+      if(Platform.isDesktopApp&&!Platform.isMobile&&!WebResources.isWeb(row)){
         const pdfPath=this.isPublic()||this.scope==='inbox'?row.path:row.pdfPath;
         menu.addItem(item=>item.setTitle(tr(Platform.isMacOS?'在 Finder 中显示':'在文件管理器中显示')).setIcon('folder-open').setDisabled(!pdfPath).onClick(()=>this.plugin.revealPDF(pdfPath)));
       }
       if(ldbDeepSeekAvailable(this.plugin)&&(this.isPublic()||this.scope==='inbox'))menu.addItem(item=>item.setTitle('DeepSeek Beta…').setIcon('sparkles').onClick(()=>ldbOpenDeepSeek(this.plugin,rows.map(r=>r.path))));
       this.addBookmarkMenu(menu,rows);
-      if(this.isPublic()&&this.plugin.snapshot.collections){
+      if(this.isPublicRecord(row)&&this.plugin.snapshot.collections){
         menu.addItem(item=>item.setTitle(tr('加入分类／项目…')).setIcon('folder-plus').onClick(()=>ldbOpenCollectionMenu(this.plugin,rows,{x:e.clientX,y:e.clientY},this.contentEl.ownerDocument)));
         if(this.groupingCollection())menu.addItem(item=>item.setTitle(tr('设置子类…')).setIcon('folder').onClick(()=>ldbChildMenu(this.plugin,rows,{scope:this.scope,name:this.filters.category},{x:e.clientX,y:e.clientY},this.contentEl.ownerDocument)));
         if(this.filters.subgroup)menu.addItem(item=>item.setTitle(tr('移出子类')).setIcon('minus').onClick(()=>this.moveOutOfChild(rows)));
@@ -684,7 +691,7 @@ class LiteratureBrowser extends ItemView {
     this.listEl.addEventListener('dragstart',e=>{
       const target=e.target.closest('[data-paper-path]'),row=target&&this.rows.find(r=>r.path===target.dataset.paperPath);
       if(row&&!this.selectedPaths.has(row.path)&&!this.dirty())this.select(row.path);
-      if(this.scope==='inbox'||!row||!this.plugin.beginPaperDrag(e,row,this.scope,this.isPublic()?this.selectedRows():[row],this.filters.category===Engine.UNFILED_CATEGORY?'':this.filters.category)){e.preventDefault();return;}
+      if((this.scope==='inbox'&&!WebResources.isWeb(row))||!row||!this.plugin.beginPaperDrag(e,row,this.scope,this.isPublic()?this.selectedRows():[row],this.filters.category===Engine.UNFILED_CATEGORY?'':this.filters.category)){e.preventDefault();return;}
       target.addClass('is-dragging');
     });
     this.listEl.addEventListener('dragend',()=>{this.plugin.endPaperDrag();for(const {el} of this.renderedRows||[])el.removeClass('is-dragging');});
@@ -786,6 +793,7 @@ class LiteratureBrowser extends ItemView {
   mobileMenu(event){
     const menu=new Menu();
     if(!this.actionEl.hidden)menu.addItem(item=>item.setTitle(this.actionEl.textContent).setIcon('plus').onClick(()=>this.primaryAction()));
+    if(!TRACK_FILES[this.scope])menu.addItem(item=>item.setTitle(tr('添加网页')).setIcon('link').onClick(()=>new WebResourceModal(this.plugin,this.intakeTarget()).open()));
     if(this.isPublic())menu.addItem(item=>item.setTitle(tr('导出…')).setIcon('download').onClick(()=>new CitationExportModal(this.plugin,this.visibleRows,this.filters.category||tr('文献库'),this.selectedRows()).open()));
     if(!this.venueDeadlineEl.hidden)menu.addItem(item=>item.setTitle(this.venueDeadlineEl.textContent).setIcon('calendar').onClick(()=>new VenueDeadlineModal(this.plugin,this.scope,this.filters.category).open()));
     menu.addItem(item=>item.setTitle(tr('重新读取本地数据')).setIcon('refresh-cw').onClick(()=>this.plugin.refresh(true)));
@@ -801,7 +809,7 @@ class LiteratureBrowser extends ItemView {
   }
   async reload(){
     if(this.closed||!this.listEl)return;
-    if(!ldbViewVisible(this)){this.pendingReload=true;return;}this.pendingReload=false;
+    if(!ldbViewVisible(this)){this.pendingReload=true;return;}this.pendingReload=false;this.inlineMath?.resume();
     const data=this.plugin.snapshot;
     if(!data){this.errorEl.hidden=false;this.errorEl.setText(this.plugin.lastError||tr('正在读取本地文献…'));return;}
     this.errorEl.hidden=!this.plugin.lastError;this.errorEl.setText(this.plugin.lastError||'');this.readError=!!this.plugin.lastError;
@@ -818,12 +826,13 @@ class LiteratureBrowser extends ItemView {
     this.contentEl.toggleClass('ldb-venue-view',!!TRACK_FILES[this.scope]&&!!this.filters.category);
     this.tagFilterMenu?.refresh();this.syncFieldSettings();
     this.statusEl.hidden=!this.isPublic()||this.field('status').hidden;this.tagEl.hidden=!this.isPublic();this.organizingEl.hidden=!this.isPublic()||this.field('organizing').hidden;
+    this.webAddEl.hidden=!!TRACK_FILES[this.scope];
     this.filterbar.hidden=!this.isPublic();this.exportEl.hidden=!this.isPublic();
     this.venueDeadlineEl.hidden=!(TRACK_FILES[this.scope]||this.scope==='projects')||!this.filters.category||(!!TRACK_FILES[this.scope]&&Engine.isStagingGroup(this.filters.category));
     if(!this.venueDeadlineEl.hidden)this.venueDeadlineEl.setText('DDL '+Engine.displayDeadline(data.deadlines?.[this.scope]?.[this.filters.category]||'—'));
     this.actionEl.setText(this.scope==='library'?tr('新建分类'):this.scope==='projects'?tr('新建项目'):this.scope==='inbox'?'DeepSeek Beta':'＋ Venue');
     this.syncDeepSeekAccess();
-    const labels=this.isPublic()?[tr('篇名'),this.fieldLabel('published','发表'),this.fieldLabel('status','阅读'),this.fieldLabel('priority','优先')]:this.scope==='inbox'?[tr('待整理 PDF'),tr('放入日期'),tr('状态'),tr('大小')]:[tr('稿件 / 文件名'),tr('截止时间'),tr('状态'),tr('venue / 轮次')];
+    const labels=this.isPublic()?[tr('篇名'),this.fieldLabel('published','发表'),this.fieldLabel('status','阅读'),this.fieldLabel('priority','优先')]:this.scope==='inbox'?[tr('待整理资源'),tr('放入日期'),tr('状态'),tr('大小')]:[tr('稿件 / 文件名'),tr('截止时间'),tr('状态'),tr('venue / 轮次')];
     this.sortButtons.forEach((b,i)=>b.dataset.label=labels[i]);this.syncControls();this.renderList();
     if(this.pendingDraft&&!this.dirty()){
       const draft=this.pendingDraft;this.pendingDraft=null;this.selectedPath=draft.base.path;
@@ -901,24 +910,24 @@ class LiteratureBrowser extends ItemView {
         let row=old?.el;
         if(!row){
           row=container.createDiv({cls:'ldb-row',attr:{role:'option',id:`ldb-${this.leaf.id}-${this.rowSerial=(this.rowSerial||0)+1}`}});
-          const name=row.createSpan('ldb-filename'),icon=name.createSpan('ldb-pdf-icon');setIcon(icon,'file-text');name.createSpan({cls:'ldb-filename-text'});
+          const name=row.createSpan('ldb-filename'),icon=name.createSpan('ldb-pdf-icon');setIcon(icon,WebResources.isWeb(r)?'link':'file-text');name.createSpan({cls:'ldb-filename-text'});
           row.createSpan('ldb-date');row.createSpan('ldb-reading');row.createSpan('ldb-priority');
         }
-        row.dataset.paperPath=r.path;row.title=this.detailTitle(r);row.draggable=this.scope!=='inbox';
+        row.dataset.paperPath=r.path;row.title=this.detailTitle(r);row.draggable=this.scope!=='inbox'||WebResources.isWeb(r);
         const icon=row.querySelector('.ldb-pdf-icon'),badge=icon.querySelector('.ldb-bookmark-badge');
-        if(this.isPublic()&&r.bookmarked&&!badge){const marker=icon.createSpan({cls:'ldb-bookmark-badge',attr:{'aria-label':tr('已加书签')}});setIcon(marker,'bookmark');if(old)this.detailMotion?.animate(marker,'in');}
+        if(this.isPublicRecord(r)&&r.bookmarked&&!badge){const marker=icon.createSpan({cls:'ldb-bookmark-badge',attr:{'aria-label':tr('已加书签')}});setIcon(marker,'bookmark');if(old)this.detailMotion?.animate(marker,'in');}
         else if(!r.bookmarked&&badge)badge.remove();
-        text(row.querySelector('.ldb-filename-text'),this.detailTitle(r));
+        const title=row.querySelector('.ldb-filename-text');if(this.inlineMath)this.inlineMath.set(title,this.detailTitle(r));else text(title,this.detailTitle(r));
         const date=row.querySelector('.ldb-date'),reading=row.querySelector('.ldb-reading'),priority=row.querySelector('.ldb-priority');
-        text(date,TRACK_FILES[this.scope]?Engine.displayDeadline(r.published):tr(r.published));date.title=date.textContent;
+        text(date,this.scope==='inbox'&&r.inbox?new Date(r.mtime).toLocaleDateString('sv-SE'):TRACK_FILES[this.scope]?Engine.displayDeadline(r.published):tr(r.published));date.title=date.textContent;
         text(reading,this.isPublic()?this.fieldText('status',r.status):tr(r.status));reading.title=reading.textContent;reading.dataset.status=r.status;
-        text(priority,TRACK_FILES[this.scope]?(r.category===this.plugin.stagingGroup(this.scope)?tr('暂存区'):r.priority):this.isPublic()?this.fieldText('priority',r.priority):tr(r.priority));priority.title=priority.textContent;priority.dataset.priority=r.priority;
+        text(priority,this.scope==='inbox'&&WebResources.isWeb(r)?tr('网页'):TRACK_FILES[this.scope]?(r.category===this.plugin.stagingGroup(this.scope)?tr('暂存区'):r.priority):this.isPublic()?this.fieldText('priority',r.priority):tr(r.priority));priority.title=priority.textContent;priority.dataset.priority=r.priority;
         place(container,row,index+offset);if(!this.rowEls.has(r.path))this.rowEls.set(r.path,row);this.renderedRows.push({key,row:r,el:row});
       }
     }
     if(oldRows.size||oldGroups.size)this.listDropController?.end();
     for(const item of oldRows.values())item.el.remove();for(const group of oldGroups.values())group.remove();this.listGroups=nextGroups;
-    if(!this.visibleRows.length&&!childGrouped)this.emptyRow=this.listEl.createDiv({cls:'ldb-empty',text:this.scope==='inbox'||TRACK_FILES[this.scope]?tr(Platform?.isMobile?'点击 ＋ 导入 PDF':'拖入 PDF'):tr('暂无文献')});
+    if(!this.visibleRows.length&&!childGrouped)this.emptyRow=this.listEl.createDiv({cls:'ldb-empty',text:this.scope==='inbox'||TRACK_FILES[this.scope]?tr(Platform?.isMobile?'点击 ＋ 导入 PDF 或添加网页':'拖入 PDF 或网页链接'):tr('暂无文献')});
   }
   selectionElement(){return this.renderedRows?.find(r=>r.el?.id===this.activeRowId&&r.row.path===this.selectedPath)?.el||this.rowEls?.get(this.selectedPath);}
   selectionVisible(){const row=this.selectionElement();if(!row?.getBoundingClientRect||!this.listEl?.getBoundingClientRect)return false;const r=row.getBoundingClientRect(),b=this.listEl.getBoundingClientRect();return r.bottom>b.top&&r.top<b.bottom;}
@@ -1008,7 +1017,7 @@ class LiteratureBrowser extends ItemView {
   renderDetail(override){
     const row=override||this.rows.find(r=>r.path===this.selectedPath);this.prepareDetailMotion(row);
     const project=this.scope==='projects'&&this.plugin.snapshot.collections?.find(g=>g.scope==='projects'&&g.name===this.filters.category);
-    const detailKey=row&&this.isPublic()?JSON.stringify([LdbI18n.getLanguage(),this.scope,this.filters.category,row.path,this.fieldSettingsKey,row.customFields,Array.from({length:13},(_,i)=>row.cells?.[i]||''),row.categories,row.projects,this.plugin.snapshot.collections?.filter(g=>g.members.some(m=>m.path===row.path)).map(g=>[g.scope,g.name,g.members.find(m=>m.path===row.path).subgroup]),project?.members?.find(m=>m.path===row.path)?.notes]):null;
+    const detailKey=row&&this.isPublicRecord(row)?JSON.stringify([LdbI18n.getLanguage(),this.scope,this.filters.category,row.path,this.fieldSettingsKey,row.customFields,Array.from({length:13},(_,i)=>row.cells?.[i]||''),row.url,row.resource,row.categories,row.projects,this.plugin.snapshot.collections?.filter(g=>g.members.some(m=>m.path===row.path)).map(g=>[g.scope,g.name,g.members.find(m=>m.path===row.path).subgroup]),project?.members?.find(m=>m.path===row.path)?.notes]):null;
     if(!override&&detailKey&&detailKey===this.detailRenderKey){
       this.detailRow=this.notesBase=row;this.syncQuickFields();this.queueDetailMotion();return;
     }
@@ -1025,27 +1034,27 @@ class LiteratureBrowser extends ItemView {
       });
       expand.setAttribute('aria-expanded',String(!!this.mobileExpanded));
     }
-    if(this.scope!=='inbox')this.button(top,tr('编辑'),()=>this.dirty()?new Notice(tr('请先保存或取消 Notes')):this.startEditing(this.detailRow),'ldb-edit-button');
-    if(this.isPublic()){this.bookmarkButton=this.button(top,'',()=>this.saveQuickField('bookmarked',!this.detailRow.bookmarked),'ldb-bookmark-button');setIcon(this.bookmarkButton,'bookmark');this.bookmarkButton.setAttribute('data-ldb-motion','bookmark');this.syncQuickFields();}
+    if(this.scope!=='inbox'||WebResources.isWeb(row))this.button(top,tr('编辑'),()=>this.dirty()?new Notice(tr('请先保存或取消 Notes')):this.startEditing(this.detailRow),'ldb-edit-button');
+    if(this.isPublicRecord()){this.bookmarkButton=this.button(top,'',()=>this.saveQuickField('bookmarked',!this.detailRow.bookmarked),'ldb-bookmark-button');setIcon(this.bookmarkButton,'bookmark');this.bookmarkButton.setAttribute('data-ldb-motion','bookmark');this.syncQuickFields();}
     const remove=this.button(top,'',()=>this.requestDelete(this.detailRow),'ldb-delete-button');setIcon(remove,'trash-2');remove.setAttribute('aria-label',tr('移至回收站'));remove.title=tr('移至回收站');
-    const title=this.detailEl.createEl('h2',{cls:'ldb-title',text:this.detailTitle(row),attr:{tabindex:'0'}});
-    if(this.isPublic()){title.title=this.sourceLabel(row,'title');this.detailEl.createDiv({cls:'ldb-original-filename',text:row.filename,attr:{title:tr('文件名')}});}
-    if(this.scope==='inbox'||this.isPublic()||row.pdfPath)this.button(this.detailEl,'Open ↗',()=>this.openPDF(this.detailRow),'mod-cta');
-    if(this.scope==='inbox'||this.isPublic())this.button(this.detailEl,'DeepSeek Beta',()=>ldbOpenDeepSeek(this.plugin,[this.detailRow.path]),'ldb-deepseek-entry').hidden=!ldbDeepSeekAvailable(this.plugin);
-    if(this.scope==='inbox')return;
+    const title=this.detailEl.createEl('h2',{cls:'ldb-title',text:this.detailTitle(row),attr:{tabindex:'0'}});this.inlineMath?.set(title,this.detailTitle(row));
+    if(this.isPublicRecord()){title.title=this.sourceLabel(row,'title');this.detailEl.createDiv({cls:'ldb-original-filename'+(WebResources.isWeb(row)?' ldb-web-url':''),text:WebResources.isWeb(row)?row.url:row.filename,attr:{title:tr(WebResources.isWeb(row)?'网址':'文件名'),tabindex:'0'}});}
+    if(this.scope==='inbox'||this.isPublicRecord()||row.pdfPath)this.button(this.detailEl,'Open ↗',()=>this.openPDF(this.detailRow),'mod-cta');
+    if(this.scope==='inbox'||this.isPublicRecord())this.button(this.detailEl,'DeepSeek Beta',()=>ldbOpenDeepSeek(this.plugin,[this.detailRow.path]),'ldb-deepseek-entry').hidden=!ldbDeepSeekAvailable(this.plugin);
+    if(this.scope==='inbox'&&!WebResources.isWeb(row))return;
     const meta=this.detailEl.createEl('dl',{cls:'ldb-metadata'});
-    const pairs=this.isPublic()?(this.field('published').hidden?[]:[[this.fieldLabel('published'),tr(row.published)]]):[...(this.scope==='reviews'?[]:[[tr('状态'),tr(row.status)]]),...(!this.filters.category?[[tr('截止时间'),Engine.displayDeadline(row.published)]]:[])];
+    const pairs=this.isPublicRecord()?(this.field('published').hidden?[]:[[this.fieldLabel('published'),tr(row.published)]]):[...(this.scope==='reviews'?[]:[[tr('状态'),tr(row.status)]]),...(!this.filters.category?[[tr('截止时间'),Engine.displayDeadline(row.published)]]:[])];
     for(const [label,value]of pairs){meta.createEl('dt',{text:label});meta.createEl('dd',{text:value});}
-    const quick=this.isPublic()?this.fieldDefinitions().filter(f=>!f.hidden&&f.type==='select').map(f=>[f.id,f.label,CustomFields.options(f,this.fieldValue(row,f.id))]):this.scope==='reviews'?[['status',tr('状态'),[...new Set([...Engine.REVIEW_STATUSES,row.status])].map(v=>[v,tr(v)])]]:[];
+    const quick=this.isPublicRecord()?this.fieldDefinitions().filter(f=>!f.hidden&&f.type==='select').map(f=>[f.id,f.label,CustomFields.options(f,this.fieldValue(row,f.id))]):this.scope==='reviews'?[['status',tr('状态'),[...new Set([...Engine.REVIEW_STATUSES,row.status])].map(v=>[v,tr(v)])]]:[];
     for(const [key,label,options] of quick){
       meta.createEl('dt',{text:label});const field=meta.createEl('dd');
       const select=this.makeSelect(field,label,options);select.addClass('ldb-inline-select');select.setAttribute('data-ldb-motion','field:'+key);select.value=this.fieldValue(row,key);select.disabled=this.readError;
       this.quickFields.push({key,select});select.addEventListener('change',()=>this.saveQuickField(key,select.value));
     }
-    if(this.isPublic())for(const field of this.fieldDefinitions().filter(f=>!f.hidden&&f.type==='text')){meta.createEl('dt',{text:field.label});const slot=meta.createEl('dd');this.button(slot,this.fieldValue(row,field.id)||tr('未填写'),()=>{if(!this.dirty())this.startEditing(this.detailRow);},'ldb-custom-text');}
+    if(this.isPublicRecord())for(const field of this.fieldDefinitions().filter(f=>!f.hidden&&f.type==='text')){meta.createEl('dt',{text:field.label});const slot=meta.createEl('dd');this.button(slot,this.fieldValue(row,field.id)||tr('未填写'),()=>{if(!this.dirty())this.startEditing(this.detailRow);},'ldb-custom-text');}
     this.quickError=this.detailEl.createDiv({cls:'ldb-form-error',attr:{role:'alert'}});this.quickError.hidden=true;
-    this.detailEl.createEl('h3',{text:this.isPublic()?'TL;DR':tr('下一步'),cls:'ldb-section-label'});this.detailEl.createEl('p',{text:libraryText(row.tldr),cls:'ldb-tldr',attr:{tabindex:'0',title:this.isPublic()?this.sourceLabel(row,'tldr'):''}});
-    if(this.isPublic()&&this.plugin.snapshot.collections){
+    this.detailEl.createEl('h3',{text:this.isPublicRecord()?'TL;DR':tr('下一步'),cls:'ldb-section-label'});const summary=this.detailEl.createEl('p',{text:libraryText(row.tldr),cls:'ldb-tldr',attr:{tabindex:'0',title:this.isPublicRecord()?this.sourceLabel(row,'tldr'):''}});this.inlineMath?.set(summary,libraryText(row.tldr));
+    if(this.isPublicRecord()&&this.plugin.snapshot.collections){
       const collectionHeading=this.detailEl.createDiv('ldb-section-heading');collectionHeading.createEl('h3',{text:tr('分类'),cls:'ldb-section-label'});
       const collectionAdd=this.button(collectionHeading,'',e=>{const rect=e.currentTarget.getBoundingClientRect();ldbOpenCollectionMenu(this.plugin,[this.detailRow],{x:rect.left,y:rect.bottom},this.contentEl.ownerDocument);},'ldb-section-add');setIcon(collectionAdd,'plus');collectionAdd.setAttribute('aria-label',tr('加入分类／项目…'));collectionAdd.title=tr('加入分类／项目…');
       const groups=this.detailEl.createDiv('ldb-memberships');
@@ -1054,7 +1063,7 @@ class LiteratureBrowser extends ItemView {
         chip.setAttribute('data-ldb-motion','chip:category:'+group.scope+':'+group.name);chip.title=tr('设置子类…');
       }
     }
-    if(this.isPublic()){
+    if(this.isPublicRecord()){
       const tagHeading=this.detailEl.createDiv('ldb-section-heading');tagHeading.createEl('h3',{text:tr('标签'),cls:'ldb-section-label'});
       this.tagAdd=this.button(tagHeading,'',()=>this.openTagMap(),'ldb-section-add');setIcon(this.tagAdd,'plus');this.tagAdd.setAttribute('aria-label',tr('打开标签思维导图'));this.tagAdd.title=tr('打开标签思维导图');
       this.tagsEl=this.detailEl.createDiv('ldb-tags');this.renderTags();
@@ -1072,11 +1081,11 @@ class LiteratureBrowser extends ItemView {
       });
     }
     this.detailEl.createEl('h3',{text:'Notes',cls:'ldb-section-label'});
-    this.notesInput=this.detailEl.createEl('textarea',{cls:'ldb-notes-input',attr:{rows:'7',placeholder:tr('添加笔记…'),'aria-label':tr('个人 Notes')}});this.notesInput.value=this.isPublic()?libraryText(row.notes):row.notes;
+    this.notesInput=this.detailEl.createEl('textarea',{cls:'ldb-notes-input',attr:{rows:'7',placeholder:tr('添加笔记…'),'aria-label':tr('个人 Notes')}});this.notesInput.value=this.isPublicRecord()?libraryText(row.notes):row.notes;
     this.notesBase=row;this.notesInput.addEventListener('input',()=>this.markNotesDirty(this.detailRow));
     this.notesError=this.detailEl.createDiv('ldb-form-error');const actions=this.detailEl.createDiv('ldb-actions');
     this.notesSave=this.button(actions,tr('保存 Notes'),()=>this.saveNotes(),'mod-cta');this.notesSave.disabled=true;
-    this.notesCancel=this.button(actions,tr('撤销修改'),()=>{this.notesDirty=false;this.notesInput.value=this.isPublic()?libraryText(this.notesBase.notes):this.notesBase.notes;this.notesSave.disabled=true;this.notesCancel.hidden=true;this.lockFilters(!!this.venueDraft);this.renderList();});this.notesCancel.hidden=true;
+    this.notesCancel=this.button(actions,tr('撤销修改'),()=>{this.notesDirty=false;this.notesInput.value=this.isPublicRecord()?libraryText(this.notesBase.notes):this.notesBase.notes;this.notesSave.disabled=true;this.notesCancel.hidden=true;this.lockFilters(!!this.venueDraft);this.renderList();});this.notesCancel.hidden=true;
     if(project){
       const note=project.members.find(m=>m.path===row.path)?.notes||'',section=this.detailEl.createDiv('ldb-project-notes');
       section.createDiv({text:tr('项目备注'),cls:'ldb-eyebrow'});
@@ -1090,11 +1099,11 @@ class LiteratureBrowser extends ItemView {
   }
   openTagMap(){
     if(this.tagMap||this.plugin.tagMap)return;
-    if(!this.isPublic()||!this.detailRow||this.editing||this.saving||this.deleting||this.readError||this.plugin.recordBusy||this.plugin.importing){new Notice(tr('请等待当前操作完成'));return;}
+    if(!this.isPublicRecord()||!this.detailRow||this.editing||this.saving||this.deleting||this.readError||this.plugin.recordBusy||this.plugin.importing){new Notice(tr('请等待当前操作完成'));return;}
     const modal=new TagMapModal(this);this.tagMap=this.plugin.tagMap=modal;this.lockFilters(true);modal.open();
   }
   async saveMapTag(tag,checked){
-    const row=this.detailRow;if(!row||!this.isPublic()||this.saving||this.editing||this.readError||!TagTree.validTag(tag))return false;
+    const row=this.detailRow;if(!row||!this.isPublicRecord()||this.saving||this.editing||this.readError||!TagTree.validTag(tag))return false;
     const tags=String(row.tags||'').split(/\s+/).filter(Boolean),exists=tags.some(t=>TagTree.fold(t)===TagTree.fold(tag));if(exists===checked)return true;
     const nextTags=checked?[...tags,tag]:tags.filter(t=>TagTree.fold(t)!==TagTree.fold(tag));this.saving=true;this.quickError.hidden=true;
     try{
@@ -1105,7 +1114,7 @@ class LiteratureBrowser extends ItemView {
     return true;
   }
   markNotesDirty(row){
-    this.notesBase=row;this.notesDirty=this.notesInput.value!==(this.isPublic()?libraryText(row.notes):row.notes);
+    this.notesBase=row;this.notesDirty=this.notesInput.value!==(this.isPublicRecord()?libraryText(row.notes):row.notes);
     this.notesSave.disabled=!this.notesDirty;this.notesCancel.hidden=!this.notesDirty;this.lockFilters(this.notesDirty||!!this.venueDraft);this.remember();
   }
   renderPaperVenues(animate=true){
@@ -1131,14 +1140,14 @@ class LiteratureBrowser extends ItemView {
     }catch(error){this.quickError.setText(error.message);this.quickError.hidden=false;return false;}
   }
   addBookmarkMenu(menu,rows){
-    if(!this.isPublic()||!rows.length)return;
+    if(!this.isPublicRecord()||!rows.length)return;
     const marked=rows.every(row=>row.bookmarked);
     menu.addItem(item=>item.setTitle(tr(marked?'取消书签':'添加书签')).setIcon(marked?'bookmark-minus':'bookmark-plus')
       .setDisabled(!!(this.dirty()||this.readError||this.plugin.importing||this.plugin.hasPendingEdit()))
       .onClick(()=>this.saveSelectedBookmarks(rows,!marked)));
   }
   async saveSelectedBookmarks(rows,value){
-    if(this.closed||!this.isPublic()||this.readError||this.dirty())return false;
+    if(this.closed||!this.isPublicRecord()||this.readError||this.dirty())return false;
     const selected=[...new Map(rows.map(row=>[row.path,row])).values()];if(!selected.length)return false;
     let updated;
     try{
@@ -1162,7 +1171,7 @@ class LiteratureBrowser extends ItemView {
   }
   async saveBookmark(value){
     const row=this.detailRow;
-    if(!row||!this.isPublic()||this.saving||this.editing||this.readError)return false;
+    if(!row||!this.isPublicRecord()||this.saving||this.editing||this.readError)return false;
     if(!!row.bookmarked===value)return true;
     // Keep unrelated controls and Notes live; the existing saving guard serializes writes.
     this.saving=true;this.bookmarkButton?.setAttribute('aria-busy','true');this.quickError.hidden=true;
@@ -1185,7 +1194,7 @@ class LiteratureBrowser extends ItemView {
     if(key==='bookmarked')return this.saveBookmark(value);
     const row=this.detailRow;
     const review=this.scope==='reviews'&&key==='status',custom=CustomFields.ID.test(key);
-    if(!row||!(review||(this.isPublic()&&(custom||['status','priority','venues','organizing','bookmarked'].includes(key)))))return false;
+    if(!row||!(review||(this.isPublicRecord()&&(custom||['status','priority','venues','organizing','bookmarked'].includes(key)))))return false;
     if(this.saving||this.editing||this.readError){for(const field of this.quickFields)field.select.value=this.fieldValue(row,field.key);return false;}
     if(JSON.stringify(custom?this.fieldValue(row,key):row[key])===JSON.stringify(value))return true;
     this.saving=true;this.lockFilters(true);this.syncQuickFields();this.notesInput.readOnly=true;
@@ -1229,13 +1238,13 @@ class LiteratureBrowser extends ItemView {
     const value=this.notesInput.value;
     try{
       if(this.readError)throw new Error(tr('源数据尚未同步完整，请稍后保存'));
-      if(this.isPublic())await this.plugin.mutate(LIBRARY_SOURCE,t=>Engine.updateLibraryEntry(t,this.notesBase,{notes:value}));
+      if(this.isPublicRecord())await this.plugin.mutate(LIBRARY_SOURCE,t=>Engine.updateLibraryEntry(t,this.notesBase,{notes:value}));
       else {const r=this.notesBase;await this.plugin.mutate(TRACK_FILES[this.scope],t=>Engine.updateTracker(t,TRACK_FILES[this.scope],r,{title:r.filename,pdfPath:r.pdfPath,category:r.category,status:r.status,due:r.published,next:r.tldr,notes:value}));}
       this.saving=false;this.notesDirty=false;this.lockFilters(false);await this.reload();new Notice(tr('Notes 已保存'));
     }catch(e){this.saving=false;this.notesSave.disabled=this.notesCancel.disabled=false;this.notesError.setText(e.message);this.syncQuickFields();}
   }
-  lockFilters(locked){if(locked){this.searchMenu?.close();this.cancelSearchRender();this.tagFilterMenu?.close();this.advancedSearchModal?.close();}for(const el of [this.searchEl,this.searchClearEl,this.advancedEl,this.statusEl,this.tagEl,this.organizingEl,this.bookmarkFilterEl,this.clearEl,this.actionEl,this.venueDeadlineEl,this.exportEl,...this.sortButtons].filter(Boolean))el.disabled=locked;}
-  startEditing(row){if(TRACK_FILES[this.scope])return this.startTrackingEditor(row);const fields=this.fieldDefinitions().filter(f=>!f.hidden&&f.id!=='published'&&f.id!=='organizing').map(f=>[f.id,f.label,f.type==='select'?CustomFields.options(f,this.fieldValue(row,f.id)):undefined]);this.startForm(row,[['title',tr('篇名')],...(!this.field('published').hidden?[['published',this.fieldLabel('published')]]:[]),...fields,['tags',tr('标签'),'area'],['tldr','TL;DR','area']]);}
+  lockFilters(locked){if(locked){this.searchMenu?.close();this.cancelSearchRender();this.tagFilterMenu?.close();this.advancedSearchModal?.close();}for(const el of [this.searchEl,this.searchClearEl,this.advancedEl,this.statusEl,this.tagEl,this.organizingEl,this.bookmarkFilterEl,this.clearEl,this.actionEl,this.webAddEl,this.venueDeadlineEl,this.exportEl,...this.sortButtons].filter(Boolean))el.disabled=locked;}
+  startEditing(row){if(TRACK_FILES[this.scope])return this.startTrackingEditor(row);const fields=this.fieldDefinitions().filter(f=>!f.hidden&&f.id!=='published'&&f.id!=='organizing').map(f=>[f.id,f.label,f.type==='select'?CustomFields.options(f,this.fieldValue(row,f.id)):undefined]);this.startForm(row,[['title',tr('篇名')],...(WebResources.isWeb(row)?[['url',tr('网址')]]:[]),...(!this.field('published').hidden?[['published',this.fieldLabel('published')]]:[]),...fields,['tags',tr('标签'),'area'],['tldr','TL;DR','area']]);}
   startTrackingEditor(row){
     const base=row||{path:'',filename:'',pdfPath:'',category:this.filters.category||this.plugin.stagingGroup(this.scope),status:this.scope==='reviews'?'待审':'准备中',published:'—',tldr:'',notes:''};
     const data={...base,title:base.filename,due:base.published,next:base.tldr};
@@ -1252,7 +1261,7 @@ class LiteratureBrowser extends ItemView {
       else if(type==='venue'){const staging=this.plugin.stagingGroup(this.scope);input=this.makeSelect(field,label,[...new Set([staging,...this.plugin.snapshot.groups[this.scope]])].map(v=>[v,v===staging?tr('暂存区'):v]));}
       else if(type==='area')input=field.createEl('textarea',{attr:{rows:key==='tldr'?'5':'3','aria-label':label}});
       else input=field.createEl('input',{type:'text',attr:{'aria-label':label}});
-      input.value=this.isPublic()?libraryText(this.fieldValue(row,key)):row[key]||'';this.fields[key]=input;this.initialInputs[key]=input.value;input.addEventListener('input',()=>this.remember());input.addEventListener('change',()=>this.remember());
+      input.value=this.isPublicRecord()?libraryText(this.fieldValue(row,key)):row[key]||'';this.fields[key]=input;this.initialInputs[key]=input.value;input.addEventListener('input',()=>this.remember());input.addEventListener('change',()=>this.remember());
     }
     this.formError=form.createDiv({cls:'ldb-form-error',attr:{role:'alert'}});const actions=form.createDiv('ldb-actions');this.saveEl=actions.createEl('button',{text:tr('保存'),cls:'mod-cta',attr:{type:'submit'}});this.cancelEl=this.button(actions,tr('取消'),()=>this.stopEditing());
     form.addEventListener('submit',e=>{e.preventDefault();this.saveEdit();});this.remember();
@@ -1263,7 +1272,7 @@ class LiteratureBrowser extends ItemView {
     try{
       if(this.readError)throw new Error(tr('源数据暂时不可用'));
       const values=Object.fromEntries(Object.entries(this.fields).map(([k,v])=>[k,v.value]));
-      if(this.isPublic()){
+      if(this.isPublicRecord()){
         const changes=Object.fromEntries(Object.entries(values).filter(([k,v])=>v!==this.initialInputs[k]));const custom=Object.keys(changes).filter(k=>CustomFields.ID.test(k));if(custom.length){changes.customFields={...(this.editBase.customFields||{})};for(const key of custom){changes.customFields[key]=changes[key];delete changes[key];}}
         await this.plugin.mutate(LIBRARY_SOURCE,t=>Engine.updateLibraryEntry(t,this.editBase,changes,{kind:'human',name:'user'}));
         if(changes.category)this.filters.category=changes.category;
@@ -1272,7 +1281,7 @@ class LiteratureBrowser extends ItemView {
     }catch(e){this.saving=false;this.saveEl.disabled=this.cancelEl.disabled=false;this.formError.setText(e.message);}
   }
   async openPDF(row){if(row)await this.plugin.openPDF(row.pdfPath||row.path);}
-  async onClose(){this.closed=true;this.searchMenu?.close();this.cancelSearchRender();this.searchSession.clear();this.projectSource=this.projectRows=null;this.advancedSearchModal?.close();this.paneSplitter?.destroy();this.tagFilterMenu?.close();this.tagMap?.close(true);this.listDropController?.destroy();this.detailMotion?.destroy();this.textSelection?.destroy();this.textSelection=null;}
+  async onClose(){this.closed=true;this.searchMenu?.close();this.cancelSearchRender();this.searchSession.clear();this.projectSource=this.projectRows=null;this.advancedSearchModal?.close();this.paneSplitter?.destroy();this.tagFilterMenu?.close();this.tagMap?.close(true);this.listDropController?.destroy();this.detailMotion?.destroy();this.textSelection?.destroy();this.textSelection=null;this.inlineMath?.destroy();this.inlineMath=null;}
 }
 
 class LanguageModal extends Modal {

@@ -140,3 +140,116 @@ AI preview editors now mount on expansion and unmount after the collapse animati
 Both final-close samples had 22 DOM nodes and 30 event listeners in Chromium's counters, with zero task subscribers; the page had seven mounted elements. Diagnostic GC is used only by this benchmark. Serialized draft size is a payload comparison, not measured heap allocation. These component-harness heap readings exclude the real Obsidian shell and do not establish a total-application memory ceiling. The separate 50 MiB extraction boundary tests retain serial PDF ownership and buffer cleanup.
 
 65 offline suites cover batch continuation/retry, protected writes, compact draft reconstruction and conflicts, late-read teardown, bounded excerpt assembly, disclosure reversals, mobile execution and existing library interactions.
+
+## 4.9.6 latency tradeoff — 2026-10-20
+
+`benchmark-ai-latency.cjs` compares the same pre-optimization local bundle with the
+published 4.9.6 bundle. It uses the production panel, disclosure and draft tag-map
+code in headless Chrome 155.0.8059.85 on macOS 27.0.1, with synthetic Obsidian host
+shims. Both builds have 20 pending previews. The small fixture has 100 papers,
+10 categories and 100 tags; the large fixture has 1,000 papers, 100 categories and
+1,000 tags.
+
+Three rounds alternate build order. Each operation has six warm-up cycles and
+24 measured cycles per round: 72 samples per build/scenario/CPU setting. The
+animation check has two warm-ups and eight measured cycles per round. Normal GC
+pauses remain in the results; no forced GC runs during timing. Draft text and
+added tag branches must survive reopening, and close must release subscribers.
+
+The following values are **median / P95 milliseconds**, measuring JavaScript and
+forced layout. They exclude Playwright IPC and frame alignment, and are warm
+reopen measurements rather than first app startup:
+
+| Operation | Small before | Small 4.9.6 | Large before | Large 4.9.6 |
+| --- | ---: | ---: | ---: | ---: |
+| Reopen AI panel with 20 previews | 6.3 / 8.5 | 4.1 / 5.2 | 10.2 / 14.0 | 5.5 / 6.6 |
+| Expand one collapsed preview, animation disabled | 0.9 / 1.1 | 2.2 / 2.7 | 1.9 / 2.4 | 3.3 / 4.1 |
+| Reopen edited draft tag map | 9.0 / 11.6 | 8.6 / 12.0 | 10.6 / 14.1 | 11.5 / 14.6 |
+| Close AI panel | 0.8 / 0.9 | 0.5 / 0.9 | 0.9 / 1.9 | 0.9 / 1.0 |
+
+With the normal 180 ms disclosure animation enabled, the large fixture's median
+click-handler-to-animation-completion time was 183.7 ms before and 183.6 ms after
+(P95 184.3 / 184.1 ms). This is not a hardware input-to-display measurement.
+
+The large fixture under Chromium's **4× CPU slowdown** showed the clearest cost:
+
+| Operation | Before median / P95 | 4.9.6 median / P95 |
+| --- | ---: | ---: |
+| Reopen AI panel | 16.7 / 23.2 ms | 5.2 / 5.9 ms |
+| Expand one preview without animation | 0.9 / 1.4 ms | 2.5 / 3.3 ms |
+| Reopen edited draft tag map | 14.8 / 17.1 ms | 23.0 / 24.7 ms |
+
+CPU throttling is a sensitivity test, not a physical iPhone/iPad result; compare
+builds within a setting, not the scaling between settings. Source reads return
+already-available synthetic Markdown. The optimized map performs one catalog
+read per reopen, whereas the old draft reuses its stored catalog; actual vault
+I/O or waiting for an iCloud file is additional and was not timed here. The map
+uses its normal saved fold state and viewport culling. GPU presentation, PDF
+parsing and provider response latency are outside this test.
+
+The measured tradeoff is favorable: preview reconstruction adds about 1–2 ms,
+whole-panel reopening becomes faster, and the large slowed-CPU tag map adds
+8.2 ms. Against the previous component-memory measurement (0.938 MiB less
+retained JS heap after repeated panel cycles and 88% fewer initially mounted
+elements), retaining the optimization is reasonable. This does not imply a
+similar percentage reduction in whole-Obsidian memory.
+
+Reproduce with an external Playwright installation and preserved before/after
+bundle directories; the benchmark adds no runtime dependency:
+
+```sh
+LDB_CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  node scripts/benchmark-ai-latency.cjs \
+  /path/to/before /path/to/after /path/to/playwright /tmp/latency.json
+```
+
+The measured `main.js` SHA-256 values were
+`09705347c55873cc396c422cc0155c76440e4100e06a6bf7294cda82217fff2b`
+(before) and
+`2d2781e8cd82b8b13c384af3a62e0dea9d5c7e06db95b0a790aa8db7efdbd5c0`
+(4.9.6). This audit changes diagnostics/documentation only, not the installed plugin.
+
+
+## Inline math (4.10.0) — 2026-10-23
+
+Titles in lists/details/search and TL;DR render bounded inline `$…$` fragments
+through Obsidian's `loadMathJax`, `renderMath` and `finishRenderMath`. Plain text
+never loads the engine. Existing row DOM is retained; changed formulas are
+batched (up to 12 or an 8 ms soft budget per frame). A single formula cannot be
+preempted. The original source stays visible until the host finishes its CSS
+flush, avoiding an unstyled intermediate formula. Hidden views defer work;
+closing drops queued/prepared nodes and listeners. Source tables, search and
+exports remain unchanged. Copying a selected formula returns its source once.
+No new runtime dependency, worker, network request or PDF read is added.
+
+The local runtime delta against the preceding installed preview is 8,432 bytes
+of JavaScript and 219 bytes of CSS. MathJax itself is supplied by Obsidian, not
+bundled into the plugin. Its shared code/fonts/caches stay loaded after closing
+this view; the plugin must not unload another view's math engine.
+
+An isolated Chrome 155.0.8059.85 fixture used the production inline renderer,
+selection controller and CSS, plus the MathJax bundle extracted from the local
+Obsidian installation. The host API shim uses the same synchronous `tex2chtml`
+call and 100 ms debounced stylesheet flush. All content is synthetic; local
+asset requests are intercepted, with other network requests blocked. Diagnostic
+GC is used only for memory sampling, never by the plugin.
+
+- Before math: 1.159 MiB JS heap; after the first title and TL;DR formulas:
+  5.700 MiB, an increase of 4.541 MiB. The Chromium embedder-heap increase was
+  0.314 MiB. Engine startup took about 50 ms, separate from stylesheet flushing.
+- 100 titles / 10 math titles settled in 132 ms; 1,000 / 100 in 246 ms, including
+  animation-frame scheduling, host CSS flushing and test-driver overhead. These
+  are single diagnostic samples, not CPU-only medians or input-to-display times.
+- With ten math titles mounted before and after 25 controller reopen cycles,
+  DOM counters stayed at 336 nodes / 189 listeners. JS heap changed from
+  6.866 to 7.089 MiB; engine loading happened once. Destroying the controllers
+  removed six component listeners. Shared MathJax caches remain in the host.
+- Verified equal row heights, raw-source copy without duplicated formula text,
+  unchanged-formula DOM reuse, preserved Notes, rapid replacement during a CSS
+  flush, and narrow-layout rendering. This is not physical iOS validation.
+
+These are component/renderer-heap diagnostics, not total Obsidian process RSS
+or a guaranteed memory ceiling. A host that already loaded MathJax shares its
+engine; a cold host incurs its initialization cost. The plugin's offline suite
+has 71 passing tests, including lazy loading, parsing limits, unsupported input,
+stale-load protection, frame batching, hidden views and teardown.

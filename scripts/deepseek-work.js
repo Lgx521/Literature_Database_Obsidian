@@ -6,6 +6,7 @@ module.exports=class DeepSeekWork{
  constructor(service,{tr=x=>x,language=()=> 'en',changed=()=>{},completed=()=>{}}={}){
   this.service=service;this.tr=tr;this.language=language;this.changed=changed;this.completed=completed;this.listeners=new Set();this.items=[];this.reviews=new WeakMap();this.plan=null;this.planEdits={};this.queue=null;this.draft={mode:'inbox'};this.phase='idle';this.running=false;this.done=0;this.total=0;this.filename='';this.error='';this.revision=0;this.closed=false;
   service.onIdle=()=>this.emit();
+  service.onSource=name=>{if(this.running&&!this.stopping){this.filename=name;this.emit();}};
   service.onPhase=phase=>{if(this.running&&!this.stopping&&this.phase!==phase){this.phase=phase;this.emit();}};
  }
  subscribe(fn){this.listeners.add(fn);return ()=>this.listeners.delete(fn);}
@@ -74,5 +75,5 @@ module.exports=class DeepSeekWork{
  ignore(item){if(this.running)return;item.ignored=true;this.releaseTagDraft(item);this.revision++;if(!this.pending.length)this.phase='done';this.emit();}
  clearResults(){if(this.running||this.plan)return;this.items=[];this.reviews=new WeakMap();this.error='';this.phase=this.queuedCount?'done':'idle';this.total=this.done=0;this.revision++;this.emit();}
  clear(){if(this.running)return;this.plan=null;this.planEdits={};this.queue=null;this.clearResults();}
- close(){this.closed=true;this.stopping=true;this.service.onPhase=this.service.onIdle=null;this.service.cancel();this.listeners.clear();this.items=[];this.plan=null;this.planEdits={};this.queue=null;this.reviews=new WeakMap();this.draft={};this.changed=this.completed=()=>{};}
+ close(){this.closed=true;this.stopping=true;this.service.onPhase=this.service.onIdle=this.service.onSource=null;this.service.cancel();this.listeners.clear();this.items=[];this.plan=null;this.planEdits={};this.queue=null;this.reviews=new WeakMap();this.draft={};this.changed=this.completed=()=>{};}
 };

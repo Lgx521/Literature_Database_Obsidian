@@ -1,6 +1,6 @@
 # Development
 
-This repository contains the plugin source and synthetic tests, with no personal library data. The first version-controlled baseline was 4.2.3; the current release is 4.9.6.
+This repository contains the plugin source and synthetic tests, with no personal library data. The first version-controlled baseline was 4.2.3; the current release is 4.10.0.
 
 ## Build and test
 
@@ -31,6 +31,8 @@ The build assembles source modules into `main.js` and copies the plugin CSS to `
 | `plugin-tail.js` | Obsidian lifecycle, mutation guards, coordination and system PDF opening |
 | `snapshot-cache.js`, `pdf-work.js`, `title-export.js` | Source-scoped snapshots, shared cancellable PDF queue and lightweight title export |
 | `inbox-import.js` | Explicit PDF/sidecar import and clipboard decoding |
+| `web-resources.js`, `web-resource-view.js`, `web-excerpt.js` | URL intake, stable web records and on-demand webpage text extraction |
+| `inline-math.js`, `text-selection.js` | Bounded host-rendered inline formulas and source-preserving text selection |
 | `record-trash.js` | Recoverable archive receipts, restore and permanent purge |
 | `deadline-sharing.js` | Explicitly shared project/submission deadlines |
 | `citation-metadata.js`, `citation-engine.js` | Evidence-based recognition and deterministic formatting |

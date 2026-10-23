@@ -15,7 +15,7 @@ const vault={getAbstractFileByPath:p=>files.get(p),read:async f=>store.get(f.pat
  rename:async(f,to)=>{if(files.has(to))throw Error('collision');const value=store.get(f.path);store.delete(f.path);files.delete(f.path);if(f.parent)f.parent.children=f.parent.children.filter(x=>x!==f);f.path=to;f.name=to.split('/').pop();f.parent=folder(to.slice(0,to.lastIndexOf('/')));f.parent.children.push(f);files.set(to,f);store.set(to,value);},
  delete:async f=>{files.delete(f.path);store.delete(f.path);},adapter:{exists:async p=>files.has(p),mkdir:async p=>folder(p),write:async(p,t)=>put(p,t)}};
 let dirty=false;const plugin={app:{vault,workspace:{getLeavesOfType:()=>[]}},ready:true,stopped:false,hasPendingEdit:()=>dirty,recordAction:async fn=>{if(dirty)throw Error('dirty');return fn();},refresh:async()=>{},pdfWork:new Q()};
-const evidence='Synthetic Evidence Title. The method uses reinforcement learning for robotic control. Evidence is limited to the supplied pages.';
+const evidence='Synthetic Evidence Title. The method uses reinforcement learning for robotic control. Evidence is limited to the supplied pages.'.repeat(50);
 const loadPdfJs=async()=>({getDocument:()=>{activePdfs++;let done=false;return {promise:Promise.resolve({numPages:pageCount,getPage:async()=>({getTextContent:async()=>({items:[{str:emptyPdf?'':evidence}]}),cleanup(){}})}),destroy:async()=>{if(!done){done=true;destroyed++;activePdfs--;}}};}});
 const good=()=>({title:'Synthetic Evidence Title',tldr:'A grounded synthetic summary.',tags:['#research/rl'],placement:{category:0,subgroup:''},uncertainty:''});
 let responseValue=good,requestOverride=null;
@@ -23,6 +23,7 @@ const requestUrl=async request=>{
  if(request.method==='GET'){assert.equal(request.url,'https://api.deepseek.com/models');return {status:200,text:JSON.stringify({data:[{id:'provider-test-text'}]})};}
  requests++;assert.equal(activePdfs,0,'Release PDF resources before the network request');assert.equal(request.url,'https://api.deepseek.com/chat/completions');
  const body=JSON.parse(request.body);assert.equal(body.thinking.type,'disabled');assert.equal(body.response_format.type,'json_object');assert(body.max_tokens<=6000);
+ if(body.max_tokens===6000){const payload=JSON.parse(body.messages[1].content);for(const p of payload.papers){assert(p.pages.length>2);assert.equal(p.pages.reduce((n,p)=>n+p.text.length,0),48000,'Planning uses the same excerpt budget as generation');}}
  assert(!request.body.includes('SECRET_BIBLIOGRAPHY'));assert(!request.body.includes('SECRET_NOTES'));assert(!request.body.includes('SECRET_REVIEW'));assert(!request.body.includes('SECRET_WRITING_PROJECT'));assert(!request.body.includes('sk-test-key-123456'));
  if(requestOverride)return requestOverride(request);
  return {status:200,text:JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(responseValue())}}],usage:{prompt_tokens:100,completion_tokens:50}})};
@@ -39,8 +40,17 @@ const planned=()=>({categories:[{name:'Robotics',reason:'Shared robotics applica
  service.enable('sk-test-key-123456');await service.listModels();put('temp/A.pdf','%PDF synthetic A');put('temp/B.pdf','%PDF synthetic B');
  const paths=['temp/A.pdf','temp/B.pdf'],before=new Map(store);responseValue=planned;
  const plan=await service.planInbox(paths,'en');assert.equal(requests,1);assert.equal(destroyed,2);assert.equal(activePdfs,0);assert.deepEqual(store,before,'Planning does not write taxonomy, metadata, backups or move PDFs');
+ const fullBatch=Array.from({length:20},(_,index)=>({index,pages:[{page:1,text:'"'.repeat(48000)}]}));
+ assert.equal(JSON.parse(Plan.messages({categories:[],tags:[]},fullBatch,'en')[1].content).papers.length,20,'Twenty full excerpts fit, including JSON escaping');
+ assert.throws(()=>Plan.messages({categories:[],tags:['x'.repeat(2000000)]},fullBatch,'en'),/Select fewer/);
  assert(!JSON.stringify(plan).includes(evidence),'No retained PDF excerpts');assert.equal(plan.categories[0].existing,false);assert.equal(plan.papers.length,2);
  const normalized=Plan.edit(plan,{categories:{Robotics:'ML'}});assert.equal(normalized.papers[0].category,'ML');assert.equal(plan.papers[0].category,'Robotics');
+ const editable={...plan,base:{...plan.base,tags:['#research/existing']}};
+ const selected=Plan.edit(editable,{paperTags:{[paths[0]]:['#research/EXISTING'],[paths[1]]:[]}});
+ assert.deepEqual(selected.papers.map(p=>p.tags),[['#research/existing'],[]]);assert(selected.papers.every(p=>p.tagsEdited));assert.deepEqual(selected.tags.map(t=>t.tag),['#research/existing']);assert.equal(plan.papers[0].tags[0],'#research/rl');
+ const mixed=Plan.edit(editable,{paperTags:{[paths[0]]:['#research/rl','#research/existing']}});assert.deepEqual(mixed.papers[0].humanTags,['#research/existing'],'Retained AI tags keep their provenance');
+ assert.throws(()=>Plan.edit(editable,{paperTags:{'temp/unknown.pdf':[]}}),/Invalid taxonomy/);assert.throws(()=>Plan.edit(editable,{paperTags:{[paths[0]]:['#research/unknown']}}),/Invalid taxonomy/);
+ assert.throws(()=>Plan.normalize({...planned(),tags:[],papers:planned().papers.map(p=>({...p,tags:[]}))},plan.base,plan.papers),/Invalid taxonomy/,'Empty tags remain invalid for unreviewed model plans');
  await assert.rejects(service.organize(paths[0],'en',plan),/Confirm the taxonomy/);
  const approved=await service.approvePlan(plan);assert.deepEqual(store,before,'Confirmation alone does not write');
  responseValue=()=>{const {placement,...value}=good();return {...value,uncertainty:''};};const proposals=[];for(const path of paths)proposals.push(await service.organize(path,'en',approved));assert.equal(requests,3);assert.deepEqual(store,before);
@@ -67,6 +77,12 @@ const planned=()=>({categories:[{name:'Robotics',reason:'Shared robotics applica
  responseValue=()=>({...planned(),papers:[planned().papers[0]]});await assert.rejects(service.planInbox(later,'en'),/Invalid taxonomy plan/);
  responseValue=()=>({...planned(),bibtex:'BAD'});await assert.rejects(service.planInbox(later,'en'),/Invalid taxonomy plan/);
  const req=requests;await assert.rejects(service.planInbox(['reviews/Secret.pdf'],'en'),/Select up to/);assert.equal(requests,req);emptyPdf=true;await assert.rejects(service.planInbox(later,'en'),/No extractable/);assert.equal(requests,req);emptyPdf=false;
+ put('tags.md',T.serialize({groups:[{name:'Existing',tags:['#research/existing']}]},null));put('temp/E.pdf','%PDF E');put('temp/F.pdf','%PDF F');responseValue=planned;
+ const editPlan=await service.planInbox(['temp/E.pdf','temp/F.pdf'],'en'),edited=await service.approvePlan(editPlan,{paperTags:{'temp/E.pdf':['#research/existing'],'temp/F.pdf':[]}});
+ responseValue=()=>({title:good().title,tldr:good().tldr,uncertainty:'',tags:['#research/unwanted-model-tag']});
+ const chosen=await service.organize('temp/E.pdf','en',edited),removed=await service.organize('temp/F.pdf','en',edited);
+ assert.equal(chosen.preview.tags,'#research/existing');assert.equal(removed.preview.tags,'','A model cannot re-add a deselected tag');assert(service.review(removed).error,'Empty selections remain editable but cannot be applied as complete');
+ const chosenPath=await service.apply(chosen),chosenRow=E.parseLibrary(store.get('library.md')).find(r=>r.path===chosenPath);assert.equal(chosenRow.tags,'#research/existing');assert.equal(O.source(chosenRow,'#research/existing',true).kind,'human');
  let finish;requestOverride=()=>new Promise(resolve=>{finish=resolve;});const cancel=service.planInbox(later,'en');while(!finish)await new Promise(r=>setImmediate(r));service.cancel();await assert.rejects(cancel,/Cancelled/);finish({status:200,text:'{}'});await new Promise(r=>setImmediate(r));assert.equal(activePdfs,0);assert.equal(service.wire,null);service.close();plugin.pdfWork.close();
  console.log('PASS: batch-first planning, explicit confirmation, shared taxonomy, canonical reuse/merge, bounded PDF lifetime, stale/cancel guards, protected fields and two-paper filing.');
 })().catch(e=>{service.close();plugin.pdfWork.close();console.error(e);process.exitCode=1;});

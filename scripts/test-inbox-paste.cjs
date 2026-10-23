@@ -43,7 +43,7 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../main.js'),'utf8')+'\n
  view.listEl.events.contextmenu(event);assert(event.prevented&&event.stopped);const menu=menus.at(-1);assert(menu.native);assert.equal(menu.items[0].title,'粘贴');assert.equal(reads.length,previous,'Opening the menu never reads the clipboard.');
  await menu.items[0].click();assert.equal(imports.length,1);assert.equal(imports[0].nav.scope,'inbox');assert.equal(imports[0].files.length,2);
  plugin.importing=true;view.listEl.events.contextmenu(event);assert(menus.at(-1).items[0].disabled);await assert.rejects(plugin.pasteInboxFiles(),/等待/);plugin.importing=false;
- const n=menus.length;view.scope='library';view.listEl.events.contextmenu(event);assert.equal(menus.length,n,'No paste menu outside the inbox.');
+ const n=menus.length;view.scope='library';view.listEl.events.contextmenu(event);assert.equal(menus.length,n+1,'Public collections accept pasted web links.');
  const row={title:'Actual Paper Title',filename:'1234v2.pdf'};assert.equal(view.detailTitle(row),row.title);assert.equal(view.detailTitle({...row,title:''}),row.filename);view.scope='projects';assert.equal(view.detailTitle(row),row.title);view.scope='inbox';assert.equal(view.detailTitle(row),row.filename);
  const manifest=JSON.parse(fs.readFileSync(path.join(__dirname,'../manifest.json'),'utf8'));assert.equal(manifest.name,'Literature Database');assert.equal(manifest.author,'shengzhegan');
  console.log('PASS: Finder XML/binary file lists, multi-file/file-URL import, Unicode paths, clipboard access only on Paste, native blank-space menu, busy state, sidecar/original preservation, filename collisions, real detail titles and plugin identity.');

@@ -20,24 +20,26 @@ class SnapshotCache {
       read('library.md',text=>E.parseLibrary(text)),read('reviews.md',text=>tracker(text,'审稿')),read('submissions.md',text=>tracker(text,'投稿'))
     ]);
     const collectionSource=publicSource.text.includes('<!-- library:collections -->')?await read('collections.md',text=>C.parse(text).groups):null;
-    let inbox=this.inbox;
+    let inbox=this.fileInbox;
     if(!inbox||all||[...dirty].some(p=>p==='temp'||p.startsWith('temp/'))){
       const folder=vault.getAbstractFileByPath('temp'),files=[];
       if(folder?.children){const walk=f=>{for(const child of f.children||[])child.children?walk(child):files.push(child);};walk(folder);}
       else files.push(...vault.getFiles().filter(f=>f.path.startsWith('temp/')));
       const rows=files.filter(f=>f.extension?.toLowerCase()==='pdf').map(f=>({path:f.path,filename:f.name,category:'',published:new Date(f.stat.ctime).toLocaleDateString('sv-SE'),mtime:f.stat.ctime,fileMtime:f.stat.mtime,fileSize:f.stat.size,status:'待整理',priority:(f.stat.size/1024/1024).toFixed(1)+' MB',tags:'',notes:'',tldr:''}));
-      inbox=this.inbox&&JSON.stringify(rows)===JSON.stringify(this.inbox)?this.inbox:rows;
+      inbox=this.fileInbox&&JSON.stringify(rows)===JSON.stringify(this.fileInbox)?this.fileInbox:rows;
     }
-    if(this.snapshot&&publicSource===this.publicSource&&collectionSource===this.collectionSource&&reviews===this.reviews&&submissions===this.submissions&&inbox===this.inbox)return this.snapshot;
+    if(this.snapshot&&publicSource===this.publicSource&&collectionSource===this.collectionSource&&reviews===this.reviews&&submissions===this.submissions&&inbox===this.fileInbox)return this.snapshot;
     const collections=collectionSource?.data||null;
-    const library=this.snapshot&&publicSource===this.publicSource&&collectionSource===this.collectionSource?this.snapshot.library:collections?C.decorate(publicSource.data,collections):publicSource.data;
+    const allLibrary=this.snapshot&&publicSource===this.publicSource&&collectionSource===this.collectionSource?this.allLibrary:collections?C.decorate(publicSource.data,collections):publicSource.data;
+    const library=allLibrary,filedLibrary=allLibrary===this.allLibrary?this.snapshot.filedLibrary:allLibrary.some(r=>r.inbox)?allLibrary.filter(r=>!r.inbox):allLibrary;
+    const fileInbox=inbox,webInbox=allLibrary.filter(r=>r.inbox);inbox=allLibrary===this.allLibrary&&fileInbox===this.fileInbox?this.snapshot.inbox:webInbox.length?[...fileInbox,...webInbox]:fileInbox;
     const deadlineEntries=this.snapshot&&collectionSource===this.collectionSource&&submissions===this.submissions?this.snapshot.deadlineEntries:collections?D.entries({'collections.md':collectionSource.text,'submissions.md':submissions.text}):[];
-    const snapshot={library,collections,inbox,reviews:reviews.data.rows,submissions:submissions.data.rows,deadlineEntries,
+    const snapshot={library,filedLibrary,collections,inbox,reviews:reviews.data.rows,submissions:submissions.data.rows,deadlineEntries,
       categories:collections?[...collections.filter(g=>g.scope==='library').map(g=>g.name),...(library.some(r=>!r.categories.length)?[E.UNFILED_CATEGORY]:[])]:E.getCategories(publicSource.text),
       groups:{projects:collections?.filter(g=>g.scope==='projects').map(g=>g.name)||[],reviews:reviews.data.groups,submissions:submissions.data.groups},
       deadlines:{reviews:reviews.data.deadlines,submissions:submissions.data.deadlines,projects:Object.fromEntries(deadlineEntries.filter(g=>g.scope==='projects').map(g=>[g.name,g.deadline]))}};
-    Object.assign(this,{sources:next,publicSource,collectionSource,reviews,submissions,inbox,snapshot});return snapshot;
+    Object.assign(this,{sources:next,publicSource,collectionSource,reviews,submissions,inbox,fileInbox,allLibrary,snapshot});return snapshot;
   }
-  clear(){this.retryAll=false;this.sources.clear();this.publicSource=this.collectionSource=this.reviews=this.submissions=this.inbox=this.snapshot=null;}
+  clear(){this.retryAll=false;this.sources.clear();this.publicSource=this.collectionSource=this.reviews=this.submissions=this.inbox=this.fileInbox=this.allLibrary=this.snapshot=null;}
 }
 module.exports=SnapshotCache;

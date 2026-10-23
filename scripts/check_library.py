@@ -10,6 +10,7 @@ import re
 import sys
 
 PUBLICATION_DATE_RE = re.compile(r'(?:(?:19|20)\d{2}(?:\.(?:[1-9]|1[0-2]))?|待核实)')
+WEB_ID_RE = re.compile(r'web:[a-zA-Z0-9-]{8,80}')
 
 
 def digest(p):
@@ -26,11 +27,14 @@ def check(root):
     entries = 0
     collection_refs = set()
     trashed = set()
+    web_ids, web_refs, web_trashed, web_urls = set(), set(), set(), set()
     for receipt in (root / '.maintenance-backups/deleted').glob('*/record.json'):
         try:
             value = json.loads(receipt.read_text())
             if value.get('scope') == 'library' and value.get('state') in ['deleted', 'pending', 'failed', 'purging', 'purge-failed']:
                 relative = value['row']['path']
+                if value['row'].get('kind') == 'web' and WEB_ID_RE.fullmatch(relative):
+                    web_trashed.add(relative)
                 if relative.startswith('papers/') and '..' not in Path(relative).parts:
                     trashed.add((root / relative).resolve())
         except (ValueError, KeyError, OSError):
@@ -44,6 +48,8 @@ def check(root):
         if md.name in ['首页.md', '阅读队列.md']:
             text = re.sub(r'<!-- dashboard:begin -->.*?<!-- dashboard:end -->', '', text, flags=re.S)
         for label, destination in re.findall(r'\[([^\]]+)\]\(([^)]+)\)', text):
+            if WEB_ID_RE.fullmatch(unquote(destination)):
+                continue
             url = urlsplit(destination)
             if url.scheme or url.netloc or not url.path:
                 continue
@@ -76,16 +82,21 @@ def check(root):
                         errors.append('集合: 关系表行无效'); continue
                     if len(row) == 3 and row[2] and html.unescape(row[2]) not in subgroups:
                         errors.append('集合: 文献引用了不存在的子类: ' + row[2])
-                    target = (root / unquote(matches[0])).resolve()
+                    reference = unquote(matches[0])
+                    target = reference if WEB_ID_RE.fullmatch(reference) else (root / reference).resolve()
                     if target in members:
                         errors.append('集合: 同一集合重复引用: ' + current)
-                    members.add(target); collection_refs.add(target)
+                    members.add(target)
+                    if isinstance(target, str):
+                        web_refs.add(target)
+                    else:
+                        collection_refs.add(target)
         if md.name == 'library.md':
             for line in text.splitlines():
                 if not re.match(r'^\|\s*\[', line):
                     continue
                 row = [c.strip() for c in re.split(r'(?<!\\)\|', line)[1:-1]]
-                if len(row) not in (6, 7, 8, 10, 11, 13, 14, 15):
+                if len(row) not in (6, 7, 8, 10, 11, 13, 14, 15, 16):
                     errors.append('文献库: 表格列数异常'); continue
                 entries += 1
                 if not PUBLICATION_DATE_RE.fullmatch(row[1]):
@@ -116,12 +127,28 @@ def check(root):
                 matches = re.findall(r'\]\(([^)]+)\)', row[0])
                 if len(matches) != 1:
                     errors.append(row[0] + ': 必须有一个 PDF 链接'); continue
+                if len(row) == 16 and row[15]:
+                    try:
+                        resource = json.loads(html.unescape(row[15]))
+                        url = urlsplit(matches[0])
+                        if (resource.get('type') != 'web' or not WEB_ID_RE.fullmatch(resource.get('id', ''))
+                                or type(resource.get('inbox')) is not bool or not isinstance(resource.get('added'), str)
+                                or url.scheme not in ['http', 'https'] or not url.hostname or url.username or url.password):
+                            raise ValueError('invalid web resource')
+                        if resource['id'] in web_ids or matches[0] in web_urls:
+                            errors.append(row[0] + ': 网页重复收录')
+                        web_ids.add(resource['id']); web_urls.add(matches[0])
+                    except (ValueError, TypeError, AttributeError):
+                        errors.append(row[0] + ': 无效网页记录')
+                    continue
                 target = (root / unquote(matches[0])).resolve()
                 if target in linked:
                     errors.append(row[0] + ': 同一 PDF 重复入表')
                 linked.add(target)
     for target in collection_refs - linked - trashed:
         errors.append('集合引用未收录的文献: ' + str(target.relative_to(root.resolve()) if target.is_relative_to(root.resolve()) else target))
+    for reference in web_refs - web_ids - web_trashed:
+        errors.append('集合引用未收录的网页: ' + reference)
     library_text = (root / 'library.md').read_text()
     if '<!-- library:collections -->' in library_text and not (root / 'collections.md').is_file():
         errors.append('collections.md 尚未同步')

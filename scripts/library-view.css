@@ -113,6 +113,9 @@
 .ldb-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 20px; }
 .ldb-filename { display: flex; min-width: 0; gap: 7px; align-items: center; }
 .ldb-filename-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ldb-inline-math.is-rendered { display: inline-block; white-space: nowrap; }
+.ldb-inline-math mjx-container { margin: 0 !important; }
+.ldb-inline-math mjx-assistive-mml { -webkit-user-select: none; user-select: none; }
 .ldb-pdf-icon { position: relative; display: flex; color: var(--text-faint); flex: 0 0 13px; }
 .ldb-pdf-icon svg { width: 13px; height: 13px; }
 .ldb-pdf-icon .ldb-bookmark-badge { position: absolute; display: flex; top: -2px; right: -1px; color: var(--color-red, #d64545); }
@@ -683,6 +686,7 @@ body:not(.is-mobile) .workspace-split.mod-left-split:not(.is-sidedock-collapsed)
 .ldb-deepseek-plan-section h4 { font-size: var(--font-ui-small); margin: 16px 0 8px; }
 .ldb-deepseek-plan-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px 12px; }
 .ldb-deepseek-plan-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ldb-deepseek-plan-row[hidden] { display: none; }
 .ldb-deepseek-plan-row input { width: 100%; min-width: 0; flex: 1; }
 .ldb-deepseek-plan-count { color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .ldb-deepseek-plan-badge { flex: none; font-size: var(--font-ui-smaller); color: var(--text-accent); }
@@ -731,3 +735,9 @@ body:not(.is-mobile) .workspace-split.mod-left-split:not(.is-sidedock-collapsed)
 .ldb-mobile-search .ldb-search-options label { min-height: 44px; flex: 1; }
 .ldb-mobile-search .ldb-search-dismiss { display: flex; align-items: center; justify-content: center; flex: 0 0 44px; width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; border: none; background: transparent; box-shadow: none; }
 .ldb-mobile-search .ldb-search-dismiss svg { width: 20px; height: 20px; flex: 0 0 20px; }
+
+/* Web resources reuse the compact layout; URL text remains copyable. */
+.ldb-browser .ldb-web-url { user-select: text; -webkit-user-select: text; cursor: text; }
+.ldb-browser .ldb-web-add { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.ldb-browser .ldb-web-add svg { width: 16px; height: 16px; flex: none; }
+.ldb-browser.ldb-mobile .ldb-web-add { display: none; }

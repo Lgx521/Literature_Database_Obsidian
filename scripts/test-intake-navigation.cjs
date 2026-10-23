@@ -36,7 +36,7 @@ vm.runInNewContext(fs.readFileSync('main.js','utf8')+'\nmodule.exports.listDrop=
  await pane.emit('dragover',drag(165));await pane.emit('dragleave',{relatedTarget:null});assert.equal(frames.size,0);
  dirty=true;await pane.emit('dragover',drag(165));assert.equal(frames.size,0);assert(!groups.some(g=>g.classes.has('is-drop-target')));dirty=false;
  plugin.importing=true;await pane.emit('dragover',drag(165));assert.equal(frames.size,0);plugin.importing=false;
- await pane.emit('dragover',drag(165,['text/uri-list']));assert.equal(frames.size,0);
+ await pane.emit('dragover',drag(165,['text/uri-list']));assert(frames.size,'Web link drag scrolls toward child destinations too');await win.emit('blur');
  await pane.emit('dragover',drag(165));await win.emit('blur');assert.equal(frames.size,0);
  controller.destroy();assert(Object.values(doc.events).every(f=>!f.length));assert(Object.values(win.events).every(f=>!f.length));
  console.log('PASS: whole-child drop routing, pointer-following highlight during edge/wheel scrolling, empty children, cleanup and draft/busy guards.');

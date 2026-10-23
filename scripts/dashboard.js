@@ -2,6 +2,7 @@ const {t:tr}=require('./i18n');
 const Organization=require('./organization');
 const CustomFields=require('./custom-fields');
 const AdvancedSearch=require('./advanced-search');
+const WebResources=require('./web-resources');
 'use strict';
 // Pure Markdown -> Markdown. Shared by the offline CLI and the Obsidian plugin.
 const HEADERS = ['PDF（文件名）', '发表时间', '标签', 'TL;DR', '阅读', '优先级'];
@@ -12,6 +13,7 @@ const TITLE_HEADERS = [...CITATION_HEADERS, '篇名'];
 const ORGANIZATION_HEADERS=[...TITLE_HEADERS,'整理状态','整理来源'];
 const BOOKMARK_HEADERS=[...ORGANIZATION_HEADERS,'书签'];
 const CUSTOM_HEADERS=[...BOOKMARK_HEADERS,'自定义字段'];
+const RESOURCE_HEADERS=[...CUSTOM_HEADERS,'资源'];
 const STATUSES = ['在读', '待读', '待整理', '未标记', '已读', '暂存'];
 const PRIORITIES = ['高', '中', '低', '—'];
 const REVIEW_STATUSES = ['待审', '在审', '完成'];
@@ -42,13 +44,14 @@ function parseTables(text, headers, categories) {
 }
 function parseLibrary(text) {
   if (!text.includes('<!-- library:end -->')) throw new Error(tr('文献库尚未完整同步，暂停刷新'));
-  const rows = libraryTables(text).rows, paths = new Set();
+  const rows = libraryTables(text).rows, paths = new Set(), urls=new Set();
   for (const r of rows) {
     const [pdf, published, tags, tldr, status, priority, notes = ''] = r.cells;
     const link = pdf.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
     if (!link) throw new Error(tr`${r.category}：PDF 必须使用完整 Markdown 链接`);
-    const path = decodeURIComponent(link[2]), filename = path.split('/').pop();
-    if (!path.startsWith('papers/') || !/\.pdf$/i.test(path) || path.split('/').includes('..')) throw new Error(tr`${filename}：PDF 路径无效`);
+    const resource=WebResources.metadata(decodeText(r.cells[15]||''));
+    const url=resource?WebResources.normalizeURL(link[2]):'',path=resource?resource.id:decodeURIComponent(link[2]),filename=resource?new URL(url).hostname:path.split('/').pop();
+    if (!resource&&(!path.startsWith('papers/') || !/\.pdf$/i.test(path) || path.split('/').includes('..'))) throw new Error(tr`${filename}：PDF 路径无效`);
     if (paths.has(path)) throw new Error(tr`${filename}：PDF 被重复收录`);
     if (!STATUSES.includes(status)&&!CustomFields.ID.test(status) || !PRIORITIES.includes(priority)&&!CustomFields.ID.test(priority)) throw new Error(tr`${filename}：阅读状态或优先级无效`);
     if (!/^(?:(?:19|20)\d{2}(?:\.(?:[1-9]|1[0-2]))?|待核实)$/.test(published)) throw new Error(tr`${filename}：发表时间须为 YYYY.M（如 2026.5）、YYYY 或待核实，月份为 1–12 且不补零`);
@@ -57,10 +60,10 @@ function parseLibrary(text) {
     const provenance=Organization.parse(decodeText(r.cells[12]||''));
     if(!['','是'].includes(r.cells[13]||''))throw new Error(tr('书签须为空或「是」'));
     const bookmarked=r.cells[13]==='是';
-    paths.add(path);
+    paths.add(path);if(url){if(urls.has(url))throw Error(tr("该网址已收录"));urls.add(url);}
     const venues=normalizeVenues(decodeText(r.cells[7]||'').split('\n').filter(Boolean));
     const customFields=CustomFields.values(decodeText(r.cells[14]||''));
-    Object.assign(r, { customFields, bookmarked, organizing, provenance, pdf, published, tags, tldr, status, priority, notes, venues, bibtex:decodeText(r.cells[8]||''), citationSource:decodeText(r.cells[9]||''), title:decodeText(r.cells[10]||''), path, filename });
+    Object.assign(r, { ...(resource?{kind:"web",url,resource,inbox:resource.inbox,mtime:Date.parse(resource.added)}:{}), customFields, bookmarked, organizing, provenance, pdf, published, tags, tldr, status, priority, notes, venues, bibtex:decodeText(r.cells[8]||''), citationSource:decodeText(r.cells[9]||''), title:decodeText(r.cells[10]||''), path, filename });
   }
   return rows;
 }
@@ -112,7 +115,7 @@ function normalizeTagFilter(value){
 }
 let filenameCollator;
 function compareFilenames(a,b){return (filenameCollator??=new Intl.Collator('en',{numeric:true})).compare(a,b);}
-function librarySearchText(r,fieldSearch){return [r.filename, r.title||'', ...(r.categories||[r.category]), r.tags, r.tldr, decodeText(r.notes || ''), r.published, r.status, r.priority, fieldSearch?.(r)||'', ...Object.values(r.customFields||{}), ...(r.venues||[])].join(' ').toLocaleLowerCase();}
+function librarySearchText(r,fieldSearch){return [r.url||'',r.filename, r.title||'', ...(r.categories||[r.category]), r.tags, r.tldr, decodeText(r.notes || ''), r.published, r.status, r.priority, fieldSearch?.(r)||'', ...Object.values(r.customFields||{}), ...(r.venues||[])].join(' ').toLocaleLowerCase();}
 function filterLibrary(rows, { query = '', category = '', status = '', tag = '', tags, sort = 'filename', descending = false, organizing = '', bookmarked = false, statusOrder=STATUSES, priorityOrder=PRIORITIES, fieldSearch=null, advanced, search=null } = {}) {
   const tokens = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   const matches=advanced?.conditions?.length?(search?search.predicate(advanced):AdvancedSearch.compile(advanced,decodeText)):null;
@@ -183,7 +186,7 @@ function normalizeVenues(values){
   return result;
 }
 function venueOptions(rows){return normalizeVenues(rows.flatMap(r=>r.venues||[])).sort((a,b)=>a.localeCompare(b,'en',{numeric:true}));}
-function libraryHeaders(text){const n=Math.max(...libraryTables(text).tables.map(t=>t.header.length));return n===15?CUSTOM_HEADERS:n===14?BOOKMARK_HEADERS:n===13?ORGANIZATION_HEADERS:n===11?TITLE_HEADERS:n===10?CITATION_HEADERS:n===8?VENUE_HEADERS:NOTES_HEADERS;}
+function libraryHeaders(text){const n=Math.max(...libraryTables(text).tables.map(t=>t.header.length));return n===16?RESOURCE_HEADERS:n===15?CUSTOM_HEADERS:n===14?BOOKMARK_HEADERS:n===13?ORGANIZATION_HEADERS:n===11?TITLE_HEADERS:n===10?CITATION_HEADERS:n===8?VENUE_HEADERS:NOTES_HEADERS;}
 function libraryTables(text) {
   if (text.split('<!-- library:end -->').length!==2) throw new Error(tr('文献库尚未完整同步，暂停刷新'));
   const lines=text.split(/\r?\n/), tables=[], rows=[]; let heading='',headingLine=-1;
@@ -192,7 +195,7 @@ function libraryTables(text) {
     if(lines[i].startsWith('## ')){heading=lines[i].slice(3).trim();headingLine=i;}
     if(!lines[i].startsWith('|')) continue;
     const header=cells(lines[i]);
-    if (!same(header,HEADERS) && !same(header,NOTES_HEADERS) && !same(header,VENUE_HEADERS) && !same(header,CITATION_HEADERS) && !same(header,TITLE_HEADERS) && !same(header,ORGANIZATION_HEADERS) && !same(header,BOOKMARK_HEADERS) && !same(header,CUSTOM_HEADERS)) throw new Error(tr`${heading}：文献表头无效`);
+    if (!same(header,HEADERS) && !same(header,NOTES_HEADERS) && !same(header,VENUE_HEADERS) && !same(header,CITATION_HEADERS) && !same(header,TITLE_HEADERS) && !same(header,ORGANIZATION_HEADERS) && !same(header,BOOKMARK_HEADERS) && !same(header,CUSTOM_HEADERS) && !same(header,RESOURCE_HEADERS)) throw new Error(tr`${heading}：文献表头无效`);
     categoryName(heading);
     if(tables.some(t=>t.name.toLocaleLowerCase()===heading.toLocaleLowerCase())) throw new Error(tr('分类名称重复：')+heading);
     const start=i;
@@ -284,6 +287,9 @@ function updateLibraryEntry(text, expected, changes, actor=null) {
     throw new Error(tr('这篇文献已在其他窗口或设备中修改。请取消编辑，查看最新内容后重试；你的输入仍保留。'));
   }
   changes={...changes};
+  if("pdf" in changes)throw Error(tr("不支持修改字段：")+"pdf");
+  if('resource' in changes){if(actor?.kind!=='human'||!current.resource)throw Error(tr('网页记录只能由用户修改'));changes.resource=WebResources.metadata(changes.resource);if(changes.resource.id!==current.path)throw Error(tr('网页记录格式无效'));}
+  if('url' in changes){if(actor?.kind!=='human'||!current.resource)throw Error(tr('网页记录只能由用户修改'));const url=WebResources.normalizeURL(changes.url);if(rows.some(r=>r.path!==current.path&&r.url===url))throw Error(tr('该网址已收录'));changes.pdf='['+escapeLabel(new URL(url).hostname)+']('+url.replace(/\(/g,'%28').replace(/\)/g,'%29')+')';delete changes.url;}
   if('bookmarked' in changes){
     if(actor?.kind!=='human')throw new Error(tr('书签只能由用户修改'));
     if(typeof changes.bookmarked!=='boolean')throw new Error(tr('书签值无效'));
@@ -292,7 +298,7 @@ function updateLibraryEntry(text, expected, changes, actor=null) {
   if('title' in changes)changes.title=String(changes.title).replace(/\r\n?/g,'\n').trim();
   for(const key of ['tldr','published','tags','organizing'])if(key in changes)changes[key]=String(changes[key]).replace(/\r?\n/g,' ').trim();
   if(!(Object.keys(changes).length===1&&'bookmarked' in changes))changes=Organization.apply({...current,tldr:decodeText(current.tldr)},changes,actor);
-  const columns = { customFields:14,bookmarked:13, organizing:11, provenance:12, published: 1, tags: 2, tldr: 3, status: 4, priority: 5, notes:6, venues:7, bibtex:8, citationSource:9, title:10 };
+  const columns = { resource:15,pdf:0,customFields:14,bookmarked:13, organizing:11, provenance:12, published: 1, tags: 2, tldr: 3, status: 4, priority: 5, notes:6, venues:7, bibtex:8, citationSource:9, title:10 };
   for (const key of Object.keys(changes)) if (!(key in columns) && key!=='category') throw new Error(tr('不支持修改字段：') + key);
   const target=changes.category===undefined?current.category:categoryName(changes.category);
   if(!getCategories(text).includes(target)) throw new Error(tr('目标分类不存在'));
@@ -313,7 +319,7 @@ function updateLibraryEntry(text, expected, changes, actor=null) {
   const next = [...current.cells];
   for (const [key,value] of Object.entries(changes)) {
     if(key==='category') continue;
-    next[columns[key]]=key==='customFields'?encodeNotes(JSON.stringify(CustomFields.values(value))):key==='bookmarked'?(value?'是':''):key==='provenance'?encodeNotes(JSON.stringify(Organization.parse(value))):key==='venues'?normalizeVenues(value).map(encodeNotes).join('<br>'):['notes','bibtex','citationSource','title','tldr'].includes(key)?encodeNotes(value):String(value).replace(/\r?\n/g,' ').trim().replace(/\|/g,'&#124;');
+    next[columns[key]]=key==='resource'?encodeNotes(JSON.stringify(value)):key==='customFields'?encodeNotes(JSON.stringify(CustomFields.values(value))):key==='bookmarked'?(value?'是':''):key==='provenance'?encodeNotes(JSON.stringify(Organization.parse(value))):key==='venues'?normalizeVenues(value).map(encodeNotes).join('<br>'):['notes','bibtex','citationSource','title','tldr'].includes(key)?encodeNotes(value):String(value).replace(/\r?\n/g,' ').trim().replace(/\|/g,'&#124;');
   }
   if(same(next,current.cells) && target===current.category) return text;
   const lines=text.split('\n'), index=lines.findIndex(l=>l.startsWith('|')&&same(cells(l),current.cells));
@@ -340,6 +346,37 @@ function addLibraryEntry(text,path){
   while(values.length<target.header.length)values.push('');
   lines.splice(target.end+1,0,'| '+values.join(' | ')+' |'+(text.includes('\r\n')?'\r':''));
   const output=lines.join('\n');parseLibrary(output);return output;
+}
+function addWebEntry(text,{url,title='',id,inbox=true,added=new Date().toISOString()}){
+  url=WebResources.normalizeURL(url);
+  if(parseLibrary(text).some(r=>r.url===url))return text;
+  if(!text.includes('<!-- library:collections -->'))throw Error(tr('请先迁移到集合文献库'));
+  const resource=WebResources.metadata({type:'web',id,inbox,added});
+  text=migrateLibraryColumns(text,RESOURCE_HEADERS);
+  const label=new URL(url).hostname,display=String(title).trim().slice(0,1000)||WebResources.fallbackTitle(url);
+  const provenance=Organization.apply({title:'',tags:'',tldr:''},{title:display},{kind:title.trim()?'human':'import',name:title.trim()?'user':'url'}).provenance;
+  const values=['['+escapeLabel(label)+']('+url.replace(/\(/g,'%28').replace(/\)/g,'%29')+')','待核实','','','待读','—','','','','',encodeNotes(display),'待整理',encodeNotes(JSON.stringify(provenance)),'','',encodeNotes(JSON.stringify(resource))];
+  const target=libraryTables(text).tables[0],lines=text.split('\n');lines.splice(target.end+1,0,'| '+values.join(' | ')+' |'+(text.includes('\r\n')?'\r':''));
+  const output=lines.join('\n');parseLibrary(output);return output;
+}
+function planWebIntake(library,collections,links,target,Collections,newId){
+  if(!Array.isArray(links)||!links.length)throw Error(tr('没有找到有效网址'));
+  const inputs=new Map(links.map(item=>[WebResources.normalizeURL(item.url),String(item.title||'').trim()]));
+  const groups=Collections.parse(collections).groups;
+  if(target&&!groups.some(g=>g.scope===target.scope&&g.name===target.name&&(!target.subgroup||g.subgroups.includes(target.subgroup))))throw Error(tr('目标分类已改变，请刷新后重试'));
+  const known=new Map(parseLibrary(library).filter(r=>r.kind==='web').map(r=>[r.url,r]));
+  const paths=[];let added=0,existing=0;
+  for(const [url,title] of inputs){
+    let row=known.get(url);
+    if(row){existing++;if(target&&row.inbox)library=updateLibraryEntry(library,parseLibrary(library).find(r=>r.path===row.path),{resource:{...row.resource,inbox:false}},{kind:'human',name:'user'});}
+    else{
+      const id=newId();library=addWebEntry(library,{url,title,id,inbox:!target});
+      row=parseLibrary(library).find(r=>r.path===id);added++;
+    }
+    paths.push(row.path);
+  }
+  if(target)collections=Collections.change(collections,paths,target);
+  return {library,collections,paths,added,existing};
 }
 function isStagingGroup(name){return ['暂存区','待确定 venue'].includes(name);}
 function trackerLayout(text){
@@ -484,7 +521,7 @@ function restoreRecord(text,scope,row){
   if(!['library','reviews','submissions'].includes(scope))throw new Error(tr('无效记录类型'));
   const rows=library?parseLibrary(text):parseTracker(text,source),group=library&&text.includes('<!-- library:collections -->')?'文献':categoryName(row.category);
   if(rows.some(r=>library?r.path===row.path:r.category===group&&sameTrackerContent(r.cells,row.cells)))throw new Error(tr('这条记录已存在，未重复恢复'));
-  if(library)text=row.cells.length===15?migrateLibraryCustomFields(text):row.cells.length===14?migrateLibraryBookmarks(text):row.cells.length===13?migrateLibraryOrganization(text):row.cells.length===11?migrateLibraryTitles(text):row.cells.length===10?migrateLibraryCitations(text):row.cells.length===8?migrateLibraryVenues(text):migrateLibraryNotes(text);
+  if(library)text=row.cells.length===16?migrateLibraryColumns(text,RESOURCE_HEADERS):row.cells.length===15?migrateLibraryCustomFields(text):row.cells.length===14?migrateLibraryBookmarks(text):row.cells.length===13?migrateLibraryOrganization(text):row.cells.length===11?migrateLibraryTitles(text):row.cells.length===10?migrateLibraryCitations(text):row.cells.length===8?migrateLibraryVenues(text):migrateLibraryNotes(text);
   const names=library?getCategories(text):trackerGroups(text),cr=text.includes('\r\n')?'\r':'';
   if(!names.includes(group)){
     if(library)text=addCategory(text,group);
@@ -495,4 +532,4 @@ function restoreRecord(text,scope,row){
   if(end<0)throw new Error(tr('无法恢复到分类'));const values=[...row.cells];if(library)while(values.length<header.length)values.push('');if(!library)values[2]=trackerDeadline(text,group);
   lines.splice(end+1,0,'| '+values.join(' | ')+' |'+cr);const output=lines.join('\n');library?parseLibrary(output):parseTracker(output,source);return output;
 }
-module.exports = { librarySearchText,sortLibrary, CUSTOM_HEADERS,migrateLibraryCustomFields,normalizeTagFilter, BOOKMARK_HEADERS, migrateLibraryBookmarks, groupLibrary, Organization, ORGANIZATION_HEADERS, migrateLibraryOrganization, addLibraryEntry, REVIEW_STATUSES, updateReviewStatus, TITLE_HEADERS, migrateLibraryTitles, trackerLayout, CITATION_HEADERS, migrateLibraryCitations, HEADERS, NOTES_HEADERS, VENUE_HEADERS, normalizeVenues, venueOptions, migrateLibraryVenues, STATUSES, PRIORITIES, UNFILED_CATEGORY, TRACKING_HEADERS, parseLibrary, deadline, deadlineParts, composeDeadline, displayDeadline, deadlineCountdown, escapeLabel, filterLibrary, updateLibraryEntry, decodeText, encodeNotes, getCategories, migrateLibraryNotes, addCategory, renameCategory, deleteCategory, reorderGroups, parseTracker, trackerGroups, trackerDeadline, setTrackerDeadline, migrateTrackerDeadlines, isStagingGroup, renameTrackerGroup, deleteTrackerGroup, addTrackerGroup, updateTracker, removeRecord, restoreRecord, sameTrackerContent };
+module.exports = { planWebIntake,addWebEntry,RESOURCE_HEADERS,librarySearchText,sortLibrary, CUSTOM_HEADERS,migrateLibraryCustomFields,normalizeTagFilter, BOOKMARK_HEADERS, migrateLibraryBookmarks, groupLibrary, Organization, ORGANIZATION_HEADERS, migrateLibraryOrganization, addLibraryEntry, REVIEW_STATUSES, updateReviewStatus, TITLE_HEADERS, migrateLibraryTitles, trackerLayout, CITATION_HEADERS, migrateLibraryCitations, HEADERS, NOTES_HEADERS, VENUE_HEADERS, normalizeVenues, venueOptions, migrateLibraryVenues, STATUSES, PRIORITIES, UNFILED_CATEGORY, TRACKING_HEADERS, parseLibrary, deadline, deadlineParts, composeDeadline, displayDeadline, deadlineCountdown, escapeLabel, filterLibrary, updateLibraryEntry, decodeText, encodeNotes, getCategories, migrateLibraryNotes, addCategory, renameCategory, deleteCategory, reorderGroups, parseTracker, trackerGroups, trackerDeadline, setTrackerDeadline, migrateTrackerDeadlines, isStagingGroup, renameTrackerGroup, deleteTrackerGroup, addTrackerGroup, updateTracker, removeRecord, restoreRecord, sameTrackerContent };
