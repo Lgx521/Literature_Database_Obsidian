@@ -39,7 +39,7 @@ function update(id,changes){files.set('library.md',E.updateLibraryEntry(files.ge
  webResponse={status:200,headers:{'content-type':'text/plain'},text:'中'.repeat(700000)};await assert.rejects(service.organize(d,'en'),/too large/);webResponse=null;
  // Inbox planning accepts web identities, preserves evidence checks through edits,
  // and only files the canonical row after the explicit Apply operation.
- const planReply={categories:[{name:'ML',reason:''}],tags:[{tag:'#research/rl',reason:''}],papers:[{index:0,title:'Web Evidence Title',category:'ML',tags:['#research/rl']}]};
+ const planReply={categories:[{name:'ML',reason:'',subgroups:[]}],papers:[{index:0,title:'Web Evidence Title',category:'ML',subgroup:''}]};
  reply=planReply;const planBefore=sources(),plan=await service.planInbox([d],'en');const approved=await service.approvePlan(plan);assert(approved.papers[0].evidenceRevision);assert.equal(approved.papers[0].webReader,'direct');assert.deepEqual(sources(),planBefore);
  assert.equal(JSON.parse(JSON.parse(requests.at(-1).body).messages[1].content).papers[0].pages[0].text,body,'Planning no longer clips at 5,500 characters');
  reply={title:good().title,tldr:good().tldr,tags:good().tags,uncertainty:''};webResponse={...normal(),text:body+' changed'};n=requests.length;await assert.rejects(service.organize(d,'en',approved),/content changed/);assert.equal(requests.length,n+1);webResponse=null;

@@ -60,7 +60,7 @@ module.exports=class DeepSeekWork{
   try{for(const path of batch){if(this.stopping||this.closed)break;this.filename=path.split('/').pop();this.phase='reading';this.emit();
    try{const proposal=await this.service.organize(path,this.language(),approved);if(this.stopping||this.closed)break;this.items.push({proposal,path,filename:proposal.filename,edits:{},tagInput:''});}
    catch(error){if(this.stopping||this.closed)break;this.items.push({path,filename:this.filename,error:error.message});this.error=error.message;
-    if(this.service.wire||['DeepSeek 密钥无效或无权限','DeepSeek 余额不足','DeepSeek 请求过多，请稍后重试','请先保存或取消编辑，并等待当前操作结束','分类或标签已改变，请重新规划','收件箱文件已改变，请重新规划'].map(this.tr).includes(error.message)){this.revision++;break;}}
+    if(this.service.wire||['DeepSeek 密钥无效或无权限','DeepSeek 余额不足','DeepSeek 请求过多，请稍后重试','请先保存或取消编辑，并等待当前操作结束','分类或子类已改变，请重新规划','收件箱文件已改变，请重新规划'].map(this.tr).includes(error.message)){this.revision++;break;}}
    this.done++;this.revision++;this.emit();
   }}finally{if(!this.closed&&this.queue)this.queue.active=batch.slice(this.done);this.finish();}
  }

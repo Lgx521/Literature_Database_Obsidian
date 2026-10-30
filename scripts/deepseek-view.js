@@ -139,11 +139,12 @@ class DeepSeekBetaModal extends Modal{
   ldbDeepSeekProps(this.cancelButton,{hidden:!w.running,disabled:!!w.stopping});ldbDeepSeekText(this.closeButton,tr(w.running?'后台继续':'关闭'));ldbDeepSeekText(this.footerHint,w.running?tr('关闭面板后继续整理'):'');
   ldbDeepSeekProps(this.preview,{hidden:!w.items.length});ldbDeepSeekProps(this.empty,{hidden:w.items.length>0||w.running||!!w.plan});ldbDeepSeekText(this.resultTitle,tr('整理结果')+' · '+pending);ldbDeepSeekProps(this.applyAll,{disabled:busy||!ready||!w.ready.length});ldbDeepSeekProps(this.clearButton,{disabled:busy});
   this.syncPlan();
-  ldbDeepSeekText(this.empty,tr(this.needsPlan()?'先统一规划本批分类与标签，确认后再逐篇整理。':'生成篇名、TL;DR、标签和分类，修改后应用。'));
+  ldbDeepSeekText(this.empty,tr(this.needsPlan()?'先规划分类与子类，确认后再整理摘要和标签。':'生成篇名、TL;DR、标签和分类，修改后应用。'));
   if(this.renderedRevision!==w.revision&&this.renderResults()!==false)this.renderedRevision=w.revision;
   for(const [item,view] of this.itemViews){
+   const review=w.review(item);ldbDeepSeekText(view.state,item.applied?tr('已应用'):item.error?tr('需要处理'):review.pending?.length?tr('待确认'):'');
    if(!view.body)continue;
-   const review=w.review(item),disabled=busy||!!item.applied;
+   view.syncPlacementReview?.();const disabled=busy||!!item.applied;
    if(view.controlsDisabled!==disabled){view.controlsDisabled=disabled;for(const input of view.body.querySelectorAll('input,textarea,select,button'))input.disabled=disabled;for(const select of view.body.querySelectorAll('[data-child]'))select.disabled=disabled||!select.dataset.parent;}
    ldbDeepSeekProps(view.apply,{disabled:disabled||!ready||!!item.tagInput?.trim()||!!review.error});ldbDeepSeekProps(view.ignore,{disabled:busy});ldbDeepSeekText(view.validation,item.tagError||review.error||'');
   }
@@ -158,55 +159,39 @@ class DeepSeekBetaModal extends Modal{
  }
  syncPlan(){
   const w=this.work,plan=w.plan;this.planPanel.hidden=!plan;this.planActions.hidden=!plan;
-  if(this.renderedPlan!==plan){this.planPanel.empty();this.planActions.empty();this.renderedPlan=plan;this.planControls=[];this.refreshPlanTags=null;if(plan)this.renderPlan(plan);}
+  if(this.renderedPlan!==plan){this.planPanel.empty();this.planActions.empty();this.renderedPlan=plan;this.planControls=[];this.refreshPlanChoices=null;if(plan)this.renderPlan(plan);}
   for(const input of this.planControls||[])input.disabled=this.working||!this.service.enabled;
-  for(const button of this.planPanel.querySelectorAll('.ldb-deepseek-tags button'))button.disabled=this.working||!this.service.enabled;
  }
  renderPlan(plan){
-  const root=this.planPanel,w=this.work,heading=root.createDiv('ldb-deepseek-result-heading');heading.createEl('strong',{text:tr('整批分类方案')+' · '+plan.papers.length});
-  root.createEl('p',{cls:'ldb-deepseek-plan-intro',text:tr('确认后补充篇名与 TL;DR，沿用本方案。相同名称会合并；已有分类和标签不会被重命名。')});
-  const paperRows=[],tagRows=[];
-  const mapped=(kind,name)=>Object.hasOwn(w.planEdits[kind]||{},name)?w.planEdits[kind][name]:name;
-  const updatePapers=()=>{
-   for(const {p,category,draw} of paperRows){category.setText(mapped('categories',p.category));draw();}
-   for(const {name,row,count} of tagRows){const total=plan.papers.filter(p=>this.planTagValues(p).some(t=>TagTree.fold(t)===TagTree.fold(mapped('tags',name)))).length;count.setText(String(total));row.hidden=!total;}
-  };this.refreshPlanTags=updatePapers;
-  const section=(kind,label,entries,key,existing)=>{
-   const box=root.createDiv('ldb-deepseek-plan-section');box.createEl('h4',{text:tr(label)});const rows=box.createDiv('ldb-deepseek-plan-grid');
-   const id='ldb-plan-'+kind+'-'+Math.random().toString(36).slice(2),options=box.createEl('datalist',{attr:{id}});for(const name of existing)options.createEl('option',{value:kind==='tags'?TagTree.label(name):name});
-   for(const item of entries){const name=item[key],row=rows.createDiv('ldb-deepseek-plan-row'),input=row.createEl('input',{type:'text',attr:{'aria-label':tr(label)+' '+name,list:id,maxlength:kind==='tags'?'160':'80'}});input.value=kind==='tags'?TagTree.label(mapped(kind,name)):mapped(kind,name);input.title=item.reason||name;
-    const canonical=()=>{const value=input.value.trim();if(kind!=='tags'||value.startsWith('#'))return value;const old=existing.find(t=>TagTree.fold(TagTree.label(t))===TagTree.fold(value));return old||(name.startsWith('#research/')?'#research/':'#')+value;};
-    const count=plan.papers.filter(p=>kind==='tags'?p.tags.includes(name):p.category===name).length,countEl=row.createSpan({cls:'ldb-deepseek-plan-count',text:String(count)});
-    const badge=row.createSpan('ldb-deepseek-plan-badge'),syncBadge=()=>{const reused=existing.some(x=>TagTree.fold(x)===TagTree.fold(canonical()));badge.setText(tr(reused?'复用':'新建'));badge.toggleClass('is-existing',reused);};syncBadge();
-    input.addEventListener('input',()=>{this.setPlanName(kind,name,canonical());syncBadge();});this.planControls.push(input);
-    if(kind==='tags'){
-     tagRows.push({name,row,count:countEl});const remove=ldbButton(row,'',()=>{const tag=mapped('tags',name);for(const p of plan.papers){const current=this.planTagValues(p);if(current.some(t=>TagTree.fold(t)===TagTree.fold(tag)))this.setPlanTags(p,current.filter(t=>TagTree.fold(t)!==TagTree.fold(tag)));}},'ldb-deepseek-tag-remove');setIcon(remove,'x');remove.setAttribute('aria-label',tr('从本批移除标签')+' '+TagTree.label(name));this.planControls.push(remove);
-    }
+  const root=this.planPanel,w=this.work,heading=root.createDiv('ldb-deepseek-result-heading');heading.createEl('strong',{text:tr('分类与子类')+' · '+plan.papers.length});
+  root.createEl('p',{cls:'ldb-deepseek-plan-intro',text:tr('先确认归属；下一步生成摘要和标签，可逐篇修改后应用。')});
+  const rows=[];const fill=(list,values)=>{const key=JSON.stringify(values);if(list.dataset.options===key)return;list.dataset.options=key;list.empty();for(const value of values)list.createEl('option',{value});};
+  this.refreshPlanChoices=()=>{
+   const choices=this.service.planChoices(plan,w.planEdits),fold=s=>s.normalize('NFKC').trim().toLocaleLowerCase();
+   for(const {p,child,categories,children,note} of rows){
+    const target=w.planEdits.placements?.[p.path]||p,group=choices.find(c=>fold(c.name)===fold(target.category));fill(categories,choices.map(c=>c.name));fill(children,group?.subgroups||[]);if(child.value!==target.subgroup)child.value=target.subgroup;
+    const existing=plan.base.categories.find(c=>fold(c.name)===fold(target.category)),proposed=plan.categories.find(c=>fold(c.name)===fold(target.category)),fresh=[];
+    if(target.category.trim()&&!existing)fresh.push({label:target.category,reason:proposed?.reason||''});
+    if(target.subgroup.trim()&&!existing?.subgroups.some(s=>fold(s)===fold(target.subgroup)))fresh.push({label:target.subgroup,reason:proposed?.subgroups.find(s=>fold(s.name)===fold(target.subgroup))?.reason||''});
+    const key=JSON.stringify(fresh);if(note.dataset.value!==key){note.dataset.value=key;note.empty();note.hidden=!fresh.length;if(fresh.length){note.createSpan({text:tr('新建')+' · '+fresh.map(x=>x.label).join(' / ')});const reasons=fresh.filter(x=>x.reason);if(reasons.length){const details=note.createEl('details');details.createEl('summary',{text:tr('新建理由')});for(const x of reasons)details.createEl('p',{text:x.reason});}}}
    }
   };
-  section('categories','分类',plan.categories,'name',plan.base.categories.map(c=>c.name));section('tags','标签',plan.tags,'tag',plan.base.tags);
-  const assignments=root.createEl('details',{cls:'ldb-deepseek-plan-papers'});assignments.open=true;assignments.createEl('summary',{text:tr('文献归属')});
-  for(const p of plan.papers){const row=assignments.createDiv('ldb-deepseek-plan-paper');row.createDiv({cls:'ldb-deepseek-plan-title',text:p.title,attr:{title:p.filename}});const category=row.createSpan('ldb-deepseek-plan-category'),tags=this.field(row,'标签');tags.addClass('ldb-deepseek-plan-paper-tags','ldb-deepseek-tag-field');const chips=tags.createDiv('ldb-deepseek-tags');
-   const draw=()=>{chips.empty();for(const tag of this.planTagValues(p)){const chip=chips.createSpan({cls:'ldb-deepseek-tag',text:TagTree.label(tag)});chip.toggleClass('is-human',!p.tags.includes(tag));const remove=ldbButton(chip,'',()=>this.setPlanTags(p,this.planTagValues(p).filter(t=>t!==tag)),'ldb-deepseek-tag-remove');setIcon(remove,'x');remove.setAttribute('aria-label',tr('移除标签')+' '+TagTree.label(tag));remove.disabled=this.working||!this.service.enabled;}};
-   const add=ldbButton(tags,'',()=>this.openPlanTagMap(p),'ldb-deepseek-icon-button');setIcon(add,'plus');add.setAttribute('aria-label',tr('选择标签'));this.planControls.push(add);paperRows.push({p,category,draw});
-  }updatePapers();
-  const actions=this.planActions;this.planControls.push(this.taskButton(actions,'确认方案并逐篇整理',()=>w.confirmPlan(),'mod-cta'),this.button(actions,'放弃方案',()=>w.clear()));
+  for(const p of plan.papers){
+   const row=root.createDiv('ldb-deepseek-plan-paper');row.createDiv({cls:'ldb-deepseek-plan-title',text:p.title,attr:{title:p.filename}});
+   const inputs=row.createDiv('ldb-deepseek-plan-placement'),target=w.planEdits.placements?.[p.path]||p;
+   const combo=(label,value)=>{const id='ldb-plan-'+Math.random().toString(36).slice(2),field=this.field(inputs,label),input=field.createEl('input',{type:'text',attr:{'aria-label':tr(label)+' · '+p.title,list:id,maxlength:'80',placeholder:tr(label==='子类'?'未分组':'选择分类')}}),options=field.createEl('datalist',{attr:{id}});input.value=value;this.planControls.push(input);return {input,options};};
+   const category=combo('分类',target.category),child=combo('子类',target.subgroup);
+   category.input.addEventListener('input',()=>this.setPlanPlacement(p,'category',category.input.value));child.input.addEventListener('input',()=>this.setPlanPlacement(p,'subgroup',child.input.value));
+   const note=inputs.createDiv({cls:'ldb-deepseek-plan-new'});rows.push({p,category:category.input,child:child.input,categories:category.options,children:child.options,note});
+  }
+  this.refreshPlanChoices();const actions=this.planActions;
+  this.planControls.push(this.taskButton(actions,'确认归属并继续',()=>w.confirmPlan(),'mod-cta'),this.button(actions,'放弃方案',()=>w.clear()));
  }
- planTagValues(p){const edits=this.work.planEdits;if(Object.hasOwn(edits.paperTags||{},p.path))return edits.paperTags[p.path];return [...new Set(p.tags.map(t=>Object.hasOwn(edits.tags||{},t)?edits.tags[t]:t))];}
- setPlanName(kind,name,value){
-  if(this.working||!this.work.plan)return;const edits=this.work.planEdits,previous=edits[kind]?.[name]??name;
-  const paperTags=kind==='tags'&&edits.paperTags?Object.fromEntries(Object.entries(edits.paperTags).map(([path,tags])=>[path,[...new Set(tags.map(tag=>TagTree.fold(tag)===TagTree.fold(previous)?value:tag))]])):edits.paperTags;
-  this.work.planEdits={...edits,[kind]:{...edits[kind],[name]:value},...(paperTags?{paperTags}:{})};this.refreshPlanTags?.();
- }
- setPlanTags(p,tags){
-  if(this.working||!this.work.plan?.papers.includes(p))return;
-  const edits=this.work.planEdits;this.work.planEdits={...edits,paperTags:{...edits.paperTags,[p.path]:[...new Set(tags)]}};this.refreshPlanTags?.();this.requestSync();
- }
- openPlanTagMap(p){
-  if(this.working||this.tagMap)return;const owner=this,plan=this.work.plan;let selected=[...this.planTagValues(p)];
-  const view={app:this.app,plugin:this.plugin,get detailRow(){return {tags:selected.join(' ')};},detailTitle:()=>p.title,dirty:()=>false,lockFilters(){},reload(){},async saveMapTag(tag,checked){selected=selected.filter(t=>TagTree.fold(t)!==TagTree.fold(tag));if(checked)selected.push(tag);return true;}};
-  const draft={selectionOnly:true,expandAll:true,isHuman:()=>true,async read(){const source=await TagTree.read(owner.app.vault);return {text:source.text,model:TagTree.effective(source.model,[...owner.plugin.snapshot.library,{tags:plan.base.tags.join(' ')},{tags:plan.tags.map(t=>owner.work.planEdits.tags?.[t.tag]??t.tag).filter(TagTree.validTag).join(' ')}])};}};
-  const map=new SearchTagMapModal(view,draft,tags=>{if(!owner.closed&&owner.work.plan===plan)owner.setPlanTags(p,tags);},()=>{owner.tagMap=null;selected=[];if(!owner.closed)owner.sync();});this.tagMap=view.tagMap=this.plugin.tagMap=map;map.open();
+ setPlanPlacement(p,field,value){
+  if(this.working||!this.work.plan?.papers.includes(p)||!['category','subgroup'].includes(field))return;
+  const edits=this.work.planEdits,previous=edits.placements?.[p.path]||{category:p.category,subgroup:p.subgroup},next={...previous,[field]:value};
+  if(field==='category'&&previous.category.normalize('NFKC').trim().toLocaleLowerCase()!==value.normalize('NFKC').trim().toLocaleLowerCase())next.subgroup='';
+  this.work.planEdits={...edits,placements:{...edits.placements,[p.path]:next}};this.refreshPlanChoices?.();
  }
  renderResults(){
   if(!this.plugin.snapshot)return false;const w=this.work;for(const [item,view] of this.itemViews)if(!w.items.includes(item)||item.ignored){view.root.remove();this.itemViews.delete(item);}
@@ -228,15 +213,15 @@ class DeepSeekBetaModal extends Modal{
   if(root.open)this.mountProposal(view);return view;
  }
  unmountProposal(view){
-  if(!view?.body)return;view.body.remove();for(const key of ['body','apply','ignore','error','validation','controlsDisabled'])view[key]=null;
+  if(!view?.body)return;view.body.remove();for(const key of ['body','apply','ignore','error','validation','controlsDisabled','syncPlacementReview'])view[key]=null;
  }
  mountProposal(view){
   if(!view||view.body||view.item.applied||this.closed)return;
   const {item,root,title}=view,p=item.proposal,body=view.body=root.createDiv('ldb-deepseek-proposal-body');
   const titleInput=this.field(body,'篇名').createEl('input',{type:'text',attr:{'aria-label':tr('篇名'),maxlength:'600'}});titleInput.value=this.values(item).title;titleInput.addEventListener('input',()=>{this.edit(item,'title',titleInput.value);title.setText(titleInput.value||p.filename);});
   const tldr=this.field(body,'TL;DR').createEl('textarea',{attr:{rows:'4',maxlength:'1500','aria-label':'TL;DR'}});tldr.value=this.values(item).tldr;tldr.addEventListener('input',()=>this.edit(item,'tldr',tldr.value));
-  this.buildTags(this.field(body,'标签'),item);this.buildPlacements(this.field(body,'分类'),item);
-  const novelties=[...(p.taxonomy?.tags||[]).map(t=>TagTree.label(t.tag)+': '+t.reason),...(p.taxonomy?.category?[p.taxonomy.category.name+': '+p.taxonomy.category.reason]:[]),...(p.taxonomy?.subgroup?[p.taxonomy.subgroup.category+' / '+p.taxonomy.subgroup.name+': '+p.taxonomy.subgroup.reason]:[])];if(novelties.length){const notes=body.createEl('details',{cls:'ldb-deepseek-novelty'});notes.open=true;notes.createEl('summary',{text:tr('新建建议')});for(const text of novelties)notes.createEl('p',{text});}
+  this.buildTags(this.field(body,'标签'),item);this.buildPlacements(this.field(body,'分类'),item,view);
+  const novelties=(p.taxonomy?.tags||[]).map(t=>TagTree.label(t.tag)+': '+t.reason);if(novelties.length){const notes=body.createEl('details',{cls:'ldb-deepseek-novelty'});notes.createEl('summary',{text:tr('新建标签建议')});for(const text of novelties)notes.createEl('p',{text});}
   if(p.uncertainty)body.createEl('p',{cls:'ldb-deepseek-uncertainty',text:p.uncertainty});
   const validation=body.createDiv({cls:'ldb-deepseek-validation',attr:{role:'status'}}),error=body.createDiv({cls:'ldb-form-error',attr:{role:'alert'}}),actions=body.createDiv('ldb-actions');const apply=this.taskButton(actions,'应用到文献库',()=>this.work.apply([item]),'mod-cta'),ignore=this.button(actions,'忽略',()=>this.work.ignore(item),'ldb-deepseek-text-button');Object.assign(view,{apply,ignore,error,validation});this.requestSync();
  }
@@ -276,17 +261,26 @@ class DeepSeekBetaModal extends Modal{
   };
   const map=new TagMapModal(view,draft);this.tagMap=view.tagMap=this.plugin.tagMap=map;map.open();
  }
- buildPlacements(parent,item){
+ acceptPlacements(item){
+  if(this.working||item.applied||item.ignored)return;const pending=this.work.review(item).pending||[];
+  this.edit(item,'acceptedPlacements',[...new Set([...(item.edits.acceptedPlacements||[]),...pending.map(p=>p.key)])]);
+ }
+ buildPlacements(parent,item,view){
   const rows=parent.createDiv('ldb-deepseek-placements');
   const draw=()=>{rows.empty();const saved=this.values(item).placements,current=saved.length?saved:[{scope:'library',name:'',subgroup:''}],groups=(this.plugin.snapshot.collections||[]).filter(g=>g.scope==='library').map(g=>({name:g.name,subgroups:[...(g.subgroups||[])]}));const novelty=item.proposal.taxonomy;if(novelty?.category&&!groups.some(g=>g.name===novelty.category.name))groups.push({name:novelty.category.name,subgroups:[],fresh:true});if(novelty?.subgroup){const g=groups.find(g=>g.name===novelty.subgroup.category);if(g&&!g.subgroups.includes(novelty.subgroup.name))g.subgroups.push(novelty.subgroup.name);}
    current.forEach((placement,index)=>{const row=rows.createDiv('ldb-deepseek-placement'),category=row.createEl('select',{attr:{'aria-label':tr('分类')}}),child=row.createEl('select',{attr:{'aria-label':tr('子类'),'data-child':'true','data-parent':placement.name}});
     category.createEl('option',{value:'',text:tr('选择分类')});for(const g of groups)category.createEl('option',{value:g.name,text:g.name+(g.fresh?' · '+tr('新建'):'')});category.value=placement.name;
-    const children=()=>{const group=groups.find(g=>g.name===category.value);child.empty();child.createEl('option',{value:'',text:tr('未分组')});for(const s of group?.subgroups||[])child.createEl('option',{value:s,text:s});child.value=(group?.subgroups||[]).includes(placement.subgroup)?placement.subgroup:'';child.dataset.parent=category.value;child.disabled=!category.value;};children();
+    const children=()=>{const group=groups.find(g=>g.name===category.value);child.empty();child.createEl('option',{value:'',text:tr('未分组')});for(const s of group?.subgroups||[])child.createEl('option',{value:s,text:s+(novelty?.subgroup?.category===group.name&&novelty.subgroup.name===s?' · '+tr('新建'):'')});child.value=(group?.subgroups||[]).includes(placement.subgroup)?placement.subgroup:'';child.dataset.parent=category.value;child.disabled=!category.value;};children();
     category.addEventListener('change',()=>{const next=this.values(item).placements.map(t=>({...t}));next[index]={scope:'library',name:category.value,subgroup:''};this.edit(item,'placements',next);placement=next[index];children();});child.addEventListener('change',()=>{const next=this.values(item).placements.map(t=>({...t}));next[index].subgroup=child.value;this.edit(item,'placements',next);});
     const remove=ldbButton(row,'',()=>{this.edit(item,'placements',this.values(item).placements.filter((_,i)=>i!==index));draw();},'ldb-deepseek-icon-button');setIcon(remove,'x');remove.setAttribute('aria-label',tr('移除分类'));
    });
   };
   const add=ldbButton(parent,'',()=>{const current=this.values(item).placements,group=[...(this.plugin.snapshot.collections||[]),...(item.proposal.taxonomy?.category?[{scope:'library',name:item.proposal.taxonomy.category.name}]:[])].find(g=>g.scope==='library'&&!current.some(t=>t.name===g.name));if(!group){new Notice(tr('没有其他分类，请先在侧栏新建'));return;}this.edit(item,'placements',[...current,{scope:'library',name:'',subgroup:''}]);draw();},'ldb-deepseek-icon-button');setIcon(add,'plus');add.setAttribute('aria-label',tr('添加分类'));draw();
+  const confirmation=parent.createDiv({cls:'ldb-deepseek-placement-review',attr:{role:'status'}});let previous;
+  view.syncPlacementReview=()=>{
+   const pending=this.work.review(item).pending||[],issue=!this.values(item).placements.length?item.proposal.placementIssue:'',key=JSON.stringify([pending,issue]);if(key===previous)return;previous=key;confirmation.empty();confirmation.hidden=!pending.length&&!issue;if(issue)confirmation.createEl('p',{text:issue});
+   if(pending.length){confirmation.createEl('p',{text:tr('待确认')+' · '+pending.map(p=>p.label).join('、')});const reasons=pending.filter(p=>p.reason);if(reasons.length){const details=confirmation.createEl('details');details.createEl('summary',{text:tr('新建理由')});for(const p of reasons)details.createEl('p',{text:p.label+': '+p.reason});}ldbButton(confirmation,tr('接受新建'),()=>this.acceptPlacements(item));}
+  };view.syncPlacementReview();
  }
  syncModels(){
   if(!this.modelSelect)return;if(this.modelOptions!==this.service.models||this.modelOptionId!==this.service.modelId){this.modelOptions=this.service.models;this.modelOptionId=this.service.modelId;this.modelSelect.empty();if(!this.service.selectedModel())this.modelSelect.createEl('option',{value:'',text:tr(this.service.models.length?'请选择模型':'先获取模型列表')});for(const m of this.service.models)this.modelSelect.createEl('option',{value:m.id,text:m.name,attr:{title:m.id}});this.modelSelect.value=this.service.selectedModel()?.id||'';}
@@ -314,7 +308,7 @@ class DeepSeekBetaModal extends Modal{
  onClose(){
   this.closed=true;this.motion?.destroy();this.motion=null;this.cancelSync();this.renderDoc?.removeEventListener('visibilitychange',this.onVisibility);this.renderDoc=this.renderWin=this.onVisibility=null;
   this.tagMap?.close(true);this.tagMap=null;this.unsubscribe?.();this.unsubscribe=null;if(this.plugin.deepSeekModal===this)this.plugin.deepSeekModal=null;if(this.keyInput)this.keyInput.value=this.passInput.value='';
-  this.itemViews.clear();this.proposalViews=new WeakMap();this.planControls=[];this.renderedPlan=this.refreshPlanTags=null;this.batchCache=this.modelOptions=null;this.paths=[];this.scopeOptions={};this.contentEl.empty();
+  this.itemViews.clear();this.proposalViews=new WeakMap();this.planControls=[];this.renderedPlan=this.refreshPlanChoices=null;this.batchCache=this.modelOptions=null;this.paths=[];this.scopeOptions={};this.contentEl.empty();
   for(const key of ['batchBar','batchStatus','nextBatchButton','discardQueueButton','planPanel','planActions','scroll','error','mode','modelSelect','modelsButton','generate','task','taskIcon','taskTitle','filename','track','bar','preview','resultTitle','applyAll','clearButton','results','empty','footerHint','cancelButton','closeButton','keyStatus','keyEditor','enableButton','lockButton','changeKeyButton','changeSyncButton','cancelKeyButton','config','rememberInput','keyInput','passInput','unlockButton','saveButton','disableButton','forgetButton'])this[key]=null;
  }
 }

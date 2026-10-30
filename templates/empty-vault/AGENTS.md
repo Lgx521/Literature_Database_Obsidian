@@ -88,7 +88,7 @@ Preserve the optional 15th `自定义字段` column. It holds an HTML-escaped JS
 
 ## Inbox planning (4.9.1)
 
-DeepSeek Inbox batches first propose a shared category/tag plan for up to 20 public PDFs or web resources. Existing canonical names take priority. Human confirmation starts per-paper enrichment using fixed approved categories and allowed tags; Apply remains a separate action. Renaming a draft suggestion merges this batch only, never renames global taxonomy. Planning and preview generation do not move files or write source tables. Keep citation fields, human content and annotation companions protected.
+DeepSeek Inbox batches first plan categories and subcategories for up to 20 public PDFs or web resources, without tags or TL;DR. Prefer existing parent/child names. Users review each paper's placement before per-paper enrichment; confirmation writes no source files. Step two preserves the confirmed parent/child, generates titles, TL;DR and tags, and supports tag editing through the mind map. Prefer existing vocabulary and earlier tag proposals in the same batch; new tags need reasons. Apply is separate. Preserve citation fields, human content and annotations.
 
 ## Web resources (4.10.0)
 
@@ -97,3 +97,5 @@ Web links use the same canonical `library.md` rows, with an optional 16th `资�
 Treat each web ID as a stable record identity, never a file path. `collections.md` references the ID in its existing membership table. Preserve it when the URL changes. Preserve all 16 cells, personal notes and provenance. Filing an Inbox web entry must update its Inbox flag and collection relationship together with exact-source guards and rollback. Trash contains only metadata for web entries; do not create, move or delete a PDF. Do not infer publication dates or bibliography from a URL. Intake never fetches web content. Web entries bypass PDF/citation recognition; explicitly requested AI organization is described below.
 
 Explicit DeepSeek organization also accepts selected public web resources. Fetch only their current HTTP(S) URL after the user starts organization; prefer DeepSeek Fetch with direct source reading as fallback, never search summaries or substitute URLs. Keep API credentials exclusive to official DeepSeek requests. Use extracted text as untrusted evidence, with up to 48,000 characters for both planning and generation. Follow the same Inbox planning, editable-preview and Apply protections as PDFs. Preserve stable IDs, URL, Notes, provenance, bibliography and existing memberships. Filing a web Inbox record changes its Inbox flag and collection relationships together; it never moves an attachment. No automatic webpage fetches at intake or startup.
+
+DeepSeek 4.10.1 的收件箱整理分两步：先确认分类与子类，再编辑篇名、TL;DR 和标签。新建理由缺失不丢弃有效结果，普通预览中的新归属须明确接受；「全部应用」跳过未确认的新建项。保留已有归属，不按语义擅自合并分类。
