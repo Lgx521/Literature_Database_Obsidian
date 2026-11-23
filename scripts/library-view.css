@@ -702,9 +702,9 @@ body:not(.is-mobile) .workspace-split.mod-left-split:not(.is-sidedock-collapsed)
 .ldb-deepseek-footer .ldb-deepseek-plan-actions { margin: 0; }
 .ldb-deepseek-plan-actions[hidden] { display: none; }
 
-.ldb-details .ldb-tldr { -webkit-user-select: text; user-select: text; cursor: text; }
-.ldb-details :is(.ldb-title,.ldb-tldr):focus { outline: none; }
-.ldb-details :is(.ldb-title,.ldb-tldr):focus-visible { outline: 1px solid var(--interactive-accent); outline-offset: 3px; }
+.ldb-details :is(.ldb-tldr,.ldb-original-filename) { -webkit-user-select: text; user-select: text; cursor: text; }
+.ldb-details :is(.ldb-title,.ldb-tldr,.ldb-original-filename):focus { outline: none; }
+.ldb-details :is(.ldb-title,.ldb-tldr,.ldb-original-filename):focus-visible { outline: 1px solid var(--interactive-accent); outline-offset: 3px; }
 .ldb-deepseek-key-status { margin-left: 12px; color: var(--text-muted); font-size: 12px; font-weight: 400; }
 .ldb-deepseek-key-actions { margin: 12px 0; }
 .ldb-deepseek-modal input[type="password"]:disabled { background: var(--background-secondary); color: var(--text-muted); opacity: .65; cursor: default; }

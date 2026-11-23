@@ -1,8 +1,8 @@
-// Keep copy/select-all inside the title or summary, never the neighbouring controls.
+// Keep copy/select-all inside the active detail text, never neighbouring controls.
 class LdbTextSelection {
   constructor(root){
     this.root=root;this.doc=root.ownerDocument;
-    this.field=event=>{const el=event.target.closest?.('.ldb-title,.ldb-tldr,.ldb-web-url');return el&&root.contains(el)?el:null;};
+    this.field=event=>{const el=event.target.closest?.('.ldb-title,.ldb-tldr,.ldb-original-filename');return el&&root.contains(el)?el:null;};
     this.pointer=event=>{const el=this.field(event);this.active=el;if(el){el.focus({preventScroll:true});event.stopPropagation();}};
     this.double=event=>{const el=this.field(event);if(el){event.preventDefault();event.stopPropagation();this.selectAll(el);}};
     this.key=event=>{const el=this.field(event);if(el&&(event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='a'){event.preventDefault();event.stopPropagation();this.selectAll(el);}};

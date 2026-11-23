@@ -1,8 +1,7 @@
-Literature Database 4.10.1 makes AI placement review more reliable and simplifies Inbox planning.
+Literature Database 4.10.2 makes PDF filenames in the details pane selectable and copyable.
 
-- **Two-step Inbox organization:** confirm categories and subcategories first, then edit titles, summaries and tags. The confirmed placement stays fixed during generation.
-- **Recoverable placement suggestions:** a missing new-category or subcategory reason no longer discards a paper’s title, TL;DR and tags. Accept the addition, select an existing placement or choose Ungrouped.
-- **Explicit acceptance:** Apply all skips unconfirmed new placements. Additions already confirmed in the Inbox plan do not need a second approval.
-- **Reuse and preservation:** case and whitespace variants reuse existing names; already filed papers retain their memberships even if the model returns an invalid placement.
+- Select and copy the filename below the paper title.
+- Double-click or use Cmd/Ctrl+A to select only that filename, without including nearby controls.
+- Title, TL;DR and webpage URL selection keep their existing behavior.
 
-Validation: 71 offline regression suites, desktop and narrow-screen Chromium interaction checks, locked dependency rebuild and release packaging checks. Requires Obsidian 1.8.7+.
+Validation: 71 offline regression suites, Obsidian filename-selection checks and release packaging checks. Requires Obsidian 1.8.7+.
